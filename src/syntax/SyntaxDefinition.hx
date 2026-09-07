@@ -2,26 +2,23 @@ package syntax;
 
 class SyntaxDefinition {
 	public final name:String;
+	public final extensions:Array<String>;
+	public final headers:Array<String>;
 	public final keywords:Map<String, Int>;
 	public final highlighting:Bool;
+	public final lineComment:String;
+	public final blockCommentStart:String;
+	public final blockCommentEnd:String;
 
-	public function new(name:String, highlighting:Bool, ?keywords:Map<String, Int>) {
+	public function new(name:String, extensions:Array<String>, highlighting:Bool, ?keywords:Map<String, Int>, ?headers:Array<String>, lineComment:String = "//",
+			blockCommentStart:String = "/*", blockCommentEnd:String = "*/") {
 		this.name = name;
+		this.extensions = extensions;
+		this.headers = headers == null ? [] : headers;
 		this.highlighting = highlighting;
 		this.keywords = keywords == null ? [] : keywords;
-	}
-
-	public static function forPath(path:String):SyntaxDefinition {
-		if (!StringTools.endsWith(path.toLowerCase(), ".hx")) return new SyntaxDefinition("Plain Text", false);
-		var symbols:Map<String, Int> = [];
-		for (word in ["abstract", "break", "case", "catch", "class", "continue", "default", "do", "dynamic", "else", "enum", "extends",
-			"extern", "final", "for", "function", "if", "implements", "import", "in", "inline", "interface", "macro", "new", "override",
-			"package", "private", "public", "return", "static", "switch", "throw", "try", "typedef", "untyped", "using", "var", "while"])
-			symbols.set(word, HighlightToken.KEYWORD);
-		for (word in ["Any", "Bool", "Dynamic", "Float", "Int", "Null", "String", "UInt", "Void"])
-			symbols.set(word, HighlightToken.TYPE);
-		for (word in ["false", "null", "this", "true"])
-			symbols.set(word, HighlightToken.LITERAL);
-		return new SyntaxDefinition("Haxe", true, symbols);
+		this.lineComment = lineComment;
+		this.blockCommentStart = blockCommentStart;
+		this.blockCommentEnd = blockCommentEnd;
 	}
 }

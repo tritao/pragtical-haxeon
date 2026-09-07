@@ -9,6 +9,7 @@ class PluginManifest {
 	public var entry(default, null):String = "Main";
 	public final sources:Array<String> = [];
 	public final commands:Array<DynamicCommand> = [];
+	public final syntaxes:Array<DynamicSyntax> = [];
 
 	public function new(path:String) {
 		this.path = path;
@@ -39,10 +40,22 @@ class PluginManifest {
 				sources.push(resolve(setting));
 			else if (key == "command")
 				parseCommand(setting);
+			else if (key == "syntax")
+				parseSyntax(setting);
 			else
 				throw 'unknown plugin manifest key "$key"';
 		}
 	}
+
+	function parseSyntax(value:String):Void {
+		var fields = value.split("|");
+		if (fields.length != 5)
+			throw 'plugin syntax must be name|extensions|keywords|types|literals';
+		syntaxes.push(new DynamicSyntax(fields[0], list(fields[1]), list(fields[2]), list(fields[3]), list(fields[4])));
+	}
+
+	static function list(value:String):Array<String>
+		return value.length == 0 ? [] : value.split(",");
 
 	function parseCommand(value:String):Void {
 		var fields = value.split("|");

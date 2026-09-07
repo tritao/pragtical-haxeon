@@ -3,17 +3,20 @@ package plugin;
 import command.CommandContext;
 import command.CommandRegistry;
 import command.Keymap;
+import syntax.SyntaxRegistry;
 
 class PluginManager {
 	final commands:CommandRegistry;
 	final keymap:Keymap;
 	final commandContext:CommandContext;
+	final syntaxes:SyntaxRegistry;
 	final entries:Array<PluginEntry> = [];
 
-	public function new(commands:CommandRegistry, keymap:Keymap, commandContext:CommandContext) {
+	public function new(commands:CommandRegistry, keymap:Keymap, commandContext:CommandContext, syntaxes:SyntaxRegistry) {
 		this.commands = commands;
 		this.keymap = keymap;
 		this.commandContext = commandContext;
+		this.syntaxes = syntaxes;
 	}
 
 	public function load(plugin:Plugin):Bool {
@@ -22,7 +25,7 @@ class PluginManager {
 			throw 'invalid plugin id "$id"';
 		if (indexOf(id) >= 0)
 			return false;
-		var context = new PluginContext(id, commands, keymap, commandContext);
+		var context = new PluginContext(id, commands, keymap, commandContext, syntaxes);
 		try {
 			plugin.activate(context);
 		} catch (error:Dynamic) {

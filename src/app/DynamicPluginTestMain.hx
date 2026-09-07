@@ -23,6 +23,7 @@ class DynamicPluginTestMain {
 			application = new Application(renderer, 320, 200),
 			plugin = new DynamicPlugin(new PluginManifest(arguments[0]));
 		require(application.plugins.load(plugin), "dynamic plugin did not load");
+		require(application.syntaxes.find("file.example").name == "Example", "manifest syntax did not register");
 		require(application.commands.perform("example:increment", application.context), "dynamic command did not dispatch");
 		require(plugin.callInt("current") == 1, "dynamic command did not update plugin state");
 

@@ -5,6 +5,7 @@ import core.FocusManager;
 import editor.Document;
 import editor.EditorView;
 import renderer.Renderer;
+import style.Theme;
 
 class RootView {
 	public static inline final TAB_WIDTH = 180;
@@ -12,14 +13,16 @@ class RootView {
 	public var tabs(get, never):TabGroup;
 	public var activeLeaf(default, null):LayoutNode;
 	public final renderer:Renderer;
+	public final theme:Theme;
 	final focus:FocusManager;
 	final documents:DocumentManager;
 	var width:Int;
 	var height:Int;
 	var draggingDivider:Null<LayoutNode>;
 
-	public function new(renderer:Renderer, focus:FocusManager, documents:DocumentManager, width:Int, height:Int) {
+	public function new(renderer:Renderer, theme:Theme, focus:FocusManager, documents:DocumentManager, width:Int, height:Int) {
 		this.renderer = renderer;
+		this.theme = theme;
 		this.focus = focus;
 		this.documents = documents;
 		this.width = width;
@@ -46,7 +49,7 @@ class RootView {
 			tabs.setActive(existing);
 			return existing;
 		}
-		var view = new DocumentView(document, renderer, activeLeaf.width, activeLeaf.height);
+		var view = new DocumentView(document, renderer, theme, activeLeaf.width, activeLeaf.height);
 		view.setBounds(activeLeaf.x, activeLeaf.y, activeLeaf.width, activeLeaf.height);
 		return tabs.add(view);
 	}
@@ -57,7 +60,7 @@ class RootView {
 		if (sourceView != null) {
 			var document = sourceView.getDocument();
 			if (document != null)
-				created.tabs.add(new DocumentView(document, renderer, created.width, created.height));
+				created.tabs.add(new DocumentView(document, renderer, theme, created.width, created.height));
 		}
 		activateLeaf(created);
 		return true;

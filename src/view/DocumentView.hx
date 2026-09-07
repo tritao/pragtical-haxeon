@@ -3,15 +3,16 @@ package view;
 import editor.Document;
 import editor.EditorView;
 import renderer.Renderer;
+import style.Theme;
 
 class DocumentView extends View {
 	public final document:Document;
 	public final editor:EditorView;
 
-	public function new(document:Document, renderer:Renderer, width:Int, height:Int) {
+	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int) {
 		super(document.path);
 		this.document = document;
-		editor = new EditorView(document, renderer, width, height);
+		editor = new EditorView(document, renderer, theme, width, height);
 	}
 
 	override public function isDirty():Bool

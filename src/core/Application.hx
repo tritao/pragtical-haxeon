@@ -11,6 +11,9 @@ import view.View;
 import plugin.PluginManager;
 import plugin.DynamicPlugin;
 import plugin.PluginManifest;
+import syntax.BuiltinSyntax;
+import syntax.SyntaxRegistry;
+import style.Theme;
 
 class Application {
 	public final documents:DocumentManager;
@@ -20,16 +23,21 @@ class Application {
 	public final keymap:Keymap;
 	public final context:CommandContext;
 	public final plugins:PluginManager;
+	public final syntaxes:SyntaxRegistry;
+	public final theme:Theme;
 
 	public function new(renderer:Renderer, width:Int, height:Int) {
-		documents = new DocumentManager();
+		syntaxes = new SyntaxRegistry();
+		BuiltinSyntax.install(syntaxes);
+		theme = new Theme();
+		documents = new DocumentManager(syntaxes);
 		focus = new FocusManager();
-		root = new RootView(renderer, focus, documents, width, height);
+		root = new RootView(renderer, theme, focus, documents, width, height);
 		commands = new CommandRegistry();
 		keymap = new Keymap(commands);
 		context = new CommandContext(root, focus, documents);
 		EditorCommands.install(commands, keymap);
-		plugins = new PluginManager(commands, keymap, context);
+		plugins = new PluginManager(commands, keymap, context, syntaxes);
 	}
 
 	public function open(path:String):View

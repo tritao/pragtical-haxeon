@@ -2,6 +2,7 @@ package editor;
 
 import renderer.Renderer;
 import syntax.HighlightToken;
+import style.Theme;
 
 class EditorView {
 	public static inline final SIDEBAR_WIDTH = 220;
@@ -11,6 +12,7 @@ class EditorView {
 
 	public final document:Document;
 	public final renderer:Renderer;
+	public final theme:Theme;
 	public var x(default, null):Int = 0;
 	public var y(default, null):Int = 0;
 	public var width(default, null):Int;
@@ -19,9 +21,10 @@ class EditorView {
 	public var scrollY(default, null):Int = 0;
 	var mouseSelecting = false;
 
-	public function new(document:Document, renderer:Renderer, width:Int, height:Int) {
+	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int) {
 		this.document = document;
 		this.renderer = renderer;
+		this.theme = theme;
 		resize(width, height);
 	}
 
@@ -116,7 +119,7 @@ class EditorView {
 			var highlighted = document.highlighter.line(lineIndex), tokenX = x;
 			for (token in highlighted.tokens) {
 				var tokenText = value.substr(token.start, token.length);
-				renderer.text(tokenX, y, tokenText, tokenColor(token.kind));
+				renderer.text(tokenX, y, tokenText, theme.tokenColor(token.kind));
 				tokenX += renderer.textWidth(tokenText);
 			}
 		}
@@ -175,15 +178,4 @@ class EditorView {
 		return buffer.positionAt(lineIndex, column);
 	}
 
-	static function tokenColor(kind:Int):Int
-		return switch kind {
-			case HighlightToken.KEYWORD: 0xc678ddff;
-			case HighlightToken.TYPE: 0x56b6c2ff;
-			case HighlightToken.NUMBER: 0xd19a66ff;
-			case HighlightToken.STRING: 0x98c379ff;
-			case HighlightToken.COMMENT: 0x7f848eff;
-			case HighlightToken.OPERATOR: 0xabb2bfff;
-			case HighlightToken.LITERAL: 0xe06c75ff;
-			default: 0xe6e6e6ff;
-		};
 }

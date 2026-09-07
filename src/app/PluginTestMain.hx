@@ -7,6 +7,7 @@ import platform.Platform;
 import plugin.Plugin;
 import plugin.PluginContext;
 import renderer.Renderer;
+import syntax.BuiltinSyntax;
 
 class SamplePlugin implements Plugin {
 	public var activations(default, null):Int = 0;
@@ -20,6 +21,7 @@ class SamplePlugin implements Plugin {
 
 	public function activate(context:PluginContext):Void {
 		activations++;
+		context.addSyntax(BuiltinSyntax.definition("Sample", [".sample"], ["sample"], [], []));
 		context.addCommand("sample:run", function(editor:CommandContext) {
 			this.performed++;
 		});
@@ -68,11 +70,13 @@ class PluginTestMain {
 			plugin = new SamplePlugin();
 		require(application.plugins.load(plugin), "plugin did not activate");
 		require(plugin.activations == 1 && application.plugins.isLoaded("sample"), "plugin activation state was not recorded");
+		require(application.syntaxes.find("file.sample").name == "Sample", "plugin syntax did not register");
 		require(!application.plugins.load(new SamplePlugin()), "duplicate plugin id was accepted");
 		require(application.keyPressed(77, 3) && plugin.performed == 1, "plugin key binding did not dispatch");
 		require(application.plugins.unload("sample"), "plugin did not unload");
 		require(plugin.deactivations == 1 && !application.commands.contains("sample:run") && !application.keyPressed(77, 3),
 			"plugin registrations survived unload");
+		require(application.syntaxes.find("file.sample").name == "Plain Text", "plugin syntax survived unload");
 		require(application.plugins.reload(plugin) && plugin.activations == 2, "plugin did not reload");
 		var failed = false;
 		try {

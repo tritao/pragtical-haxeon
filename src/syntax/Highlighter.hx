@@ -42,22 +42,22 @@ class Highlighter {
 			var start = index, kind = HighlightToken.NORMAL;
 			if (inComment) {
 				kind = HighlightToken.COMMENT;
-				var close = text.indexOf("*/", index);
+				var close = text.indexOf(syntax.blockCommentEnd, index);
 				if (close < 0) index = text.length;
 				else {
-					index = close + 2;
+					index = close + syntax.blockCommentEnd.length;
 					inComment = false;
 				}
-			} else if (startsAt(text, index, "//")) {
+			} else if (syntax.lineComment.length > 0 && startsAt(text, index, syntax.lineComment)) {
 				kind = HighlightToken.COMMENT;
 				index = text.length;
-			} else if (startsAt(text, index, "/*")) {
+			} else if (syntax.blockCommentStart.length > 0 && startsAt(text, index, syntax.blockCommentStart)) {
 				kind = HighlightToken.COMMENT;
-				var close = text.indexOf("*/", index + 2);
+				var close = text.indexOf(syntax.blockCommentEnd, index + syntax.blockCommentStart.length);
 				if (close < 0) {
 					index = text.length;
 					inComment = true;
-				} else index = close + 2;
+				} else index = close + syntax.blockCommentEnd.length;
 			} else {
 				var code = text.charCodeAt(index);
 				if (code == 34 || code == 39) {

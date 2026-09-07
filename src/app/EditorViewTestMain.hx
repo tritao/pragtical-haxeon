@@ -5,6 +5,9 @@ import editor.EditorView;
 import platform.Native;
 import platform.Platform;
 import renderer.Renderer;
+import syntax.BuiltinSyntax;
+import syntax.SyntaxRegistry;
+import style.Theme;
 
 class EditorViewTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -14,9 +17,11 @@ class EditorViewTestMain {
 
 	static function main():Int {
 		Platform.startHeadless();
+		var syntaxes = new SyntaxRegistry();
+		BuiltinSyntax.install(syntaxes);
 		var window = Native.window_create("view-test", 640, 160), renderer = new Renderer(window, "ignored-headlessly.ttf", 15),
-			document = new Document("unused", "abcdef\nxy\n123456\nline four\nline five\nline six\nline seven\nline eight\nline nine\nline ten\nline eleven\nline twelve"),
-			view = new EditorView(document, renderer, 640, 160);
+			document = new Document("unused", "abcdef\nxy\n123456\nline four\nline five\nline six\nline seven\nline eight\nline nine\nline ten\nline eleven\nline twelve", syntaxes),
+			view = new EditorView(document, renderer, new Theme(), 640, 160);
 		document.buffer.setCursor(document.buffer.positionAt(0, 5));
 		view.moveVertical(1, false);
 		view.moveVertical(1, false);

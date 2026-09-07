@@ -16,7 +16,8 @@ class ApplicationTestMain {
 	static function main():Int {
 		Platform.startHeadless();
 		var window = Native.window_create("application-test", 640, 320), renderer = new Renderer(window, "ignored-headlessly.ttf", 15),
-			application = new Application(renderer, 640, 320), first = new Document("first", "one"), second = new Document("second", "two");
+			application = new Application(renderer, 640, 320), first = new Document("first", "one", application.syntaxes),
+			second = new Document("second", "two", application.syntaxes);
 		var firstView = application.add(first), secondView = application.add(second);
 		require(application.documents.documents.length == 2 && application.root.tabs.views.length == 2, "documents did not open as tabs");
 		require(application.add(second) == secondView && application.root.tabs.views.length == 2, "document tab was not reused");

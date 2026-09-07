@@ -1,17 +1,21 @@
 package core;
 
 import editor.Document;
+import syntax.SyntaxRegistry;
 
 class DocumentManager {
 	public final documents:Array<Document> = [];
+	public final syntaxes:SyntaxRegistry;
 
-	public function new() {}
+	public function new(syntaxes:SyntaxRegistry) {
+		this.syntaxes = syntaxes;
+	}
 
 	public function open(path:String):Document {
 		for (document in documents)
 			if (document.path == path)
 				return document;
-		var document = Document.open(path);
+		var document = Document.open(path, syntaxes);
 		documents.push(document);
 		return document;
 	}

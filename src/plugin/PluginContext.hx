@@ -3,21 +3,30 @@ package plugin;
 import command.CommandContext;
 import command.CommandRegistry;
 import command.Keymap;
+import syntax.SyntaxDefinition;
+import syntax.SyntaxRegistry;
 
 class PluginContext {
 	public final id:String;
 	public final editor:CommandContext;
 	final commands:CommandRegistry;
 	final keymap:Keymap;
+	final syntaxes:SyntaxRegistry;
 	final commandNames:Array<String> = [];
 	final bindings:Array<PluginBinding> = [];
 	var active:Bool = true;
 
-	public function new(id:String, commands:CommandRegistry, keymap:Keymap, editor:CommandContext) {
+	public function new(id:String, commands:CommandRegistry, keymap:Keymap, editor:CommandContext, syntaxes:SyntaxRegistry) {
 		this.id = id;
 		this.editor = editor;
 		this.commands = commands;
 		this.keymap = keymap;
+		this.syntaxes = syntaxes;
+	}
+
+	public function addSyntax(definition:SyntaxDefinition):Void {
+		requireActive();
+		syntaxes.add(definition, id);
 	}
 
 	public function addCommand(name:String, perform:CommandContext->Void, ?predicate:CommandContext->Bool):Void {
@@ -52,6 +61,7 @@ class PluginContext {
 			keymap.removeCommand(name);
 			commands.remove(name);
 		}
+		syntaxes.removeOwner(id);
 		active = false;
 	}
 

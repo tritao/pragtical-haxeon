@@ -4,6 +4,8 @@ import editor.TextBuffer;
 import editor.Document;
 import editor.BufferPosition;
 import syntax.HighlightToken;
+import syntax.BuiltinSyntax;
+import syntax.SyntaxRegistry;
 
 class DocumentTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -12,6 +14,10 @@ class DocumentTestMain {
 	}
 
 	static function main():Int {
+		var syntaxes = new SyntaxRegistry();
+		BuiltinSyntax.install(syntaxes);
+		require(syntaxes.find("script", "#!/usr/bin/env lua\n").name == "Lua" && syntaxes.find("data.json").name == "JSON"
+			&& syntaxes.find("README.md").name == "Markdown", "built-in syntax selection failed");
 		var buffer = new TextBuffer("alpha\nbeta");
 		require(buffer.lineCount() == 2 && buffer.line(1) == "beta", "line indexing failed");
 		buffer.setCursor(new BufferPosition(0, 5));
@@ -51,12 +57,15 @@ class DocumentTestMain {
 		require(unicode.cursor.column == 3, "cursor split a surrogate pair");
 		unicode.deleteBackward();
 		require(unicode.text == "AB" && unicode.cursor.column == 1, "backspace split a surrogate pair");
-		var document = new Document("unused", "clean");
+		var document = new Document("unused", "clean", syntaxes);
 		document.insert(" edit");
 		require(document.dirty && document.buffer.text == " editclean", "document dirty state failed");
 		document.undo();
 		require(!document.dirty && document.buffer.text == "clean", "undo did not restore document savepoint");
-		var source = new Document("Main.hx", "class Main {\n/* comment\nstill comment */ var value = 42;\n}");
+		var source = new Document("Main.hx", "class Main {\n/* comment\nstill comment */ var value = 42;\n}", syntaxes);
+		source.setPath("Main.txt");
+		require(source.syntax.name == "Plain Text", "path change did not reselect syntax");
+		source.setPath("Main.hx");
 		var firstHighlight = source.highlighter.line(0), cachedHighlight = source.highlighter.line(0), comment = source.highlighter.line(1),
 			continued = source.highlighter.line(2), stableTail = source.highlighter.line(3);
 		require(firstHighlight == cachedHighlight && hasToken(firstHighlight.tokens, HighlightToken.KEYWORD), "highlight cache or keyword token failed");
@@ -69,10 +78,10 @@ class DocumentTestMain {
 		require(source.highlighter.line(3) == stableTail, "unchanged converged highlight cache was discarded");
 		var arguments = Sys.args();
 		if (arguments.length > 0) {
-			var saved = new Document(arguments[0], "saved by Haxeon\n");
+			var saved = new Document(arguments[0], "saved by Haxeon\n", syntaxes);
 			saved.insert("!");
 			saved.save();
-			require(!saved.dirty && Document.open(arguments[0]).buffer.text == "!saved by Haxeon\n", "document save failed");
+			require(!saved.dirty && Document.open(arguments[0], syntaxes).buffer.text == "!saved by Haxeon\n", "document save failed");
 		}
 		Sys.println("PASS: Haxeon text buffer editing, selections, and history");
 		return 0;

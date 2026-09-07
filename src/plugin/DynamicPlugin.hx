@@ -43,6 +43,8 @@ class DynamicPlugin implements Plugin {
 	public function activate(context:PluginContext):Void {
 		this.context = context;
 		Runtime.callVoid(requireModule(), functionId("activate"));
+		for (syntax in manifest.syntaxes)
+			context.addSyntax(syntax.definition());
 		for (command in manifest.commands) {
 			var stableId = functionId(command.functionName);
 			context.addCommand(command.name, function(editor:CommandContext) {
