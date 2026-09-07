@@ -1,6 +1,7 @@
 package editor;
 
 class TextBuffer {
+	public var onChange:Null<(line:Int, removedLines:Int, insertedLines:Int) -> Void>;
 	final lines:Array<String>;
 	public var cursor(default, null):BufferPosition;
 	public var anchor(default, null):BufferPosition;
@@ -197,6 +198,7 @@ class TextBuffer {
 		replacement[replacement.length - 1] += suffix;
 		lines.splice(from.line, to.line - from.line + 1);
 		for (index in 0...replacement.length) lines.insert(from.line + index, replacement[index]);
+		if (onChange != null) onChange(from.line, to.line - from.line, replacement.length - 1);
 	}
 
 	function advance(start:BufferPosition, value:String):BufferPosition {

@@ -1,16 +1,23 @@
 package editor;
 
 import sys.io.File;
+import syntax.Highlighter;
+import syntax.SyntaxDefinition;
 
 class Document {
 	public final path:String;
 	public final buffer:TextBuffer;
+	public final highlighter:Highlighter;
+	public final syntax:SyntaxDefinition;
 	public var dirty(get, never):Bool;
 	var savedStateId:Int;
 
 	public function new(path:String, text:String) {
 		this.path = path;
 		buffer = new TextBuffer(text);
+		syntax = SyntaxDefinition.forPath(path);
+		highlighter = new Highlighter(buffer, syntax);
+		buffer.onChange = highlighter.invalidate;
 		savedStateId = buffer.stateId;
 	}
 

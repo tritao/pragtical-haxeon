@@ -3,6 +3,7 @@ package app;
 import editor.TextBuffer;
 import editor.Document;
 import editor.BufferPosition;
+import syntax.HighlightToken;
 
 class DocumentTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -55,6 +56,17 @@ class DocumentTestMain {
 		require(document.dirty && document.buffer.text == " editclean", "document dirty state failed");
 		document.undo();
 		require(!document.dirty && document.buffer.text == "clean", "undo did not restore document savepoint");
+		var source = new Document("Main.hx", "class Main {\n/* comment\nstill comment */ var value = 42;\n}");
+		var firstHighlight = source.highlighter.line(0), cachedHighlight = source.highlighter.line(0), comment = source.highlighter.line(1),
+			continued = source.highlighter.line(2), stableTail = source.highlighter.line(3);
+		require(firstHighlight == cachedHighlight && hasToken(firstHighlight.tokens, HighlightToken.KEYWORD), "highlight cache or keyword token failed");
+		require(comment.stateAfter && hasToken(continued.tokens, HighlightToken.COMMENT), "multiline comment state failed");
+		source.buffer.setCursor(new BufferPosition(1, 0));
+		source.buffer.move(2, true);
+		source.insert("");
+		var updated = source.highlighter.line(2);
+		require(updated != continued && !updated.stateBefore, "edit did not invalidate downstream lexical state");
+		require(source.highlighter.line(3) == stableTail, "unchanged converged highlight cache was discarded");
 		var arguments = Sys.args();
 		if (arguments.length > 0) {
 			var saved = new Document(arguments[0], "saved by Haxeon\n");
@@ -64,5 +76,11 @@ class DocumentTestMain {
 		}
 		Sys.println("PASS: Haxeon text buffer editing, selections, and history");
 		return 0;
+	}
+
+	static function hasToken(tokens:Array<HighlightToken>, kind:Int):Bool {
+		for (token in tokens)
+			if (token.kind == kind) return true;
+		return false;
 	}
 }
