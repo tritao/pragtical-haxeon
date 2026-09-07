@@ -10,6 +10,8 @@ the platform ABI. The editor core never receives SDL or renderer pointers.
 The document view supports measured caret placement, vertical navigation,
 line-number and selection drawing, resize-aware clipping, scrolling, and mouse
 drag selection.
+Input is routed through a Pragtical-style named command registry and ordered
+keymap with predicate-based fallbacks; text input remains a separate event path.
 
 ## Build and test
 

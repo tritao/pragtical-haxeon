@@ -1,0 +1,49 @@
+package command;
+
+class CommandRegistry {
+	final commands:Array<Command> = [];
+
+	public function new() {}
+
+	public function add(name:String, perform:Void->Void, ?predicate:Void->Bool):Void {
+		if (name.indexOf(":") <= 0 || name.indexOf(" ") >= 0)
+			throw "invalid command name: " + name;
+		for (index in 0...commands.length) {
+			if (commands[index].name == name) {
+				commands[index] = new Command(name, perform, predicate);
+				return;
+			}
+		}
+		commands.push(new Command(name, perform, predicate));
+	}
+
+	public function contains(name:String):Bool
+		return find(name) != null;
+
+	public function isValid(name:String):Bool {
+		var command = find(name);
+		if (command == null)
+			return false;
+		var predicate = command.predicate;
+		return predicate();
+	}
+
+	public function perform(name:String):Bool {
+		var command = find(name);
+		if (command == null)
+			return false;
+		var predicate = command.predicate;
+		if (!predicate())
+			return false;
+		var action = command.perform;
+		action();
+		return true;
+	}
+
+	function find(name:String):Null<Command> {
+		for (command in commands)
+			if (command.name == name)
+				return command;
+		return null;
+	}
+}

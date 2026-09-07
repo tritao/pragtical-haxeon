@@ -204,6 +204,14 @@ phx_handle phx_window_create(const char *title, int32_t width, int32_t height) {
         fail(SDL_GetError());
         return 0;
       }
+      if (!SDL_StartTextInput(slot->window)) {
+        ren_destroy(slot->renderer);
+        slot->renderer = NULL;
+        slot->window = NULL;
+        slot->occupied = false;
+        fail(SDL_GetError());
+        return 0;
+      }
     }
 #endif
     return make_handle(index, slot->generation);
@@ -216,6 +224,7 @@ bool phx_window_destroy(phx_handle handle) {
   phx_window_slot *slot = resolve_window(handle);
   if (!slot) return fail("invalid or stale window handle");
 #ifdef PHX_WITH_SDL
+  if (slot->window) SDL_StopTextInput(slot->window);
   if (slot->renderer) ren_destroy(slot->renderer);
   else if (slot->window) SDL_DestroyWindow(slot->window);
   slot->renderer = NULL;

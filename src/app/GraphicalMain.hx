@@ -5,6 +5,9 @@ import platform.Platform;
 import editor.Document;
 import editor.EditorView;
 import renderer.Renderer;
+import command.CommandRegistry;
+import command.EditorCommands;
+import command.Keymap;
 
 class GraphicalMain {
 	static function main():Int {
@@ -16,6 +19,8 @@ class GraphicalMain {
 		Platform.require(window != 0, "create editor window");
 		var renderer = new Renderer(window, "data/fonts/JetBrainsMono-Regular.ttf", 15);
 		var view = new EditorView(document, renderer, Native.window_width(window), Native.window_height(window));
+		var commands = new CommandRegistry(), keymap = new Keymap(commands);
+		EditorCommands.install(commands, keymap, document, view);
 		while (running) {
 			while (Native.event_poll()) {
 				var kind = Native.event_kind();
@@ -36,37 +41,8 @@ class GraphicalMain {
 				else if (kind == Platform.EVENT_MOUSE_MOVED)
 					view.mouseMove(Native.event_a(), Native.event_b());
 				else if (kind == Platform.EVENT_KEY_DOWN) {
-					var key = Native.event_a(), modifiers = Native.event_b(), shift = (modifiers & Platform.MOD_SHIFT) != 0,
-						control = (modifiers & Platform.MOD_CTRL) != 0;
-					if (control && key == Platform.KEY_S)
-						document.save();
-					else if (control && key == Platform.KEY_A)
-						document.buffer.selectAll();
-					else if (control && key == Platform.KEY_Z)
-						document.undo();
-					else if (control && key == Platform.KEY_Y)
-						document.redo();
-					else if (key == Platform.KEY_BACKSPACE)
-						document.backspace();
-					else if (key == Platform.KEY_DELETE)
-						document.deleteForward();
-					else if (key == Platform.KEY_ENTER)
-						document.insert("\n");
-					else if (key == Platform.KEY_TAB)
-						document.insert("\t");
-					else if (key == Platform.KEY_LEFT)
-						document.buffer.move(-1, shift);
-					else if (key == Platform.KEY_RIGHT)
-						document.buffer.move(1, shift);
-					else if (key == Platform.KEY_UP)
-						view.moveVertical(-1, shift);
-					else if (key == Platform.KEY_DOWN)
-						view.moveVertical(1, shift);
-					else if (key == Platform.KEY_HOME)
-						document.buffer.moveHome(shift);
-					else if (key == Platform.KEY_END)
-						document.buffer.moveEnd(shift);
-					view.cursorChanged();
+					if (keymap.onKeyPressed(Native.event_a(), Native.event_b()))
+						view.cursorChanged();
 				}
 			}
 			renderer.begin();
