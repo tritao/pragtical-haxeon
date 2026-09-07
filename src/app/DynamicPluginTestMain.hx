@@ -28,7 +28,7 @@ class DynamicPluginTestMain {
 
 		var source = File.getContent(arguments[1]);
 		File.saveContent(arguments[1], StringTools.replace(source, "PluginState.value + 1", "PluginState.value + 2"));
-		require(plugin.refresh(), "compatible source edit did not publish");
+		require(plugin.refresh(), 'compatible source edit did not publish: ${plugin.lastError}');
 		require(application.commands.perform("example:increment", application.context), "patched command did not dispatch");
 		require(plugin.callInt("current") == 3, "compatible patch did not preserve state or replace behavior");
 

@@ -7,6 +7,7 @@ import compiler.hl.HlWriter;
 import runtime.LoadedModule;
 import runtime.PatchSet;
 import runtime.Runtime;
+import runtime.RuntimeError;
 import sys.io.File;
 
 class DynamicPlugin implements Plugin {
@@ -72,15 +73,22 @@ class DynamicPlugin implements Plugin {
 		try {
 			var build = compilePlugin();
 			if (build.patchBytes != null && !build.requiresReload) {
-				Runtime.patchSet(requireModule(), new PatchSet(revision, build.revision, build.patchBytes, build.changedFunctions));
-				functionIds = build.functionIds;
-				revision = build.revision;
-				compiler.acknowledgePublication(build.revision);
+				try {
+					Runtime.patchSet(requireModule(), new PatchSet(revision, build.revision, build.patchBytes, build.changedFunctions));
+					functionIds = build.functionIds;
+					revision = build.revision;
+					compiler.acknowledgePublication(build.revision);
+				} catch (error:RuntimeError) {
+					reload(build);
+				}
 			} else if (build.requiresReload) {
 				reload(build);
 			}
 			lastError = null;
 			return true;
+		} catch (error:RuntimeError) {
+			lastError = error.message;
+			return false;
 		} catch (error:Dynamic) {
 			lastError = Std.string(error);
 			return false;
@@ -130,10 +138,13 @@ class DynamicPlugin implements Plugin {
 	function functionId(name:String):Int
 		return requiredId(functionIds, name);
 
-	static function requiredId(ids:Map<String, Int>, name:String):Int {
-		if (!ids.exists(name))
-			throw 'plugin is missing exported function "$name"';
-		return ids.get(name);
+	function requiredId(ids:Map<String, Int>, name:String):Int {
+		if (ids.exists(name))
+			return ids.get(name);
+		var qualified = manifest.entry + "." + name;
+		if (ids.exists(qualified))
+			return ids.get(qualified);
+		throw 'plugin is missing exported function "$qualified"';
 	}
 
 	function requireModule():LoadedModule {
