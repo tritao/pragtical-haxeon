@@ -100,21 +100,22 @@ class EditorView {
 		renderer.clip(textLeft, contentTop, width - textOffset, contentHeight);
 		var selectionStart = buffer.selectionStart(), selectionEnd = buffer.selectionEnd();
 		for (lineIndex in firstLine...lastLine) {
-			var value = buffer.line(lineIndex), lineStart = buffer.lineStart(lineIndex), lineEnd = lineStart + value.length,
+			var value = buffer.line(lineIndex),
 				y = contentTop + lineIndex * lineHeight - scrollY, x = textLeft - scrollX;
-			if (selectionEnd > lineStart && selectionStart <= lineEnd) {
-				var fromColumn = selectionStart > lineStart ? selectionStart - lineStart : 0,
-					toColumn = selectionEnd < lineEnd ? selectionEnd - lineStart : value.length,
+			if (selectionEnd.line > lineIndex || selectionEnd.line == lineIndex && selectionEnd.column > 0)
+				if (selectionStart.line < lineIndex || selectionStart.line == lineIndex && selectionStart.column <= value.length) {
+				var fromColumn = selectionStart.line == lineIndex ? selectionStart.column : 0,
+					toColumn = selectionEnd.line == lineIndex ? selectionEnd.column : value.length,
 					selectionX = x + renderer.textWidth(value.substr(0, fromColumn)),
 					selectionWidth = renderer.textWidth(value.substring(fromColumn, toColumn));
-				if (selectionEnd > lineEnd)
+				if (selectionEnd.line > lineIndex)
 					selectionWidth += renderer.textWidth(" ");
 				renderer.rect(selectionX, y, selectionWidth, lineHeight, 0x264f78ff);
 			}
 			renderer.text(x, y, value, 0xe6e6e6ff);
 		}
-		var cursorLine = buffer.cursorLine(), cursorValue = buffer.line(cursorLine),
-			caretX = textLeft - scrollX + renderer.textWidth(cursorValue.substr(0, buffer.cursorColumn())),
+		var cursorLine = buffer.cursor.line, cursorValue = buffer.line(cursorLine),
+			caretX = textLeft - scrollX + renderer.textWidth(cursorValue.substr(0, buffer.cursor.column)),
 			caretY = contentTop + cursorLine * lineHeight - scrollY;
 		renderer.rect(caretX, caretY, 2, lineHeight, 0xffffffff);
 		renderer.clip(x, y, width, height);
@@ -122,8 +123,8 @@ class EditorView {
 
 	function ensureCaretVisible():Void {
 		var buffer = document.buffer, lineHeight = renderer.lineHeight, viewportHeight = height - HEADER_HEIGHT - PADDING,
-			viewportWidth = width - SIDEBAR_WIDTH - GUTTER_WIDTH, caretY = buffer.cursorLine() * lineHeight,
-			caretX = renderer.textWidth(buffer.line(buffer.cursorLine()).substr(0, buffer.cursorColumn())),
+			viewportWidth = width - SIDEBAR_WIDTH - GUTTER_WIDTH, caretY = buffer.cursor.line * lineHeight,
+			caretX = renderer.textWidth(buffer.line(buffer.cursor.line).substr(0, buffer.cursor.column)),
 			context = lineHeight;
 		if (caretY - context < scrollY)
 			scrollY = caretY - context;
@@ -152,7 +153,7 @@ class EditorView {
 		return x >= this.x + SIDEBAR_WIDTH + GUTTER_WIDTH && x < this.x + width
 			&& y >= this.y + HEADER_HEIGHT + PADDING && y < this.y + height;
 
-	function positionFromPoint(x:Int, y:Int):Int {
+	function positionFromPoint(x:Int, y:Int):BufferPosition {
 		var buffer = document.buffer, lineIndex = Std.int((y - this.y - HEADER_HEIGHT - PADDING + scrollY) / renderer.lineHeight);
 		if (lineIndex < 0)
 			lineIndex = 0;

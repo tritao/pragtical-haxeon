@@ -20,7 +20,7 @@ class EditorViewTestMain {
 		document.buffer.setCursor(document.buffer.positionAt(0, 5));
 		view.moveVertical(1, false);
 		view.moveVertical(1, false);
-		require(document.buffer.cursorLine() == 2 && document.buffer.cursorColumn() == 5, "view lost preferred cursor column");
+		require(document.buffer.cursor.line == 2 && document.buffer.cursor.column == 5, "view lost preferred cursor column");
 		view.wheel(-100, 0);
 		require(view.scrollY > 0, "mouse wheel did not scroll document");
 		view.mouseDown(Platform.MOUSE_LEFT, EditorView.SIDEBAR_WIDTH + EditorView.GUTTER_WIDTH + 2,

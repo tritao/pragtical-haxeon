@@ -1,176 +1,227 @@
 package editor;
 
 class TextBuffer {
-	public var text(default, null):String;
-	public var cursor(default, null):Int;
-	public var anchor(default, null):Int;
+	final lines:Array<String>;
+	public var cursor(default, null):BufferPosition;
+	public var anchor(default, null):BufferPosition;
+	public var stateId(default, null):Int = 0;
+	var nextStateId:Int = 1;
 	var preferredColumn:Int = -1;
-	final undoStack:Array<BufferSnapshot> = [];
-	final redoStack:Array<BufferSnapshot> = [];
+	final undoStack:Array<BufferEdit> = [];
+	final redoStack:Array<BufferEdit> = [];
+	public var text(get, never):String;
 
 	public function new(?text:String) {
-		this.text = text == null ? "" : text;
-		cursor = 0;
-		anchor = 0;
+		lines = splitLines(text == null ? "" : text);
+		cursor = new BufferPosition(0, 0);
+		anchor = cursor;
 	}
 
+	function get_text():String
+		return lines.join("\n");
+
+	public function lineCount():Int
+		return lines.length;
+
+	public function line(index:Int):String
+		return index < 0 || index >= lines.length ? "" : lines[index];
+
 	public function hasSelection():Bool
-		return cursor != anchor;
+		return !cursor.equals(anchor);
 
-	public function selectionStart():Int
-		return cursor < anchor ? cursor : anchor;
+	public function selectionStart():BufferPosition
+		return cursor.before(anchor) ? cursor : anchor;
 
-	public function selectionEnd():Int
-		return cursor > anchor ? cursor : anchor;
+	public function selectionEnd():BufferPosition
+		return cursor.before(anchor) ? anchor : cursor;
 
-	public function setCursor(position:Int, extend:Bool = false):Void {
-		cursor = clamp(position);
-		if (!extend)
-			anchor = cursor;
+	public function setCursor(position:BufferPosition, extend:Bool = false):Void {
+		cursor = sanitize(position);
+		if (!extend) anchor = cursor;
 		preferredColumn = -1;
 	}
 
 	public function move(delta:Int, extend:Bool = false):Void
-		setCursor(cursor + delta, extend);
+		setCursor(positionOffset(cursor, delta), extend);
 
 	public function selectAll():Void {
-		anchor = 0;
-		cursor = text.length;
+		anchor = new BufferPosition(0, 0);
+		cursor = documentEnd();
 		preferredColumn = -1;
 	}
 
 	public function selectedText():String
-		return hasSelection() ? text.substring(selectionStart(), selectionEnd()) : "";
+		return hasSelection() ? textRange(selectionStart(), selectionEnd()) : "";
 
-	public function insert(value:String):Void {
-		if (value.length == 0 && !hasSelection())
-			return;
-		beginEdit();
-		var start = selectionStart(), end = selectionEnd();
-		text = text.substring(0, start) + value + text.substring(end);
-		cursor = start + value.length;
-		anchor = cursor;
+	public function insert(value:String):Bool {
+		if (value.length == 0 && !hasSelection()) return false;
+		return replace(selectionStart(), selectionEnd(), value);
 	}
 
-	public function deleteBackward():Void {
-		if (hasSelection()) {
-			insert("");
-			return;
-		}
-		if (cursor == 0)
-			return;
-		beginEdit();
-		text = text.substring(0, cursor - 1) + text.substring(cursor);
-		cursor--;
-		anchor = cursor;
+	public function deleteBackward():Bool {
+		if (hasSelection()) return replace(selectionStart(), selectionEnd(), "");
+		var start = positionOffset(cursor, -1);
+		return start.equals(cursor) ? false : replace(start, cursor, "");
 	}
 
-	public function deleteForward():Void {
-		if (hasSelection()) {
-			insert("");
-			return;
-		}
-		if (cursor == text.length)
-			return;
-		beginEdit();
-		text = text.substring(0, cursor) + text.substring(cursor + 1);
-		anchor = cursor;
+	public function deleteForward():Bool {
+		if (hasSelection()) return replace(selectionStart(), selectionEnd(), "");
+		var end = positionOffset(cursor, 1);
+		return end.equals(cursor) ? false : replace(cursor, end, "");
 	}
 
 	public function undo():Bool {
-		var snapshot = undoStack.pop();
-		if (snapshot == null)
-			return false;
-		redoStack.push(currentSnapshot());
-		restore(snapshot);
+		var edit = undoStack.pop();
+		if (edit == null) return false;
+		replaceRaw(edit.start, advance(edit.start, edit.inserted), edit.removed);
+		cursor = edit.cursorBefore;
+		anchor = edit.anchorBefore;
+		stateId = edit.stateBefore;
+		preferredColumn = -1;
+		redoStack.push(edit);
 		return true;
 	}
 
 	public function redo():Bool {
-		var snapshot = redoStack.pop();
-		if (snapshot == null)
-			return false;
-		undoStack.push(currentSnapshot());
-		restore(snapshot);
+		var edit = redoStack.pop();
+		if (edit == null) return false;
+		replaceRaw(edit.start, advance(edit.start, edit.removed), edit.inserted);
+		cursor = edit.cursorAfter;
+		anchor = edit.anchorAfter;
+		stateId = edit.stateAfter;
+		preferredColumn = -1;
+		undoStack.push(edit);
 		return true;
 	}
 
-	public function lineCount():Int
-		return text.length == 0 ? 1 : text.split("\n").length;
+	public function moveHome(extend:Bool = false):Void
+		setCursor(new BufferPosition(cursor.line, 0), extend);
 
-	public function line(index:Int):String {
-		var lines = text.split("\n");
-		return index < 0 || index >= lines.length ? "" : lines[index];
-	}
-
-	public function cursorLine():Int
-		return text.substring(0, cursor).split("\n").length - 1;
-
-	public function cursorColumn():Int {
-		var before = text.substring(0, cursor), separator = before.lastIndexOf("\n");
-		return separator < 0 ? cursor : cursor - separator - 1;
-	}
-
-	public function moveHome(extend:Bool = false):Void {
-		var before = text.substring(0, cursor), separator = before.lastIndexOf("\n");
-		setCursor(separator < 0 ? 0 : separator + 1, extend);
-	}
-
-	public function moveEnd(extend:Bool = false):Void {
-		var separator = text.indexOf("\n", cursor);
-		setCursor(separator < 0 ? text.length : separator, extend);
-	}
-
-	public function lineStart(index:Int):Int {
-		if (index <= 0)
-			return 0;
-		var position = 0, current = 0;
-		while (current < index) {
-			var separator = text.indexOf("\n", position);
-			if (separator < 0)
-				return text.length;
-			position = separator + 1;
-			current++;
-		}
-		return position;
-	}
-
-	public function positionAt(lineIndex:Int, column:Int):Int {
-		var boundedLine = lineIndex < 0 ? 0 : lineIndex >= lineCount() ? lineCount() - 1 : lineIndex,
-			start = lineStart(boundedLine), length = line(boundedLine).length,
-			boundedColumn = column < 0 ? 0 : column > length ? length : column;
-		return start + boundedColumn;
-	}
+	public function moveEnd(extend:Bool = false):Void
+		setCursor(new BufferPosition(cursor.line, line(cursor.line).length), extend);
 
 	public function moveVertical(delta:Int, extend:Bool = false):Void {
-		if (preferredColumn < 0)
-			preferredColumn = cursorColumn();
-		var targetLine = cursorLine() + delta;
-		if (targetLine < 0)
-			targetLine = 0;
-		else if (targetLine >= lineCount())
-			targetLine = lineCount() - 1;
-		cursor = positionAt(targetLine, preferredColumn);
-		if (!extend)
-			anchor = cursor;
+		if (preferredColumn < 0) preferredColumn = cursor.column;
+		var targetLine = cursor.line + delta;
+		if (targetLine < 0) targetLine = 0;
+		else if (targetLine >= lines.length) targetLine = lines.length - 1;
+		var column = preferredColumn > lines[targetLine].length ? lines[targetLine].length : preferredColumn;
+		cursor = new BufferPosition(targetLine, column);
+		if (!extend) anchor = cursor;
 	}
 
-	function beginEdit():Void {
+	public function positionAt(line:Int, column:Int):BufferPosition
+		return sanitize(new BufferPosition(line, column));
+
+	public function positionOffset(position:BufferPosition, offset:Int):BufferPosition {
+		var result = sanitize(position), remaining = offset;
+		while (remaining < 0) {
+			if (result.column > 0) {
+				var column = result.column - 1;
+				if (column > 0 && isLowSurrogate(lines[result.line].charCodeAt(column))
+					&& isHighSurrogate(lines[result.line].charCodeAt(column - 1))) column--;
+				result = new BufferPosition(result.line, column);
+				remaining++;
+			} else if (result.line > 0) {
+				result = new BufferPosition(result.line - 1, lines[result.line - 1].length);
+				remaining++;
+			} else break;
+		}
+		while (remaining > 0) {
+			var value = lines[result.line];
+			if (result.column < value.length) {
+				var column = result.column + 1;
+				if (column < value.length && isHighSurrogate(value.charCodeAt(result.column))
+					&& isLowSurrogate(value.charCodeAt(column))) column++;
+				result = new BufferPosition(result.line, column);
+				remaining--;
+			} else if (result.line + 1 < lines.length) {
+				result = new BufferPosition(result.line + 1, 0);
+				remaining--;
+			} else break;
+		}
+		return result;
+	}
+
+	public function textRange(from:BufferPosition, to:BufferPosition):String {
+		var start = sanitize(from), end = sanitize(to);
+		if (end.before(start)) {
+			var swap = start;
+			start = end;
+			end = swap;
+		}
+		if (start.line == end.line) return lines[start.line].substring(start.column, end.column);
+		var parts = [lines[start.line].substring(start.column)];
+		for (lineIndex in start.line + 1...end.line) parts.push(lines[lineIndex]);
+		parts.push(lines[end.line].substring(0, end.column));
+		return parts.join("\n");
+	}
+
+	public function offsetOf(position:BufferPosition):Int {
+		var value = sanitize(position), offset = value.column;
+		for (lineIndex in 0...value.line) offset += lines[lineIndex].length + 1;
+		return offset;
+	}
+
+	public function positionFromOffset(offset:Int):BufferPosition {
+		var remaining = offset < 0 ? 0 : offset;
+		for (lineIndex in 0...lines.length) {
+			if (remaining <= lines[lineIndex].length) return new BufferPosition(lineIndex, remaining);
+			remaining -= lines[lineIndex].length + 1;
+		}
+		return documentEnd();
+	}
+
+	function replace(from:BufferPosition, to:BufferPosition, value:String):Bool {
+		var start = sanitize(from), end = sanitize(to);
+		if (end.before(start)) {
+			var swap = start;
+			start = end;
+			end = swap;
+		}
+		var removed = textRange(start, end), beforeCursor = cursor, beforeAnchor = anchor, beforeState = stateId;
+		if (removed == value) return false;
+		replaceRaw(start, end, value);
+		cursor = advance(start, value);
+		anchor = cursor;
 		preferredColumn = -1;
-		undoStack.push(currentSnapshot());
+		stateId = nextStateId++;
+		undoStack.push(new BufferEdit(start, removed, value, beforeCursor, beforeAnchor, cursor, anchor, beforeState, stateId));
 		redoStack.resize(0);
+		return true;
 	}
 
-	function currentSnapshot():BufferSnapshot
-		return new BufferSnapshot(text, cursor, anchor);
-
-	function restore(snapshot:BufferSnapshot):Void {
-		text = snapshot.text;
-		cursor = snapshot.cursor;
-		anchor = snapshot.anchor;
-		preferredColumn = -1;
+	function replaceRaw(from:BufferPosition, to:BufferPosition, value:String):Void {
+		var replacement = splitLines(value), prefix = lines[from.line].substring(0, from.column), suffix = lines[to.line].substring(to.column);
+		replacement[0] = prefix + replacement[0];
+		replacement[replacement.length - 1] += suffix;
+		lines.splice(from.line, to.line - from.line + 1);
+		for (index in 0...replacement.length) lines.insert(from.line + index, replacement[index]);
 	}
 
-	function clamp(position:Int):Int
-		return position < 0 ? 0 : position > text.length ? text.length : position;
+	function advance(start:BufferPosition, value:String):BufferPosition {
+		var inserted = splitLines(value);
+		return inserted.length == 1 ? new BufferPosition(start.line, start.column + inserted[0].length) :
+			new BufferPosition(start.line + inserted.length - 1, inserted[inserted.length - 1].length);
+	}
+
+	function sanitize(position:BufferPosition):BufferPosition {
+		var line = position.line < 0 ? 0 : position.line >= lines.length ? lines.length - 1 : position.line,
+			column = position.column < 0 ? 0 : position.column > lines[line].length ? lines[line].length : position.column;
+		return new BufferPosition(line, column);
+	}
+
+	function documentEnd():BufferPosition
+		return new BufferPosition(lines.length - 1, lines[lines.length - 1].length);
+
+	static function splitLines(value:String):Array<String> {
+		var result = value.split("\n");
+		return result.length == 0 ? [""] : result;
+	}
+
+	static function isHighSurrogate(code:Int):Bool
+		return code >= 0xD800 && code <= 0xDBFF;
+
+	static function isLowSurrogate(code:Int):Bool
+		return code >= 0xDC00 && code <= 0xDFFF;
 }
