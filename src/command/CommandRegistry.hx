@@ -20,6 +20,11 @@ class CommandRegistry {
 	public function contains(name:String):Bool
 		return find(name) != null;
 
+	public function remove(name:String):Bool {
+		var command = find(name);
+		return command != null && commands.remove(command);
+	}
+
 	public function isValid(name:String, context:CommandContext):Bool {
 		var command = find(name);
 		if (command == null)

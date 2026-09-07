@@ -45,6 +45,7 @@ class GraphicalMain {
 			application.root.draw();
 			renderer.present();
 		}
+		application.shutdown();
 		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy editor window");
 		Native.shutdown();

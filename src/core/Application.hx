@@ -8,6 +8,7 @@ import editor.Document;
 import renderer.Renderer;
 import view.RootView;
 import view.View;
+import plugin.PluginManager;
 
 class Application {
 	public final documents:DocumentManager;
@@ -16,6 +17,7 @@ class Application {
 	public final commands:CommandRegistry;
 	public final keymap:Keymap;
 	public final context:CommandContext;
+	public final plugins:PluginManager;
 
 	public function new(renderer:Renderer, width:Int, height:Int) {
 		documents = new DocumentManager();
@@ -25,6 +27,7 @@ class Application {
 		keymap = new Keymap(commands);
 		context = new CommandContext(root, focus, documents);
 		EditorCommands.install(commands, keymap);
+		plugins = new PluginManager(commands, keymap, context);
 	}
 
 	public function open(path:String):View
@@ -39,4 +42,7 @@ class Application {
 			root.cursorChanged();
 		return handled;
 	}
+
+	public function shutdown():Void
+		plugins.shutdown();
 }

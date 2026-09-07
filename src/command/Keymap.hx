@@ -38,6 +38,10 @@ class Keymap {
 			binding.commands.remove(command);
 	}
 
+	public function removeCommand(command:String):Void
+		for (binding in bindings)
+			binding.commands.remove(command);
+
 	public function onKeyPressed(key:Int, modifiers:Int, context:CommandContext):Bool {
 		var binding = find(key, modifiers);
 		if (binding == null)

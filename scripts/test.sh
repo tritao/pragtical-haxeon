@@ -62,3 +62,13 @@ mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -p
 	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
 		"$haxeon_root/vendor/hashlink/hl" document-test.hl "$root_dir/build/document-save-smoke.txt"
 )
+
+"$root_dir/scripts/haxeon-compile.sh" \
+	--output="$root_dir/out/plugin-test.hl" --entry=app.PluginTestMain \
+	--root="$root_dir/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${stdlib_sources[@]}"
+(
+	cd "$root_dir/out"
+	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+		"$haxeon_root/vendor/hashlink/hl" plugin-test.hl
+)
