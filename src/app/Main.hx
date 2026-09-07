@@ -1,0 +1,32 @@
+package app;
+
+import platform.Native;
+import platform.Platform;
+
+class Main {
+	static function main():Int {
+		Platform.startHeadless();
+		var first = Native.window_create("Pragtical Haxeon", 960, 640);
+		Platform.require(first != 0, "create window");
+		Platform.require(Native.frame_begin(first), "begin frame");
+		Platform.require(Native.draw_rect(first, 0, 0, 960, 640, 0x181818ff), "draw background");
+		Platform.require(Native.draw_text(first, 24, 24, "Pragtical Haxeon", 0xffffffff), "draw title");
+		Platform.require(Native.frame_present(first), "present frame");
+		Platform.require(Native.frame_count(first) == 1, "count frame");
+
+		Platform.require(Native.event_push_test(Platform.EVENT_WINDOW_RESIZED, first, 1200, 800), "queue resize");
+		Platform.require(Native.event_poll(), "poll resize");
+		Platform.require(Native.event_kind() == Platform.EVENT_WINDOW_RESIZED, "decode resize kind");
+		Platform.require(Native.event_window() == first, "decode resize window");
+		Platform.require(Native.event_a() == 1200 && Native.event_b() == 800, "decode resize size");
+
+		Platform.require(Native.window_destroy(first), "destroy window");
+		Platform.require(!Native.window_valid(first), "reject destroyed handle");
+		var second = Native.window_create("Replacement", 320, 200);
+		Platform.require(second != 0 && second != first, "advance handle generation");
+		Platform.require(!Native.window_valid(first), "reject stale generation");
+		Platform.require(Native.window_destroy(second), "destroy replacement window");
+		Native.shutdown();
+		return 0;
+	}
+}
