@@ -44,6 +44,16 @@ mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -p
 )
 
 "$root_dir/scripts/haxeon-compile.sh" \
+	--output="$root_dir/out/application-test.hl" --entry=app.ApplicationTestMain \
+	--root="$root_dir/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${stdlib_sources[@]}"
+(
+	cd "$root_dir/out"
+	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+		"$haxeon_root/vendor/hashlink/hl" application-test.hl
+)
+
+"$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/document-test.hl" --entry=app.DocumentTestMain \
 	--root="$root_dir/src" --root="$haxeon_root/stdlib" \
 	"${sources[@]}" "${stdlib_sources[@]}"

@@ -38,12 +38,12 @@ class Keymap {
 			binding.commands.remove(command);
 	}
 
-	public function onKeyPressed(key:Int, modifiers:Int):Bool {
+	public function onKeyPressed(key:Int, modifiers:Int, context:CommandContext):Bool {
 		var binding = find(key, modifiers);
 		if (binding == null)
 			return false;
 		for (command in binding.commands)
-			if (registry.perform(command))
+			if (registry.perform(command, context))
 				return true;
 		return false;
 	}

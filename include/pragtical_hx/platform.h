@@ -40,7 +40,8 @@ typedef enum phx_key {
   PHX_KEY_A = 12,
   PHX_KEY_S = 13,
   PHX_KEY_Y = 14,
-  PHX_KEY_Z = 15
+  PHX_KEY_Z = 15,
+  PHX_KEY_W = 16
 } phx_key;
 
 #define PHX_MOD_SHIFT 1

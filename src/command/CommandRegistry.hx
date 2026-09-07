@@ -5,7 +5,7 @@ class CommandRegistry {
 
 	public function new() {}
 
-	public function add(name:String, perform:Void->Void, ?predicate:Void->Bool):Void {
+	public function add(name:String, perform:CommandContext->Void, ?predicate:CommandContext->Bool):Void {
 		if (name.indexOf(":") <= 0 || name.indexOf(" ") >= 0)
 			throw "invalid command name: " + name;
 		for (index in 0...commands.length) {
@@ -20,23 +20,23 @@ class CommandRegistry {
 	public function contains(name:String):Bool
 		return find(name) != null;
 
-	public function isValid(name:String):Bool {
+	public function isValid(name:String, context:CommandContext):Bool {
 		var command = find(name);
 		if (command == null)
 			return false;
 		var predicate = command.predicate;
-		return predicate();
+		return predicate(context);
 	}
 
-	public function perform(name:String):Bool {
+	public function perform(name:String, context:CommandContext):Bool {
 		var command = find(name);
 		if (command == null)
 			return false;
 		var predicate = command.predicate;
-		if (!predicate())
+		if (!predicate(context))
 			return false;
 		var action = command.perform;
-		action();
+		action(context);
 		return true;
 	}
 

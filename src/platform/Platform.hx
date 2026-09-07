@@ -26,6 +26,7 @@ class Platform {
 	public static inline final KEY_S = 13;
 	public static inline final KEY_Y = 14;
 	public static inline final KEY_Z = 15;
+	public static inline final KEY_W = 16;
 	public static inline final MOD_SHIFT = 1;
 	public static inline final MOD_CTRL = 2;
 

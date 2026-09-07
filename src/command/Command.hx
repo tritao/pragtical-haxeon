@@ -2,12 +2,12 @@ package command;
 
 class Command {
 	public final name:String;
-	public final predicate:Void->Bool;
-	public final perform:Void->Void;
+	public final predicate:CommandContext->Bool;
+	public final perform:CommandContext->Void;
 
-	public function new(name:String, perform:Void->Void, ?predicate:Void->Bool) {
+	public function new(name:String, perform:CommandContext->Void, ?predicate:CommandContext->Bool) {
 		this.name = name;
 		this.perform = perform;
-		this.predicate = predicate == null ? function() { return true; } : predicate;
+		this.predicate = predicate == null ? function(context:CommandContext) { return true; } : predicate;
 	}
 }
