@@ -14,6 +14,7 @@ extern class Native {
 	static function event_window():Int;
 	static function event_a():Int;
 	static function event_b():Int;
+	static function event_text():String;
 	static function event_push_test(kind:Int, window:Int, a:Int, b:Int):Bool;
 	static function frame_begin(window:Int):Bool;
 	static function draw_rect(window:Int, x:Int, y:Int, width:Int, height:Int, rgba:Int):Bool;

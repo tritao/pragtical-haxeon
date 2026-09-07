@@ -30,5 +30,5 @@ mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -p
 (
 	cd "$root_dir/out"
 	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-		"$haxeon_root/vendor/hashlink/hl" document-test.hl
+		"$haxeon_root/vendor/hashlink/hl" document-test.hl "$root_dir/build/document-save-smoke.txt"
 )

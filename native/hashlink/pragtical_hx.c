@@ -26,8 +26,15 @@ HL_PRIM int HL_NAME(event_kind)(void) { return current_event.kind; }
 HL_PRIM int HL_NAME(event_window)(void) { return current_event.window; }
 HL_PRIM int HL_NAME(event_a)(void) { return current_event.a; }
 HL_PRIM int HL_NAME(event_b)(void) { return current_event.b; }
+HL_PRIM vbyte *HL_NAME(event_text)(void) {
+  int length = hl_utf8_length((vbyte *)current_event.text, 0);
+  uchar *result = (uchar *)hl_alloc_bytes((length + 1) * (int)sizeof(uchar));
+  hl_from_utf8(result, length, current_event.text);
+  result[length] = 0;
+  return (vbyte *)result;
+}
 HL_PRIM bool HL_NAME(event_push_test)(int kind, int window, int a, int b) {
-  phx_event event = {kind, window, a, b, 0, 0};
+  phx_event event = {.kind = kind, .window = window, .a = a, .b = b};
   return phx_event_push_for_test(&event);
 }
 HL_PRIM bool HL_NAME(frame_begin)(int window) { return phx_frame_begin(window); }
@@ -57,6 +64,7 @@ DEFINE_PRIM(_I32, event_kind, _NO_ARG);
 DEFINE_PRIM(_I32, event_window, _NO_ARG);
 DEFINE_PRIM(_I32, event_a, _NO_ARG);
 DEFINE_PRIM(_I32, event_b, _NO_ARG);
+DEFINE_PRIM(_BYTES, event_text, _NO_ARG);
 DEFINE_PRIM(_BOOL, event_push_test, _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_BOOL, frame_begin, _I32);
 DEFINE_PRIM(_BOOL, draw_rect, _I32 _I32 _I32 _I32 _I32 _I32);

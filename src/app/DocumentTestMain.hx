@@ -1,6 +1,7 @@
 package app;
 
 import editor.TextBuffer;
+import editor.Document;
 
 class DocumentTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -28,6 +29,16 @@ class DocumentTestMain {
 		buffer.selectAll();
 		buffer.insert("replacement");
 		require(buffer.text == "replacement" && buffer.cursor == 11, "select-all replacement failed");
+		var document = new Document("unused", "clean");
+		document.insert(" edit");
+		require(document.dirty && document.buffer.text == " editclean", "document dirty state failed");
+		var arguments = Sys.args();
+		if (arguments.length > 0) {
+			var saved = new Document(arguments[0], "saved by Haxeon\n");
+			saved.insert("!");
+			saved.save();
+			require(!saved.dirty && Document.open(arguments[0]).buffer.text == "!saved by Haxeon\n", "document save failed");
+		}
 		Sys.println("PASS: Haxeon text buffer editing, selections, and history");
 		return 0;
 	}

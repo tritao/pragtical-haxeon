@@ -14,7 +14,12 @@ int main(void) {
   assert(phx_frame_present(first));
   assert(phx_frame_count(first) == 1);
 
-  phx_event resize = {PHX_EVENT_WINDOW_RESIZED, first, 1024, 768, 0, 0};
+  phx_event resize = {
+    .kind = PHX_EVENT_WINDOW_RESIZED,
+    .window = first,
+    .a = 1024,
+    .b = 768
+  };
   phx_event result = {0};
   assert(phx_event_push_for_test(&resize));
   assert(phx_event_poll(&result));

@@ -23,6 +23,27 @@ typedef enum phx_event_kind {
   PHX_EVENT_MOUSE_WHEEL = 9
 } phx_event_kind;
 
+typedef enum phx_key {
+  PHX_KEY_UNKNOWN = 0,
+  PHX_KEY_BACKSPACE = 1,
+  PHX_KEY_TAB = 2,
+  PHX_KEY_ENTER = 3,
+  PHX_KEY_ESCAPE = 4,
+  PHX_KEY_DELETE = 5,
+  PHX_KEY_LEFT = 6,
+  PHX_KEY_RIGHT = 7,
+  PHX_KEY_HOME = 8,
+  PHX_KEY_END = 9,
+  PHX_KEY_A = 10,
+  PHX_KEY_S = 11,
+  PHX_KEY_Y = 12,
+  PHX_KEY_Z = 13
+} phx_key;
+
+#define PHX_MOD_SHIFT 1
+#define PHX_MOD_CTRL 2
+#define PHX_MOD_ALT 4
+
 typedef struct phx_event {
   int32_t kind;
   phx_handle window;
@@ -30,6 +51,7 @@ typedef struct phx_event {
   int32_t b;
   int32_t c;
   int32_t d;
+  char text[64];
 } phx_event;
 
 int32_t phx_platform_abi_version(void);

@@ -31,6 +31,35 @@ static uint32_t event_read;
 static uint32_t event_count;
 static char last_error[256];
 
+#ifdef PHX_WITH_SDL
+static int32_t normalize_key(SDL_Keycode key) {
+  switch (key) {
+    case SDLK_BACKSPACE: return PHX_KEY_BACKSPACE;
+    case SDLK_TAB: return PHX_KEY_TAB;
+    case SDLK_RETURN: return PHX_KEY_ENTER;
+    case SDLK_ESCAPE: return PHX_KEY_ESCAPE;
+    case SDLK_DELETE: return PHX_KEY_DELETE;
+    case SDLK_LEFT: return PHX_KEY_LEFT;
+    case SDLK_RIGHT: return PHX_KEY_RIGHT;
+    case SDLK_HOME: return PHX_KEY_HOME;
+    case SDLK_END: return PHX_KEY_END;
+    case SDLK_A: return PHX_KEY_A;
+    case SDLK_S: return PHX_KEY_S;
+    case SDLK_Y: return PHX_KEY_Y;
+    case SDLK_Z: return PHX_KEY_Z;
+    default: return PHX_KEY_UNKNOWN;
+  }
+}
+
+static int32_t normalize_modifiers(SDL_Keymod modifiers) {
+  int32_t result = 0;
+  if (modifiers & SDL_KMOD_SHIFT) result |= PHX_MOD_SHIFT;
+  if (modifiers & SDL_KMOD_CTRL) result |= PHX_MOD_CTRL;
+  if (modifiers & SDL_KMOD_ALT) result |= PHX_MOD_ALT;
+  return result;
+}
+#endif
+
 static bool fail(const char *message) {
   snprintf(last_error, sizeof(last_error), "%s", message);
   return false;
@@ -169,13 +198,17 @@ bool phx_event_poll(phx_event *event) {
           return true;
         case SDL_EVENT_KEY_DOWN:
           event->kind = PHX_EVENT_KEY_DOWN;
-          event->a = (int32_t)input.key.key;
-          event->b = (int32_t)input.key.mod;
+          event->a = normalize_key(input.key.key);
+          event->b = normalize_modifiers(input.key.mod);
           return true;
         case SDL_EVENT_KEY_UP:
           event->kind = PHX_EVENT_KEY_UP;
-          event->a = (int32_t)input.key.key;
-          event->b = (int32_t)input.key.mod;
+          event->a = normalize_key(input.key.key);
+          event->b = normalize_modifiers(input.key.mod);
+          return true;
+        case SDL_EVENT_TEXT_INPUT:
+          event->kind = PHX_EVENT_TEXT_INPUT;
+          snprintf(event->text, sizeof(event->text), "%s", input.text.text);
           return true;
         default: break;
       }

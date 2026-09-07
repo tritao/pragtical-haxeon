@@ -100,6 +100,24 @@ class TextBuffer {
 		return index < 0 || index >= lines.length ? "" : lines[index];
 	}
 
+	public function cursorLine():Int
+		return text.substring(0, cursor).split("\n").length - 1;
+
+	public function cursorColumn():Int {
+		var before = text.substring(0, cursor), separator = before.lastIndexOf("\n");
+		return separator < 0 ? cursor : cursor - separator - 1;
+	}
+
+	public function moveHome(extend:Bool = false):Void {
+		var before = text.substring(0, cursor), separator = before.lastIndexOf("\n");
+		setCursor(separator < 0 ? 0 : separator + 1, extend);
+	}
+
+	public function moveEnd(extend:Bool = false):Void {
+		var separator = text.indexOf("\n", cursor);
+		setCursor(separator < 0 ? text.length : separator, extend);
+	}
+
 	function beginEdit():Void {
 		undoStack.push(currentSnapshot());
 		redoStack.resize(0);
