@@ -25,8 +25,7 @@ cp "$haxeon_root/out/realtime_runtime.hdll" "$root_dir/out/realtime_runtime.hdll
 mapfile -t sources < <(find "$root_dir/src" -type f -name '*.hx' -print | LC_ALL=C sort)
 mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -print | LC_ALL=C sort)
 
-LD_LIBRARY_PATH="$haxeon_root/out:$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-	"$haxeon_root/vendor/hashlink/hl" "$haxeon_root/bootstrap/compiler.hl" \
+"$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/pragtical-haxeon.hl" \
 	--entry=app.Main \
 	--root="$root_dir/src" \
