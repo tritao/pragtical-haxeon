@@ -31,7 +31,7 @@ class GraphicalMain {
 				if (kind == Platform.EVENT_QUIT)
 					running = false;
 				else if (kind == Platform.EVENT_TEXT_INPUT) {
-					application.root.textInput(Native.event_text());
+					application.textInput(Native.event_text());
 				} else if (kind == Platform.EVENT_WINDOW_RESIZED)
 					application.root.resize(Native.event_a(), Native.event_b());
 				else if (kind == Platform.EVENT_MOUSE_WHEEL)

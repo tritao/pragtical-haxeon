@@ -45,6 +45,16 @@ class CommandRegistry {
 		return true;
 	}
 
+	public function available(context:CommandContext):Array<String> {
+		var result:Array<String> = [];
+		for (command in commands) {
+			var predicate = command.predicate;
+			if (predicate(context)) result.push(command.name);
+		}
+		result.sort(Reflect.compare);
+		return result;
+	}
+
 	function find(name:String):Null<Command> {
 		for (command in commands)
 			if (command.name == name)

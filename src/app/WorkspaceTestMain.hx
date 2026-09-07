@@ -27,6 +27,20 @@ class WorkspaceTestMain {
 			"sidebar command did not open selected file");
 		application.root.mouseDown(Platform.MOUSE_LEFT, 20, view.Sidebar.HEADER_HEIGHT + view.Sidebar.ROW_HEIGHT * 2 + 1);
 		require(!visible[2].expanded && application.root.sidebar.selected == 2, "sidebar mouse did not select and collapse directory");
+		require(application.keyPressed(Platform.KEY_P, Platform.MOD_CTRL) && application.root.palette.active, "Ctrl+P did not open file palette");
+		application.textInput("main");
+		require(application.root.palette.results.length == 1 && application.root.palette.results[0].label == "src/Main.hx",
+			"file palette fuzzy filtering failed");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		require(application.documents.documents.length == 2 && !application.root.palette.active, "file palette did not accept selection");
+		require(application.keyPressed(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT), "Ctrl+Shift+P did not open command palette");
+		application.textInput("sidebarprevious");
+		require(application.root.palette.results.length == 1, "command palette fuzzy filtering failed");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		require(application.root.sidebar.selected == 1, "command palette did not dispatch selected command");
+		application.openFilePalette();
+		application.keyPressed(Platform.KEY_ESCAPE, 0);
+		require(!application.root.palette.active, "Escape did not cancel palette");
 		renderer.begin();
 		application.root.draw();
 		renderer.present();
@@ -34,7 +48,7 @@ class WorkspaceTestMain {
 		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy workspace test window");
 		Native.shutdown();
-		Sys.println("PASS: workspace projects, ignored files, sidebar navigation, and file opening");
+		Sys.println("PASS: workspace projects, sidebar navigation, and VS Code-style palettes");
 		return 0;
 	}
 }

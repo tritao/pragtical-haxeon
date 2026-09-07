@@ -42,6 +42,21 @@ class Project {
 		return result;
 	}
 
+	public function files():Array<ProjectNode> {
+		var result:Array<ProjectNode> = [];
+		appendFiles(tree, result);
+		return result;
+	}
+
+	function appendFiles(node:ProjectNode, result:Array<ProjectNode>):Void {
+		if (!node.directory) {
+			result.push(node);
+			return;
+		}
+		load(node);
+		for (child in node.children) appendFiles(child, result);
+	}
+
 	function appendVisible(node:ProjectNode, result:Array<ProjectNode>):Void {
 		result.push(node);
 		if (node.directory && node.expanded)

@@ -16,6 +16,9 @@ import syntax.SyntaxRegistry;
 import style.Theme;
 import workspace.Workspace;
 import sys.FileSystem;
+import palette.CommandPalette;
+import palette.PaletteEntry;
+import platform.Platform;
 
 class Application {
 	public final documents:DocumentManager;
@@ -62,10 +65,53 @@ class Application {
 		return plugins.load(new DynamicPlugin(new PluginManifest(path)));
 
 	public function keyPressed(key:Int, modifiers:Int):Bool {
+		if (root.palette.active)
+			return paletteKeyPressed(key);
+		if (key == Platform.KEY_P && modifiers == Platform.MOD_CTRL) {
+			openFilePalette();
+			return true;
+		}
+		if (key == Platform.KEY_P && modifiers == Platform.MOD_CTRL + Platform.MOD_SHIFT) {
+			openCommandPalette();
+			return true;
+		}
 		var handled = keymap.onKeyPressed(key, modifiers, context);
 		if (handled)
 			root.cursorChanged();
 		return handled;
+	}
+
+	public function textInput(text:String):Void {
+		if (root.palette.active) root.palette.textInput(text);
+		else root.textInput(text);
+	}
+
+	public function openFilePalette():Void {
+		var entries:Array<PaletteEntry> = [];
+		for (project in workspace.projects)
+			for (node in project.files()) {
+				var relative = node.path.substring(project.root.length + 1);
+				entries.push(new PaletteEntry(relative, project.name, node.path));
+			}
+		root.palette.open(CommandPalette.FILES, entries);
+	}
+
+	public function openCommandPalette():Void {
+		root.palette.open(CommandPalette.COMMANDS, [for (name in commands.available(context)) new PaletteEntry(name, "", name)]);
+	}
+
+	function paletteKeyPressed(key:Int):Bool {
+		if (key == Platform.KEY_ESCAPE) root.palette.close();
+		else if (key == Platform.KEY_BACKSPACE) root.palette.backspace();
+		else if (key == Platform.KEY_UP) root.palette.move(-1);
+		else if (key == Platform.KEY_DOWN) root.palette.move(1);
+		else if (key == Platform.KEY_ENTER) {
+			var mode = root.palette.mode, entry = root.palette.accept();
+			if (entry != null)
+				if (mode == CommandPalette.FILES) open(entry.value);
+				else commands.perform(entry.value, context);
+		}
+		return true;
 	}
 
 	public function update():Void

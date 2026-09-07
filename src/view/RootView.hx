@@ -7,6 +7,7 @@ import editor.EditorView;
 import renderer.Renderer;
 import style.Theme;
 import workspace.Workspace;
+import palette.CommandPalette;
 
 class RootView {
 	public static inline final TAB_WIDTH = 180;
@@ -19,6 +20,7 @@ class RootView {
 	final documents:DocumentManager;
 	public final workspace:Workspace;
 	public final sidebar:Sidebar;
+	public final palette:CommandPalette;
 	var width:Int;
 	var height:Int;
 	var draggingDivider:Null<LayoutNode>;
@@ -30,6 +32,7 @@ class RootView {
 		this.workspace = workspace;
 		this.documents = workspace.documents;
 		sidebar = new Sidebar(workspace);
+		palette = new CommandPalette();
 		this.width = width;
 		this.height = height;
 		node = new LayoutNode(focus, documents);
@@ -164,6 +167,7 @@ class RootView {
 		renderer.clip(0, 0, width, height);
 		drawNode(node);
 		renderer.clip(0, 0, width, height);
+		palette.draw(renderer, width, height);
 	}
 
 	public function sidebarMove(delta:Int):Bool
