@@ -4,6 +4,7 @@ class TextBuffer {
 	public var text(default, null):String;
 	public var cursor(default, null):Int;
 	public var anchor(default, null):Int;
+	var preferredColumn:Int = -1;
 	final undoStack:Array<BufferSnapshot> = [];
 	final redoStack:Array<BufferSnapshot> = [];
 
@@ -26,6 +27,7 @@ class TextBuffer {
 		cursor = clamp(position);
 		if (!extend)
 			anchor = cursor;
+		preferredColumn = -1;
 	}
 
 	public function move(delta:Int, extend:Bool = false):Void
@@ -34,6 +36,7 @@ class TextBuffer {
 	public function selectAll():Void {
 		anchor = 0;
 		cursor = text.length;
+		preferredColumn = -1;
 	}
 
 	public function selectedText():String
@@ -118,7 +121,42 @@ class TextBuffer {
 		setCursor(separator < 0 ? text.length : separator, extend);
 	}
 
+	public function lineStart(index:Int):Int {
+		if (index <= 0)
+			return 0;
+		var position = 0, current = 0;
+		while (current < index) {
+			var separator = text.indexOf("\n", position);
+			if (separator < 0)
+				return text.length;
+			position = separator + 1;
+			current++;
+		}
+		return position;
+	}
+
+	public function positionAt(lineIndex:Int, column:Int):Int {
+		var boundedLine = lineIndex < 0 ? 0 : lineIndex >= lineCount() ? lineCount() - 1 : lineIndex,
+			start = lineStart(boundedLine), length = line(boundedLine).length,
+			boundedColumn = column < 0 ? 0 : column > length ? length : column;
+		return start + boundedColumn;
+	}
+
+	public function moveVertical(delta:Int, extend:Bool = false):Void {
+		if (preferredColumn < 0)
+			preferredColumn = cursorColumn();
+		var targetLine = cursorLine() + delta;
+		if (targetLine < 0)
+			targetLine = 0;
+		else if (targetLine >= lineCount())
+			targetLine = lineCount() - 1;
+		cursor = positionAt(targetLine, preferredColumn);
+		if (!extend)
+			anchor = cursor;
+	}
+
 	function beginEdit():Void {
+		preferredColumn = -1;
 		undoStack.push(currentSnapshot());
 		redoStack.resize(0);
 	}
@@ -130,6 +168,7 @@ class TextBuffer {
 		text = snapshot.text;
 		cursor = snapshot.cursor;
 		anchor = snapshot.anchor;
+		preferredColumn = -1;
 	}
 
 	function clamp(position:Int):Int

@@ -6,6 +6,11 @@ class Platform {
 	public static inline final EVENT_WINDOW_RESIZED = 2;
 	public static inline final EVENT_KEY_DOWN = 3;
 	public static inline final EVENT_TEXT_INPUT = 5;
+	public static inline final EVENT_MOUSE_MOVED = 6;
+	public static inline final EVENT_MOUSE_BUTTON_DOWN = 7;
+	public static inline final EVENT_MOUSE_BUTTON_UP = 8;
+	public static inline final EVENT_MOUSE_WHEEL = 9;
+	public static inline final MOUSE_LEFT = 1;
 	public static inline final KEY_BACKSPACE = 1;
 	public static inline final KEY_TAB = 2;
 	public static inline final KEY_ENTER = 3;
@@ -13,12 +18,14 @@ class Platform {
 	public static inline final KEY_DELETE = 5;
 	public static inline final KEY_LEFT = 6;
 	public static inline final KEY_RIGHT = 7;
-	public static inline final KEY_HOME = 8;
-	public static inline final KEY_END = 9;
-	public static inline final KEY_A = 10;
-	public static inline final KEY_S = 11;
-	public static inline final KEY_Y = 12;
-	public static inline final KEY_Z = 13;
+	public static inline final KEY_UP = 8;
+	public static inline final KEY_DOWN = 9;
+	public static inline final KEY_HOME = 10;
+	public static inline final KEY_END = 11;
+	public static inline final KEY_A = 12;
+	public static inline final KEY_S = 13;
+	public static inline final KEY_Y = 14;
+	public static inline final KEY_Z = 15;
 	public static inline final MOD_SHIFT = 1;
 	public static inline final MOD_CTRL = 2;
 

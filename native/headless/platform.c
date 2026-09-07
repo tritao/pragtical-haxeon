@@ -55,6 +55,8 @@ static int32_t normalize_key(SDL_Keycode key) {
     case SDLK_DELETE: return PHX_KEY_DELETE;
     case SDLK_LEFT: return PHX_KEY_LEFT;
     case SDLK_RIGHT: return PHX_KEY_RIGHT;
+    case SDLK_UP: return PHX_KEY_UP;
+    case SDLK_DOWN: return PHX_KEY_DOWN;
     case SDLK_HOME: return PHX_KEY_HOME;
     case SDLK_END: return PHX_KEY_END;
     case SDLK_A: return PHX_KEY_A;
@@ -92,6 +94,17 @@ static phx_window_slot *resolve_window(phx_handle handle) {
   if (!slot->occupied || slot->generation != generation) return NULL;
   return slot;
 }
+
+#ifdef PHX_WITH_SDL
+static phx_handle window_handle_from_id(SDL_WindowID id) {
+  for (uint32_t index = 0; index < PHX_MAX_WINDOWS; index++) {
+    if (windows[index].occupied && windows[index].window &&
+        SDL_GetWindowID(windows[index].window) == id)
+      return make_handle(index, windows[index].generation);
+  }
+  return 0;
+}
+#endif
 
 static phx_font_slot *resolve_font(phx_handle handle) {
   if (handle <= 0) return NULL;
@@ -214,6 +227,18 @@ bool phx_window_destroy(phx_handle handle) {
 
 bool phx_window_valid(phx_handle handle) { return resolve_window(handle) != NULL; }
 
+int32_t phx_window_width(phx_handle handle) {
+  phx_window_slot *slot = resolve_window(handle);
+  if (!slot) { fail("invalid or stale window handle"); return -1; }
+  return slot->width;
+}
+
+int32_t phx_window_height(phx_handle handle) {
+  phx_window_slot *slot = resolve_window(handle);
+  if (!slot) { fail("invalid or stale window handle"); return -1; }
+  return slot->height;
+}
+
 bool phx_event_poll(phx_event *event) {
   if (!event) return false;
   if (event_count > 0) {
@@ -233,20 +258,57 @@ bool phx_event_poll(phx_event *event) {
           event->kind = PHX_EVENT_WINDOW_RESIZED;
           event->a = input.window.data1;
           event->b = input.window.data2;
+          for (uint32_t index = 0; index < PHX_MAX_WINDOWS; index++) {
+            if (windows[index].occupied && windows[index].window &&
+                SDL_GetWindowID(windows[index].window) == input.window.windowID) {
+              windows[index].width = event->a;
+              windows[index].height = event->b;
+              event->window = make_handle(index, windows[index].generation);
+              ren_resize_window(windows[index].renderer);
+              break;
+            }
+          }
           return true;
         case SDL_EVENT_KEY_DOWN:
           event->kind = PHX_EVENT_KEY_DOWN;
+          event->window = window_handle_from_id(input.key.windowID);
           event->a = normalize_key(input.key.key);
           event->b = normalize_modifiers(input.key.mod);
           return true;
         case SDL_EVENT_KEY_UP:
           event->kind = PHX_EVENT_KEY_UP;
+          event->window = window_handle_from_id(input.key.windowID);
           event->a = normalize_key(input.key.key);
           event->b = normalize_modifiers(input.key.mod);
           return true;
         case SDL_EVENT_TEXT_INPUT:
           event->kind = PHX_EVENT_TEXT_INPUT;
+          event->window = window_handle_from_id(input.text.windowID);
           snprintf(event->text, sizeof(event->text), "%s", input.text.text);
+          return true;
+        case SDL_EVENT_MOUSE_MOTION:
+          event->kind = PHX_EVENT_MOUSE_MOVED;
+          event->window = window_handle_from_id(input.motion.windowID);
+          event->a = (int32_t)input.motion.x;
+          event->b = (int32_t)input.motion.y;
+          event->c = (int32_t)input.motion.xrel;
+          event->d = (int32_t)input.motion.yrel;
+          return true;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+          event->kind = input.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+            ? PHX_EVENT_MOUSE_BUTTON_DOWN : PHX_EVENT_MOUSE_BUTTON_UP;
+          event->window = window_handle_from_id(input.button.windowID);
+          event->a = input.button.button;
+          event->b = (int32_t)input.button.x;
+          event->c = (int32_t)input.button.y;
+          event->d = input.button.clicks;
+          return true;
+        case SDL_EVENT_MOUSE_WHEEL:
+          event->kind = PHX_EVENT_MOUSE_WHEEL;
+          event->window = window_handle_from_id(input.wheel.windowID);
+          event->a = (int32_t)(input.wheel.y * 100.0f);
+          event->b = (int32_t)(-input.wheel.x * 100.0f);
           return true;
         default: break;
       }
@@ -273,6 +335,20 @@ bool phx_frame_begin(phx_handle window) {
   if (!is_headless) {
     rencache_begin_frame(&slot->renderer->cache);
   }
+#endif
+  return true;
+}
+
+bool phx_set_clip_rect(phx_handle window, int32_t x, int32_t y, int32_t width,
+                       int32_t height) {
+  phx_window_slot *slot = resolve_window(window);
+  if (!slot) return fail("invalid or stale window handle");
+  if (width < 0 || height < 0) return fail("clip dimensions are negative");
+#ifdef PHX_WITH_SDL
+  if (!is_headless)
+    rencache_set_clip_rect(&slot->renderer->cache, (RenRect){x, y, width, height});
+#else
+  (void)x; (void)y;
 #endif
   return true;
 }

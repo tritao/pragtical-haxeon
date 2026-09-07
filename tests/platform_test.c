@@ -8,11 +8,13 @@ int main(void) {
   assert(phx_platform_init(true));
   phx_handle first = phx_window_create("test", 800, 600);
   assert(first != 0 && phx_window_valid(first));
+  assert(phx_window_width(first) == 800 && phx_window_height(first) == 600);
   phx_handle font = phx_font_create(first, "ignored-headlessly.ttf", 15);
   assert(font != 0);
   assert(phx_font_height(font) == 15);
   assert(phx_font_text_width(font, "hello") > 0);
   assert(phx_frame_begin(first));
+  assert(phx_set_clip_rect(first, 0, 0, 800, 600));
   assert(phx_draw_rect(first, 0, 0, 10, 10, 0xffffffff));
   assert(phx_draw_text(first, font, 2, 2, "hello", 0xffffffff));
   assert(phx_frame_present(first));
@@ -29,6 +31,13 @@ int main(void) {
   assert(phx_event_poll(&result));
   assert(result.kind == PHX_EVENT_WINDOW_RESIZED);
   assert(result.window == first && result.a == 1024 && result.b == 768);
+
+  phx_event mouse = {.kind = PHX_EVENT_MOUSE_MOVED, .window = first,
+                     .a = 30, .b = 40, .c = 2, .d = -1};
+  assert(phx_event_push_for_test(&mouse));
+  assert(phx_event_poll(&result));
+  assert(result.kind == PHX_EVENT_MOUSE_MOVED && result.a == 30 && result.b == 40);
+  assert(result.c == 2 && result.d == -1);
 
   assert(phx_font_destroy(font));
   assert(phx_window_destroy(first));

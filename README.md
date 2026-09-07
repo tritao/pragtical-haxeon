@@ -7,6 +7,9 @@ editor behavior.
 The graphical backend compiles Pragtical's renderer sources directly and uses
 its font shaping, glyph atlas, dirty-region cache, and SDL surface backend behind
 the platform ABI. The editor core never receives SDL or renderer pointers.
+The document view supports measured caret placement, vertical navigation,
+line-number and selection drawing, resize-aware clipping, scrolling, and mouse
+drag selection.
 
 ## Build and test
 

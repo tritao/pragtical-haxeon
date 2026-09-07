@@ -21,11 +21,15 @@ HL_PRIM bool HL_NAME(window_destroy)(int window) {
 HL_PRIM bool HL_NAME(window_valid)(int window) {
   return phx_window_valid(window);
 }
+HL_PRIM int HL_NAME(window_width)(int window) { return phx_window_width(window); }
+HL_PRIM int HL_NAME(window_height)(int window) { return phx_window_height(window); }
 HL_PRIM bool HL_NAME(event_poll)(void) { return phx_event_poll(&current_event); }
 HL_PRIM int HL_NAME(event_kind)(void) { return current_event.kind; }
 HL_PRIM int HL_NAME(event_window)(void) { return current_event.window; }
 HL_PRIM int HL_NAME(event_a)(void) { return current_event.a; }
 HL_PRIM int HL_NAME(event_b)(void) { return current_event.b; }
+HL_PRIM int HL_NAME(event_c)(void) { return current_event.c; }
+HL_PRIM int HL_NAME(event_d)(void) { return current_event.d; }
 HL_PRIM vbyte *HL_NAME(event_text)(void) {
   int length = hl_utf8_length((vbyte *)current_event.text, 0);
   uchar *result = (uchar *)hl_alloc_bytes((length + 1) * (int)sizeof(uchar));
@@ -38,6 +42,9 @@ HL_PRIM bool HL_NAME(event_push_test)(int kind, int window, int a, int b) {
   return phx_event_push_for_test(&event);
 }
 HL_PRIM bool HL_NAME(frame_begin)(int window) { return phx_frame_begin(window); }
+HL_PRIM bool HL_NAME(set_clip_rect)(int window, int x, int y, int width, int height) {
+  return phx_set_clip_rect(window, x, y, width, height);
+}
 HL_PRIM bool HL_NAME(draw_rect)(int window, int x, int y, int width, int height,
                                 int rgba) {
   return phx_draw_rect(window, x, y, width, height, rgba);
@@ -69,14 +76,19 @@ DEFINE_PRIM(_BYTES, last_error, _NO_ARG);
 DEFINE_PRIM(_I32, window_create, _BYTES _I32 _I32);
 DEFINE_PRIM(_BOOL, window_destroy, _I32);
 DEFINE_PRIM(_BOOL, window_valid, _I32);
+DEFINE_PRIM(_I32, window_width, _I32);
+DEFINE_PRIM(_I32, window_height, _I32);
 DEFINE_PRIM(_BOOL, event_poll, _NO_ARG);
 DEFINE_PRIM(_I32, event_kind, _NO_ARG);
 DEFINE_PRIM(_I32, event_window, _NO_ARG);
 DEFINE_PRIM(_I32, event_a, _NO_ARG);
 DEFINE_PRIM(_I32, event_b, _NO_ARG);
+DEFINE_PRIM(_I32, event_c, _NO_ARG);
+DEFINE_PRIM(_I32, event_d, _NO_ARG);
 DEFINE_PRIM(_BYTES, event_text, _NO_ARG);
 DEFINE_PRIM(_BOOL, event_push_test, _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_BOOL, frame_begin, _I32);
+DEFINE_PRIM(_BOOL, set_clip_rect, _I32 _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_BOOL, draw_rect, _I32 _I32 _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_I32, font_create, _I32 _BYTES _I32);
 DEFINE_PRIM(_BOOL, font_destroy, _I32);

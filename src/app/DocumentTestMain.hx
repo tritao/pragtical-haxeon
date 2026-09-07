@@ -29,6 +29,14 @@ class DocumentTestMain {
 		buffer.selectAll();
 		buffer.insert("replacement");
 		require(buffer.text == "replacement" && buffer.cursor == 11, "select-all replacement failed");
+		var vertical = new TextBuffer("abcdef\nxy\n123456");
+		vertical.setCursor(vertical.positionAt(0, 5));
+		vertical.moveVertical(1);
+		require(vertical.cursorLine() == 1 && vertical.cursorColumn() == 2, "vertical movement did not clamp to short line");
+		vertical.moveVertical(1);
+		require(vertical.cursorLine() == 2 && vertical.cursorColumn() == 5, "vertical movement did not preserve preferred column");
+		vertical.moveVertical(-1, true);
+		require(vertical.hasSelection() && vertical.cursorColumn() == 2, "vertical selection failed");
 		var document = new Document("unused", "clean");
 		document.insert(" edit");
 		require(document.dirty && document.buffer.text == " editclean", "document dirty state failed");

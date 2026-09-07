@@ -24,6 +24,16 @@ echo "PASS: Haxeon application exercised the platform ABI"
 mapfile -t sources < <(find "$root_dir/src" -type f -name '*.hx' -print | LC_ALL=C sort)
 mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -print | LC_ALL=C sort)
 "$root_dir/scripts/haxeon-compile.sh" \
+	--output="$root_dir/out/editor-view-test.hl" --entry=app.EditorViewTestMain \
+	--root="$root_dir/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${stdlib_sources[@]}"
+(
+	cd "$root_dir/out"
+	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+		"$haxeon_root/vendor/hashlink/hl" editor-view-test.hl
+)
+
+"$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/document-test.hl" --entry=app.DocumentTestMain \
 	--root="$root_dir/src" --root="$haxeon_root/stdlib" \
 	"${sources[@]}" "${stdlib_sources[@]}"

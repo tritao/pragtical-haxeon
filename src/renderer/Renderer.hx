@@ -21,6 +21,9 @@ class Renderer {
 	public function rect(x:Int, y:Int, width:Int, height:Int, color:Int):Void
 		Platform.require(Native.draw_rect(window, x, y, width, height, color), "draw rectangle");
 
+	public function clip(x:Int, y:Int, width:Int, height:Int):Void
+		Platform.require(Native.set_clip_rect(window, x, y, width, height), "set clip rectangle");
+
 	public function text(x:Int, y:Int, value:String, color:Int):Void
 		Platform.require(Native.draw_text(window, font, x, y, value, color), "draw text");
 
