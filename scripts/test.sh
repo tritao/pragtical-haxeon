@@ -23,10 +23,11 @@ echo "PASS: Haxeon application exercised the platform ABI"
 
 mapfile -t sources < <(find "$root_dir/src" -type f -name '*.hx' -print | LC_ALL=C sort)
 mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -print | LC_ALL=C sort)
+mapfile -t compiler_sources < <(find "$haxeon_root/src/compiler" "$haxeon_root/src/runtime" -type f -name '*.hx' -print | LC_ALL=C sort)
 "$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/command-test.hl" --entry=app.CommandTestMain \
-	--root="$root_dir/src" --root="$haxeon_root/stdlib" \
-	"${sources[@]}" "${stdlib_sources[@]}"
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
 (
 	cd "$root_dir/out"
 	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
@@ -35,8 +36,8 @@ mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -p
 
 "$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/editor-view-test.hl" --entry=app.EditorViewTestMain \
-	--root="$root_dir/src" --root="$haxeon_root/stdlib" \
-	"${sources[@]}" "${stdlib_sources[@]}"
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
 (
 	cd "$root_dir/out"
 	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
@@ -45,8 +46,8 @@ mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -p
 
 "$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/application-test.hl" --entry=app.ApplicationTestMain \
-	--root="$root_dir/src" --root="$haxeon_root/stdlib" \
-	"${sources[@]}" "${stdlib_sources[@]}"
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
 (
 	cd "$root_dir/out"
 	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
@@ -55,8 +56,8 @@ mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -p
 
 "$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/document-test.hl" --entry=app.DocumentTestMain \
-	--root="$root_dir/src" --root="$haxeon_root/stdlib" \
-	"${sources[@]}" "${stdlib_sources[@]}"
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
 (
 	cd "$root_dir/out"
 	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
@@ -65,10 +66,24 @@ mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -p
 
 "$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/plugin-test.hl" --entry=app.PluginTestMain \
-	--root="$root_dir/src" --root="$haxeon_root/stdlib" \
-	"${sources[@]}" "${stdlib_sources[@]}"
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
 (
 	cd "$root_dir/out"
 	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
 		"$haxeon_root/vendor/hashlink/hl" plugin-test.hl
+)
+
+dynamic_plugin_dir="$root_dir/build/dynamic-plugin"
+mkdir -p "$dynamic_plugin_dir"
+cp "$root_dir/plugins/example/plugin.conf" "$root_dir/plugins/example/Main.hx" "$dynamic_plugin_dir/"
+"$root_dir/scripts/haxeon-compile.sh" \
+	--output="$root_dir/out/dynamic-plugin-test.hl" --entry=app.DynamicPluginTestMain \
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
+(
+	cd "$root_dir/out"
+	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+		"$haxeon_root/vendor/hashlink/hl" dynamic-plugin-test.hl \
+		"$dynamic_plugin_dir/plugin.conf" "$dynamic_plugin_dir/Main.hx"
 )

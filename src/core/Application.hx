@@ -9,6 +9,8 @@ import renderer.Renderer;
 import view.RootView;
 import view.View;
 import plugin.PluginManager;
+import plugin.DynamicPlugin;
+import plugin.PluginManifest;
 
 class Application {
 	public final documents:DocumentManager;
@@ -36,12 +38,18 @@ class Application {
 	public function add(document:Document):View
 		return root.openDocument(documents.add(document));
 
+	public function loadPluginManifest(path:String):Bool
+		return plugins.load(new DynamicPlugin(new PluginManifest(path)));
+
 	public function keyPressed(key:Int, modifiers:Int):Bool {
 		var handled = keymap.onKeyPressed(key, modifiers, context);
 		if (handled)
 			root.cursorChanged();
 		return handled;
 	}
+
+	public function update():Void
+		plugins.update();
 
 	public function shutdown():Void
 		plugins.shutdown();

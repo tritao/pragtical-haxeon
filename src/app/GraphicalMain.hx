@@ -10,24 +10,31 @@ class GraphicalMain {
 		if (Native.abi_version() != Platform.ABI_VERSION)
 			throw "platform ABI version mismatch";
 		Platform.require(Native.init(false), "initialize graphical platform");
-		var arguments = Sys.args(), path = arguments.length == 0 ? "README.md" : arguments[0];
+		var arguments = Sys.args();
 		var window = Native.window_create("Pragtical Haxeon", 960, 640), running = true;
 		Platform.require(window != 0, "create editor window");
 		var renderer = new Renderer(window, "data/fonts/JetBrainsMono-Regular.ttf", 15);
 		var application = new Application(renderer, Native.window_width(window), Native.window_height(window));
-		for (argument in arguments)
-			application.open(argument);
-		if (arguments.length == 0)
-			application.open(path);
+		var documentCount = 0;
+		for (argument in arguments) {
+			if (StringTools.startsWith(argument, "--plugin="))
+				application.loadPluginManifest(argument.substring(9));
+			else {
+				application.open(argument);
+				documentCount++;
+			}
+		}
+		if (documentCount == 0)
+			application.open("README.md");
 		while (running) {
+			application.update();
 			while (Native.event_poll()) {
 				var kind = Native.event_kind();
 				if (kind == Platform.EVENT_QUIT)
 					running = false;
 				else if (kind == Platform.EVENT_TEXT_INPUT) {
 					application.root.textInput(Native.event_text());
-				}
-				else if (kind == Platform.EVENT_WINDOW_RESIZED)
+				} else if (kind == Platform.EVENT_WINDOW_RESIZED)
 					application.root.resize(Native.event_a(), Native.event_b());
 				else if (kind == Platform.EVENT_MOUSE_WHEEL)
 					application.root.wheel(Native.event_a(), Native.event_b());

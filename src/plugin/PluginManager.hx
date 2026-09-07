@@ -18,8 +18,10 @@ class PluginManager {
 
 	public function load(plugin:Plugin):Bool {
 		var id = plugin.id();
-		if (!validId(id)) throw 'invalid plugin id "$id"';
-		if (indexOf(id) >= 0) return false;
+		if (!validId(id))
+			throw 'invalid plugin id "$id"';
+		if (indexOf(id) >= 0)
+			return false;
 		var context = new PluginContext(id, commands, keymap, commandContext);
 		try {
 			plugin.activate(context);
@@ -33,7 +35,8 @@ class PluginManager {
 
 	public function unload(id:String):Bool {
 		var index = indexOf(id);
-		if (index < 0) return false;
+		if (index < 0)
+			return false;
 		var entry = entries[index], plugin = entry.plugin, context = entry.context, failed = false, failure = "";
 		try {
 			plugin.deactivate(context);
@@ -43,7 +46,9 @@ class PluginManager {
 		}
 		context.dispose();
 		entries.remove(entry);
-		if (failed) throw failure;
+		plugin.dispose();
+		if (failed)
+			throw failure;
 		return true;
 	}
 
@@ -51,6 +56,10 @@ class PluginManager {
 		unload(plugin.id());
 		return load(plugin);
 	}
+
+	public function update():Void
+		for (entry in entries)
+			entry.plugin.refresh();
 
 	public function shutdown():Void {
 		var index = entries.length, failed = false, failure = "";
@@ -65,7 +74,8 @@ class PluginManager {
 				}
 			}
 		}
-		if (failed) throw failure;
+		if (failed)
+			throw failure;
 	}
 
 	public function isLoaded(id:String):Bool
@@ -76,7 +86,8 @@ class PluginManager {
 
 	function indexOf(id:String):Int {
 		for (index in 0...entries.length)
-			if (entries[index].plugin.id() == id) return index;
+			if (entries[index].plugin.id() == id)
+				return index;
 		return -1;
 	}
 

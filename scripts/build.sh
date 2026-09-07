@@ -24,10 +24,12 @@ cp "$haxeon_root/out/realtime_runtime.hdll" "$root_dir/out/realtime_runtime.hdll
 
 mapfile -t sources < <(find "$root_dir/src" -type f -name '*.hx' -print | LC_ALL=C sort)
 mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -print | LC_ALL=C sort)
+mapfile -t compiler_sources < <(find "$haxeon_root/src/compiler" "$haxeon_root/src/runtime" -type f -name '*.hx' -print | LC_ALL=C sort)
 
 "$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/pragtical-haxeon.hl" \
 	--entry=app.Main \
 	--root="$root_dir/src" \
+	--root="$haxeon_root/src" \
 	--root="$haxeon_root/stdlib" \
-	"${sources[@]}" "${stdlib_sources[@]}"
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
