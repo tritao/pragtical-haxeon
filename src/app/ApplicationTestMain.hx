@@ -5,6 +5,8 @@ import editor.Document;
 import platform.Native;
 import platform.Platform;
 import renderer.Renderer;
+import view.LayoutKind;
+import view.LayoutNode;
 
 class ApplicationTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -25,10 +27,28 @@ class ApplicationTestMain {
 		require(application.focus.activeView == firstView, "tab switch did not update focus");
 		application.commands.perform("doc:newline", application.context);
 		require(first.buffer.text == "\none", "command context captured the wrong document");
-		require(!application.root.tabs.closeActive(), "dirty document closed without confirmation");
-		require(application.root.tabs.closeActive(true), "forced document close failed");
+		require(!application.root.closeActiveTab(), "dirty document closed without confirmation");
+		require(application.root.closeActiveTab(true), "forced document close failed");
 		require(application.documents.documents.length == 1 && application.focus.activeView == secondView,
 			"closing a tab did not reconcile ownership and focus");
+		application.commands.perform("root:split-right", application.context);
+		require(!application.root.node.isLeaf() && application.root.node.requireFirst().width + application.root.node.requireSecond().width
+			+ LayoutNode.DIVIDER_SIZE == 640, "horizontal split did not assign recursive bounds");
+		require(application.documents.documents.length == 1 && application.root.node.containsDocument(second),
+			"split duplicated document ownership");
+		var divider = application.root.node.requireFirst().width;
+		application.root.mouseDown(Platform.MOUSE_LEFT, divider + 1, 100);
+		application.root.mouseMove(450, 100);
+		application.root.mouseUp(Platform.MOUSE_LEFT);
+		require(application.root.node.divider > 600, "divider drag did not resize panes");
+		application.commands.perform("root:split-up", application.context);
+		require(!application.root.node.requireSecond().isLeaf()
+			&& application.root.node.requireSecond().kind == LayoutKind.Vertical, "nested vertical split was not created");
+		renderer.begin();
+		application.root.draw();
+		renderer.present();
+		require(application.root.closeActivePane(true) && !application.root.node.isLeaf(), "nested pane did not collapse into its sibling");
+		require(application.root.closeActivePane(true) && application.root.node.isLeaf(), "closing final pane did not collapse layout root");
 		renderer.begin();
 		application.root.draw();
 		renderer.present();

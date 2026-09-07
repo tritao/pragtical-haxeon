@@ -1,17 +1,14 @@
 package view;
 
-import core.DocumentManager;
 import core.FocusManager;
 
 class TabGroup {
 	public final views:Array<View> = [];
 	public var activeView(default, null):Null<View>;
 	final focus:FocusManager;
-	final documents:DocumentManager;
 
-	public function new(focus:FocusManager, documents:DocumentManager) {
+	public function new(focus:FocusManager) {
 		this.focus = focus;
-		this.documents = documents;
 	}
 
 	public function add(view:View):View {
@@ -42,11 +39,6 @@ class TabGroup {
 		var index = indexOf(view);
 		if (index < 0 || view.isDirty() && !force)
 			return false;
-		var document = view.getDocument();
-		if (document != null) {
-			if (!documents.close(document, force))
-				return false;
-		}
 		views.remove(view);
 		if (activeView == view) {
 			if (views.length == 0) {

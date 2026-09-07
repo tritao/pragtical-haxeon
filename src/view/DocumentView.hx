@@ -26,6 +26,9 @@ class DocumentView extends View {
 	override public function resize(width:Int, height:Int):Void
 		editor.resize(width, height);
 
+	override public function setBounds(x:Int, y:Int, width:Int, height:Int):Void
+		editor.setBounds(x, y, width, height);
+
 	override public function textInput(text:String):Void {
 		document.insert(text);
 		editor.cursorChanged();

@@ -1,6 +1,7 @@
 package command;
 
 import platform.Platform;
+import view.LayoutKind;
 
 class EditorCommands {
 	public static function install(registry:CommandRegistry, keymap:Keymap):Void {
@@ -26,7 +27,12 @@ class EditorCommands {
 		registry.add("doc:select-to-end-of-line", context -> context.requireDocument().buffer.moveEnd(true), hasDocument);
 		registry.add("root:switch-to-next-tab", context -> context.root.tabs.switchBy(1));
 		registry.add("root:switch-to-previous-tab", context -> context.root.tabs.switchBy(-1));
-		registry.add("root:close", context -> context.root.tabs.closeActive(), context -> context.focus.activeView != null);
+		registry.add("root:close", context -> context.root.closeActiveTab(), context -> context.focus.activeView != null);
+		registry.add("root:split-left", context -> context.root.splitActive(LayoutKind.Horizontal, true));
+		registry.add("root:split-right", context -> context.root.splitActive(LayoutKind.Horizontal));
+		registry.add("root:split-up", context -> context.root.splitActive(LayoutKind.Vertical, true));
+		registry.add("root:split-down", context -> context.root.splitActive(LayoutKind.Vertical));
+		registry.add("root:close-pane", context -> context.root.closeActivePane());
 
 		keymap.addDirect(Platform.KEY_S, Platform.MOD_CTRL, ["doc:save"]);
 		keymap.addDirect(Platform.KEY_Z, Platform.MOD_CTRL, ["doc:undo"]);

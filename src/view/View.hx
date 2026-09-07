@@ -16,6 +16,8 @@ class View {
 		return null;
 
 	public function moveVertical(delta:Int, extend:Bool):Void {}
+	public function setBounds(x:Int, y:Int, width:Int, height:Int):Void
+		resize(width, height);
 
 	public function resize(width:Int, height:Int):Void {}
 	public function textInput(text:String):Void {}

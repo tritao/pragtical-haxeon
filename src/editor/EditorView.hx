@@ -10,6 +10,8 @@ class EditorView {
 
 	public final document:Document;
 	public final renderer:Renderer;
+	public var x(default, null):Int = 0;
+	public var y(default, null):Int = 0;
 	public var width(default, null):Int;
 	public var height(default, null):Int;
 	public var scrollX(default, null):Int = 0;
@@ -26,6 +28,12 @@ class EditorView {
 		this.width = width;
 		this.height = height;
 		clampScroll();
+	}
+
+	public function setBounds(x:Int, y:Int, width:Int, height:Int):Void {
+		this.x = x;
+		this.y = y;
+		resize(width, height);
 	}
 
 	public function moveVertical(delta:Int, extend:Bool):Void {
@@ -63,26 +71,33 @@ class EditorView {
 	}
 
 	public function draw(path:String):Void {
-		var buffer = document.buffer, lineHeight = renderer.lineHeight, contentTop = HEADER_HEIGHT + PADDING,
-			textLeft = SIDEBAR_WIDTH + GUTTER_WIDTH, contentHeight = height - contentTop;
-		renderer.rect(0, 0, width, height, 0x181818ff);
-		renderer.rect(0, 0, width, HEADER_HEIGHT, 0x252525ff);
-		renderer.rect(0, HEADER_HEIGHT, SIDEBAR_WIDTH, height - HEADER_HEIGHT, 0x202020ff);
-		renderer.text(18, 13, "PRAGTICAL HAXEON", 0xe6e6e6ff);
-		renderer.text(18, 62, "EXPLORER", 0xaaaaaaff);
-		renderer.text(244, 13, (document.dirty ? "* " : "") + path, 0xccccccff);
+		var buffer = document.buffer, lineHeight = renderer.lineHeight, contentTop = y + HEADER_HEIGHT + PADDING,
+			contentHeight = height - HEADER_HEIGHT - PADDING, sidebarWidth = SIDEBAR_WIDTH,
+			textOffset = SIDEBAR_WIDTH + GUTTER_WIDTH;
+		if (contentHeight < 1) contentHeight = 1;
+		if (sidebarWidth >= width) sidebarWidth = width - 1;
+		if (sidebarWidth < 0) sidebarWidth = 0;
+		if (textOffset >= width) textOffset = width - 1;
+		if (textOffset < 0) textOffset = 0;
+		var textLeft = x + textOffset;
+		renderer.rect(x, y, width, height, 0x181818ff);
+		renderer.rect(x, y, width, HEADER_HEIGHT, 0x252525ff);
+		renderer.rect(x, y + HEADER_HEIGHT, SIDEBAR_WIDTH, height - HEADER_HEIGHT, 0x202020ff);
+		renderer.text(x + 18, y + 13, "PRAGTICAL HAXEON", 0xe6e6e6ff);
+		renderer.text(x + 18, y + 62, "EXPLORER", 0xaaaaaaff);
+		renderer.text(x + 244, y + 13, (document.dirty ? "* " : "") + path, 0xccccccff);
 
-		renderer.clip(SIDEBAR_WIDTH, contentTop, width - SIDEBAR_WIDTH, contentHeight);
+		renderer.clip(x + sidebarWidth, contentTop, width - sidebarWidth, contentHeight);
 		var firstLine = Std.int(scrollY / lineHeight), lastLine = firstLine + Std.int(contentHeight / lineHeight) + 2,
 			lineCount = buffer.lineCount();
 		if (lastLine > lineCount)
 			lastLine = lineCount;
 		for (lineIndex in firstLine...lastLine) {
 			var y = contentTop + lineIndex * lineHeight - scrollY;
-			renderer.text(SIDEBAR_WIDTH + 8, y, Std.string(lineIndex + 1), 0x666666ff);
+			renderer.text(x + SIDEBAR_WIDTH + 8, y, Std.string(lineIndex + 1), 0x666666ff);
 		}
 
-		renderer.clip(textLeft, contentTop, width - textLeft, contentHeight);
+		renderer.clip(textLeft, contentTop, width - textOffset, contentHeight);
 		var selectionStart = buffer.selectionStart(), selectionEnd = buffer.selectionEnd();
 		for (lineIndex in firstLine...lastLine) {
 			var value = buffer.line(lineIndex), lineStart = buffer.lineStart(lineIndex), lineEnd = lineStart + value.length,
@@ -102,7 +117,7 @@ class EditorView {
 			caretX = textLeft - scrollX + renderer.textWidth(cursorValue.substr(0, buffer.cursorColumn())),
 			caretY = contentTop + cursorLine * lineHeight - scrollY;
 		renderer.rect(caretX, caretY, 2, lineHeight, 0xffffffff);
-		renderer.clip(0, 0, width, height);
+		renderer.clip(x, y, width, height);
 	}
 
 	function ensureCaretVisible():Void {
@@ -134,15 +149,16 @@ class EditorView {
 	}
 
 	function insideText(x:Int, y:Int):Bool
-		return x >= SIDEBAR_WIDTH + GUTTER_WIDTH && x < width && y >= HEADER_HEIGHT + PADDING && y < height;
+		return x >= this.x + SIDEBAR_WIDTH + GUTTER_WIDTH && x < this.x + width
+			&& y >= this.y + HEADER_HEIGHT + PADDING && y < this.y + height;
 
 	function positionFromPoint(x:Int, y:Int):Int {
-		var buffer = document.buffer, lineIndex = Std.int((y - HEADER_HEIGHT - PADDING + scrollY) / renderer.lineHeight);
+		var buffer = document.buffer, lineIndex = Std.int((y - this.y - HEADER_HEIGHT - PADDING + scrollY) / renderer.lineHeight);
 		if (lineIndex < 0)
 			lineIndex = 0;
 		else if (lineIndex >= buffer.lineCount())
 			lineIndex = buffer.lineCount() - 1;
-		var value = buffer.line(lineIndex), targetX = x - SIDEBAR_WIDTH - GUTTER_WIDTH + scrollX, column = 0;
+		var value = buffer.line(lineIndex), targetX = x - this.x - SIDEBAR_WIDTH - GUTTER_WIDTH + scrollX, column = 0;
 		while (column < value.length) {
 			var left = renderer.textWidth(value.substr(0, column)), right = renderer.textWidth(value.substr(0, column + 1));
 			if (targetX < Std.int((left + right) / 2))
