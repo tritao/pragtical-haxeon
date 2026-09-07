@@ -19,12 +19,10 @@ class GraphicalMain {
 		for (argument in arguments) {
 			if (StringTools.startsWith(argument, "--plugin="))
 				application.loadPluginManifest(argument.substring(9));
-			else {
-				application.open(argument);
+			else if (application.openArgument(argument) != null)
 				documentCount++;
-			}
 		}
-		if (documentCount == 0)
+		if (documentCount == 0 && application.workspace.projects.length == 0)
 			application.open("README.md");
 		while (running) {
 			application.update();

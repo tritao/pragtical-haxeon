@@ -74,6 +74,22 @@ mapfile -t compiler_sources < <(find "$haxeon_root/src/compiler" "$haxeon_root/s
 		"$haxeon_root/vendor/hashlink/hl" plugin-test.hl
 )
 
+workspace_root="$root_dir/build/workspace-test"
+mkdir -p "$workspace_root/src" "$workspace_root/.git" "$workspace_root/.cache"
+printf 'alpha\n' > "$workspace_root/alpha.txt"
+printf 'class Main {}\n' > "$workspace_root/src/Main.hx"
+printf 'ignored\n' > "$workspace_root/.git/ignored"
+printf 'ignored\n' > "$workspace_root/.cache/ignored"
+"$root_dir/scripts/haxeon-compile.sh" \
+	--output="$root_dir/out/workspace-test.hl" --entry=app.WorkspaceTestMain \
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
+(
+	cd "$root_dir/out"
+	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+		"$haxeon_root/vendor/hashlink/hl" workspace-test.hl "$workspace_root"
+)
+
 dynamic_plugin_dir="$root_dir/build/dynamic-plugin"
 mkdir -p "$dynamic_plugin_dir"
 cp "$root_dir/plugins/example/plugin.conf" "$root_dir/plugins/example/Main.hx" "$dynamic_plugin_dir/"

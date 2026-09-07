@@ -1,0 +1,73 @@
+package view;
+
+import renderer.Renderer;
+import workspace.ProjectNode;
+import workspace.Workspace;
+
+class Sidebar {
+	public static inline final WIDTH = 220;
+	public static inline final HEADER_HEIGHT = 42;
+	public static inline final ROW_HEIGHT = 22;
+	public final workspace:Workspace;
+	public var selected(default, null):Int = 0;
+
+	public function new(workspace:Workspace) {
+		this.workspace = workspace;
+	}
+
+	public function nodes():Array<ProjectNode> {
+		var project = workspace.activeProject;
+		return project == null ? [] : project.visibleNodes();
+	}
+
+	public function selectBy(delta:Int):Bool {
+		var visible = nodes();
+		if (visible.length == 0) return false;
+		selected += delta;
+		if (selected < 0) selected = 0;
+		if (selected >= visible.length) selected = visible.length - 1;
+		return true;
+	}
+
+	public function activate():Null<String> {
+		var visible = nodes();
+		if (selected < 0 || selected >= visible.length) return null;
+		var node = visible[selected], project = workspace.activeProject;
+		if (node.directory) {
+			if (project != null) project.toggle(node);
+			return null;
+		}
+		return node.path;
+	}
+
+	public function selectPath(path:String):Bool {
+		var visible = nodes();
+		for (index in 0...visible.length)
+			if (visible[index].path == path) {
+				selected = index;
+				return true;
+			}
+		return false;
+	}
+
+	public function mouseDown(x:Int, y:Int):Null<String> {
+		if (x < 0 || x >= WIDTH || y < HEADER_HEIGHT) return null;
+		selected = Std.int((y - HEADER_HEIGHT) / ROW_HEIGHT);
+		return activate();
+	}
+
+	public function draw(renderer:Renderer, height:Int):Void {
+		renderer.clip(0, 0, WIDTH, height);
+		renderer.rect(0, 0, WIDTH, height, 0x202020ff);
+		renderer.text(16, 13, "EXPLORER", 0xaaaaaaff);
+		var visible = nodes(), maxRows = Std.int((height - HEADER_HEIGHT) / ROW_HEIGHT);
+		if (maxRows > visible.length) maxRows = visible.length;
+		for (index in 0...maxRows) {
+			var node = visible[index], y = HEADER_HEIGHT + index * ROW_HEIGHT;
+			if (index == selected) renderer.rect(0, y, WIDTH, ROW_HEIGHT, 0x2c313aff);
+			var marker = node.directory ? (node.expanded ? "v " : "> ") : "  ", indent = node.depth * 14;
+			renderer.text(10 + indent, y + 3, marker + node.name, node.directory ? 0xccccccff : 0xe6e6e6ff);
+		}
+		renderer.clip(0, 0, WIDTH, height);
+	}
+}

@@ -28,9 +28,9 @@ class EditorViewTestMain {
 		require(document.buffer.cursor.line == 2 && document.buffer.cursor.column == 5, "view lost preferred cursor column");
 		view.wheel(-100, 0);
 		require(view.scrollY > 0, "mouse wheel did not scroll document");
-		view.mouseDown(Platform.MOUSE_LEFT, EditorView.SIDEBAR_WIDTH + EditorView.GUTTER_WIDTH + 2,
+		view.mouseDown(Platform.MOUSE_LEFT, EditorView.GUTTER_WIDTH + 2,
 			EditorView.HEADER_HEIGHT + EditorView.PADDING + 2);
-		view.mouseMove(EditorView.SIDEBAR_WIDTH + EditorView.GUTTER_WIDTH + 40,
+		view.mouseMove(EditorView.GUTTER_WIDTH + 40,
 			EditorView.HEADER_HEIGHT + EditorView.PADDING + renderer.lineHeight + 2);
 		view.mouseUp(Platform.MOUSE_LEFT);
 		require(document.buffer.hasSelection(), "mouse drag did not select text");

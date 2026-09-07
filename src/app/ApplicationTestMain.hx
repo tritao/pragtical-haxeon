@@ -34,12 +34,12 @@ class ApplicationTestMain {
 			"closing a tab did not reconcile ownership and focus");
 		application.commands.perform("root:split-right", application.context);
 		require(!application.root.node.isLeaf() && application.root.node.requireFirst().width + application.root.node.requireSecond().width
-			+ LayoutNode.DIVIDER_SIZE == 640, "horizontal split did not assign recursive bounds");
+			+ LayoutNode.DIVIDER_SIZE == 640 - view.Sidebar.WIDTH, "horizontal split did not assign recursive bounds");
 		require(application.documents.documents.length == 1 && application.root.node.containsDocument(second),
 			"split duplicated document ownership");
-		var divider = application.root.node.requireFirst().width;
+		var divider = application.root.node.requireFirst().x + application.root.node.requireFirst().width;
 		application.root.mouseDown(Platform.MOUSE_LEFT, divider + 1, 100);
-		application.root.mouseMove(450, 100);
+		application.root.mouseMove(520, 100);
 		application.root.mouseUp(Platform.MOUSE_LEFT);
 		require(application.root.node.divider > 600, "divider drag did not resize panes");
 		application.commands.perform("root:split-up", application.context);

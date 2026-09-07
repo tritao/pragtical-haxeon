@@ -6,6 +6,7 @@ import editor.Document;
 import editor.EditorView;
 import renderer.Renderer;
 import style.Theme;
+import workspace.Workspace;
 
 class RootView {
 	public static inline final TAB_WIDTH = 180;
@@ -16,20 +17,24 @@ class RootView {
 	public final theme:Theme;
 	final focus:FocusManager;
 	final documents:DocumentManager;
+	public final workspace:Workspace;
+	public final sidebar:Sidebar;
 	var width:Int;
 	var height:Int;
 	var draggingDivider:Null<LayoutNode>;
 
-	public function new(renderer:Renderer, theme:Theme, focus:FocusManager, documents:DocumentManager, width:Int, height:Int) {
+	public function new(renderer:Renderer, theme:Theme, focus:FocusManager, workspace:Workspace, width:Int, height:Int) {
 		this.renderer = renderer;
 		this.theme = theme;
 		this.focus = focus;
-		this.documents = documents;
+		this.workspace = workspace;
+		this.documents = workspace.documents;
+		sidebar = new Sidebar(workspace);
 		this.width = width;
 		this.height = height;
 		node = new LayoutNode(focus, documents);
 		activeLeaf = node;
-		node.setBounds(0, 0, width, height);
+		setNodeBounds();
 	}
 
 	function get_tabs():TabGroup
@@ -42,6 +47,7 @@ class RootView {
 	}
 
 	public function openDocument(document:Document):View {
+		sidebar.selectPath(document.path);
 		var existing = node.findDocument(document);
 		if (existing != null) {
 			var leaf = leafForView(node, existing);
@@ -95,7 +101,13 @@ class RootView {
 	public function resize(width:Int, height:Int):Void {
 		this.width = width;
 		this.height = height;
-		node.setBounds(0, 0, width, height);
+		setNodeBounds();
+	}
+
+	function setNodeBounds():Void {
+		var contentWidth = width - Sidebar.WIDTH;
+		if (contentWidth < 0) contentWidth = 0;
+		node.setBounds(Sidebar.WIDTH, 0, contentWidth, height);
 	}
 
 	public function textInput(text:String):Void {
@@ -111,6 +123,11 @@ class RootView {
 	}
 
 	public function mouseDown(button:Int, x:Int, y:Int):Void {
+		if (button == 1 && x < Sidebar.WIDTH) {
+			var path = sidebar.mouseDown(x, y);
+			if (path != null) openDocument(documents.open(path));
+			return;
+		}
 		if (button == 1) {
 			var divider = node.dividerAt(x, y);
 			if (divider != null) {
@@ -121,8 +138,8 @@ class RootView {
 		var leaf = node.leafAt(x, y);
 		if (leaf == null) return;
 		activateLeaf(leaf);
-		if (button == 1 && y < leaf.y + EditorView.HEADER_HEIGHT && x >= leaf.x + EditorView.SIDEBAR_WIDTH) {
-			var index = Std.int((x - leaf.x - EditorView.SIDEBAR_WIDTH) / TAB_WIDTH);
+		if (button == 1 && y < leaf.y + EditorView.HEADER_HEIGHT) {
+			var index = Std.int((x - leaf.x) / TAB_WIDTH);
 			if (index >= 0 && index < tabs.views.length) tabs.setActive(tabs.views[index]);
 			return;
 		}
@@ -143,8 +160,20 @@ class RootView {
 	}
 
 	public function draw():Void {
+		sidebar.draw(renderer, height);
+		renderer.clip(0, 0, width, height);
 		drawNode(node);
 		renderer.clip(0, 0, width, height);
+	}
+
+	public function sidebarMove(delta:Int):Bool
+		return sidebar.selectBy(delta);
+
+	public function sidebarActivate():Bool {
+		var path = sidebar.activate();
+		if (path == null) return true;
+		openDocument(documents.open(path));
+		return true;
 	}
 
 	function drawNode(current:LayoutNode):Void {
@@ -170,7 +199,7 @@ class RootView {
 			return;
 		}
 		leaf.tabs.activeView.draw();
-		var x = leaf.x + EditorView.SIDEBAR_WIDTH;
+		var x = leaf.x;
 		for (view in leaf.tabs.views) {
 			var active = view == leaf.tabs.activeView;
 			renderer.rect(x, leaf.y, TAB_WIDTH, EditorView.HEADER_HEIGHT, active ? 0x303030ff : 0x222222ff);

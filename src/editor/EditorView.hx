@@ -5,7 +5,6 @@ import syntax.HighlightToken;
 import style.Theme;
 
 class EditorView {
-	public static inline final SIDEBAR_WIDTH = 220;
 	public static inline final HEADER_HEIGHT = 42;
 	public static inline final GUTTER_WIDTH = 52;
 	public static inline final PADDING = 12;
@@ -76,29 +75,23 @@ class EditorView {
 
 	public function draw(path:String):Void {
 		var buffer = document.buffer, lineHeight = renderer.lineHeight, contentTop = y + HEADER_HEIGHT + PADDING,
-			contentHeight = height - HEADER_HEIGHT - PADDING, sidebarWidth = SIDEBAR_WIDTH,
-			textOffset = SIDEBAR_WIDTH + GUTTER_WIDTH;
+			contentHeight = height - HEADER_HEIGHT - PADDING, textOffset = GUTTER_WIDTH;
 		if (contentHeight < 1) contentHeight = 1;
-		if (sidebarWidth >= width) sidebarWidth = width - 1;
-		if (sidebarWidth < 0) sidebarWidth = 0;
 		if (textOffset >= width) textOffset = width - 1;
 		if (textOffset < 0) textOffset = 0;
 		var textLeft = x + textOffset;
 		renderer.rect(x, y, width, height, 0x181818ff);
 		renderer.rect(x, y, width, HEADER_HEIGHT, 0x252525ff);
-		renderer.rect(x, y + HEADER_HEIGHT, SIDEBAR_WIDTH, height - HEADER_HEIGHT, 0x202020ff);
-		renderer.text(x + 18, y + 13, "PRAGTICAL HAXEON", 0xe6e6e6ff);
-		renderer.text(x + 18, y + 62, "EXPLORER", 0xaaaaaaff);
-		renderer.text(x + 244, y + 13, (document.dirty ? "* " : "") + path, 0xccccccff);
+		renderer.text(x + 12, y + 13, (document.dirty ? "* " : "") + path, 0xccccccff);
 
-		renderer.clip(x + sidebarWidth, contentTop, width - sidebarWidth, contentHeight);
+		renderer.clip(x, contentTop, width, contentHeight);
 		var firstLine = Std.int(scrollY / lineHeight), lastLine = firstLine + Std.int(contentHeight / lineHeight) + 2,
 			lineCount = buffer.lineCount();
 		if (lastLine > lineCount)
 			lastLine = lineCount;
 		for (lineIndex in firstLine...lastLine) {
 			var y = contentTop + lineIndex * lineHeight - scrollY;
-			renderer.text(x + SIDEBAR_WIDTH + 8, y, Std.string(lineIndex + 1), 0x666666ff);
+			renderer.text(x + 8, y, Std.string(lineIndex + 1), 0x666666ff);
 		}
 
 		renderer.clip(textLeft, contentTop, width - textOffset, contentHeight);
@@ -132,7 +125,7 @@ class EditorView {
 
 	function ensureCaretVisible():Void {
 		var buffer = document.buffer, lineHeight = renderer.lineHeight, viewportHeight = height - HEADER_HEIGHT - PADDING,
-			viewportWidth = width - SIDEBAR_WIDTH - GUTTER_WIDTH, caretY = buffer.cursor.line * lineHeight,
+			viewportWidth = width - GUTTER_WIDTH, caretY = buffer.cursor.line * lineHeight,
 			caretX = renderer.textWidth(buffer.line(buffer.cursor.line).substr(0, buffer.cursor.column)),
 			context = lineHeight;
 		if (caretY - context < scrollY)
@@ -159,7 +152,7 @@ class EditorView {
 	}
 
 	function insideText(x:Int, y:Int):Bool
-		return x >= this.x + SIDEBAR_WIDTH + GUTTER_WIDTH && x < this.x + width
+		return x >= this.x + GUTTER_WIDTH && x < this.x + width
 			&& y >= this.y + HEADER_HEIGHT + PADDING && y < this.y + height;
 
 	function positionFromPoint(x:Int, y:Int):BufferPosition {
@@ -168,7 +161,7 @@ class EditorView {
 			lineIndex = 0;
 		else if (lineIndex >= buffer.lineCount())
 			lineIndex = buffer.lineCount() - 1;
-		var value = buffer.line(lineIndex), targetX = x - this.x - SIDEBAR_WIDTH - GUTTER_WIDTH + scrollX, column = 0;
+		var value = buffer.line(lineIndex), targetX = x - this.x - GUTTER_WIDTH + scrollX, column = 0;
 		while (column < value.length) {
 			var left = renderer.textWidth(value.substr(0, column)), right = renderer.textWidth(value.substr(0, column + 1));
 			if (targetX < Std.int((left + right) / 2))

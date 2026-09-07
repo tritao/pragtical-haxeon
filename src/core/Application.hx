@@ -14,9 +14,12 @@ import plugin.PluginManifest;
 import syntax.BuiltinSyntax;
 import syntax.SyntaxRegistry;
 import style.Theme;
+import workspace.Workspace;
+import sys.FileSystem;
 
 class Application {
 	public final documents:DocumentManager;
+	public final workspace:Workspace;
 	public final focus:FocusManager;
 	public final root:RootView;
 	public final commands:CommandRegistry;
@@ -30,9 +33,10 @@ class Application {
 		syntaxes = new SyntaxRegistry();
 		BuiltinSyntax.install(syntaxes);
 		theme = new Theme();
-		documents = new DocumentManager(syntaxes);
+		workspace = new Workspace(syntaxes);
+		documents = workspace.documents;
 		focus = new FocusManager();
-		root = new RootView(renderer, theme, focus, documents, width, height);
+		root = new RootView(renderer, theme, focus, workspace, width, height);
 		commands = new CommandRegistry();
 		keymap = new Keymap(commands);
 		context = new CommandContext(root, focus, documents);
@@ -42,6 +46,14 @@ class Application {
 
 	public function open(path:String):View
 		return root.openDocument(documents.open(path));
+
+	public function openArgument(path:String):Null<View> {
+		if (FileSystem.isDirectory(path)) {
+			workspace.addProject(path);
+			return null;
+		}
+		return open(path);
+	}
 
 	public function add(document:Document):View
 		return root.openDocument(documents.add(document));

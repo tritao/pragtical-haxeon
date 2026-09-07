@@ -33,6 +33,9 @@ class EditorCommands {
 		registry.add("root:split-up", context -> context.root.splitActive(LayoutKind.Vertical, true));
 		registry.add("root:split-down", context -> context.root.splitActive(LayoutKind.Vertical));
 		registry.add("root:close-pane", context -> context.root.closeActivePane());
+		registry.add("project:sidebar-next", context -> context.root.sidebarMove(1));
+		registry.add("project:sidebar-previous", context -> context.root.sidebarMove(-1));
+		registry.add("project:sidebar-open", context -> context.root.sidebarActivate());
 
 		keymap.addDirect(Platform.KEY_S, Platform.MOD_CTRL, ["doc:save"]);
 		keymap.addDirect(Platform.KEY_Z, Platform.MOD_CTRL, ["doc:undo"]);
