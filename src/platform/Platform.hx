@@ -1,7 +1,7 @@
 package platform;
 
 class Platform {
-	public static inline final ABI_VERSION = 1;
+	public static inline final ABI_VERSION = 2;
 	public static inline final EVENT_QUIT = 1;
 	public static inline final EVENT_WINDOW_RESIZED = 2;
 	public static inline final EVENT_KEY_DOWN = 3;

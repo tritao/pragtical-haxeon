@@ -3,6 +3,7 @@ set -euo pipefail
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 haxeon_root=${HAXEON_ROOT:-"$root_dir/../realtime-haxe"}
+pragtical_root=${PRAGTICAL_ROOT:-"$root_dir/../pragtical"}
 cc=${CC:-cc}
 
 mkdir -p "$root_dir/out"
@@ -13,14 +14,33 @@ fi
 
 read -r -a sdl_cflags <<< "$(pkg-config --cflags sdl3)"
 read -r -a sdl_libs <<< "$(pkg-config --libs sdl3)"
-"$cc" -std=c11 -Wall -Wextra -Werror -fPIC -shared -DPHX_WITH_SDL \
-	-I"$root_dir/include" -I"$haxeon_root/vendor/hashlink/src" \
-	"${sdl_cflags[@]}" "$root_dir/native/headless/platform.c" \
+read -r -a font_cflags <<< "$(pkg-config --cflags freetype2)"
+read -r -a font_libs <<< "$(pkg-config --libs freetype2)"
+read -r -a shape_cflags <<< "$(pkg-config --cflags harfbuzz)"
+read -r -a shape_libs <<< "$(pkg-config --libs harfbuzz)"
+read -r -a lua_cflags <<< "$(pkg-config --cflags lua5.4)"
+"$cc" -std=c11 -Wall -Wextra -Werror \
+	-Wno-sign-compare -Wno-missing-field-initializers -Wno-ignored-qualifiers \
+	-Wno-type-limits -Wno-unused-parameter \
+	-fPIC -shared -DPHX_WITH_SDL -DPHX_WITH_FREETYPE \
+	-I"$root_dir/include" -I"$haxeon_root/vendor/hashlink/src" -I"$pragtical_root/src" \
+	"${sdl_cflags[@]}" "${font_cflags[@]}" "${shape_cflags[@]}" "${lua_cflags[@]}" \
+	"$root_dir/native/headless/platform.c" \
 	"$root_dir/native/hashlink/pragtical_hx.c" \
-	-L"$haxeon_root/vendor/hashlink" -lhl "${sdl_libs[@]}" \
+	"$root_dir/native/pragtical/renderer_backend.c" \
+	"$pragtical_root/src/renderer/atlas.c" \
+	"$pragtical_root/src/renderer/atlas_surface.c" \
+	"$pragtical_root/src/renderer/backend/surface.c" \
+	"$pragtical_root/src/renderer/cache.c" \
+	"$pragtical_root/src/renderer/renderer.c" \
+	"$pragtical_root/src/renderer/window.c" \
+	-L"$haxeon_root/vendor/hashlink" -lhl "${sdl_libs[@]}" "${font_libs[@]}" "${shape_libs[@]}" -lm \
 	-Wl,-rpath,"$haxeon_root/vendor/hashlink" \
 	-o "$root_dir/out/pragtical_hx.hdll"
 cp "$haxeon_root/out/realtime_runtime.hdll" "$root_dir/out/realtime_runtime.hdll"
+cp "$root_dir/README.md" "$root_dir/out/README.md"
+mkdir -p "$root_dir/out/data/fonts"
+cp "$pragtical_root/data/fonts/JetBrainsMono-Regular.ttf" "$root_dir/out/data/fonts/"
 
 mapfile -t sources < <(find "$root_dir/src" -type f -name '*.hx' -print | LC_ALL=C sort)
 mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -print | LC_ALL=C sort)

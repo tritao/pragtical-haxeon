@@ -4,8 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define PHX_PLATFORM_ABI_VERSION 1
+#define PHX_PLATFORM_ABI_VERSION 2
 #define PHX_MAX_WINDOWS 64
+#define PHX_MAX_FONTS 32
 #define PHX_EVENT_CAPACITY 256
 
 typedef int32_t phx_handle;
@@ -69,8 +70,12 @@ bool phx_event_push_for_test(const phx_event *event);
 bool phx_frame_begin(phx_handle window);
 bool phx_draw_rect(phx_handle window, int32_t x, int32_t y, int32_t width,
                    int32_t height, int32_t rgba);
-bool phx_draw_text(phx_handle window, int32_t x, int32_t y, const char *text,
-                   int32_t rgba);
+phx_handle phx_font_create(phx_handle window, const char *path, int32_t size);
+bool phx_font_destroy(phx_handle font);
+int32_t phx_font_height(phx_handle font);
+int32_t phx_font_text_width(phx_handle font, const char *text);
+bool phx_draw_text(phx_handle window, phx_handle font, int32_t x, int32_t y,
+                   const char *text, int32_t rgba);
 bool phx_frame_present(phx_handle window);
 int32_t phx_frame_count(phx_handle window);
 

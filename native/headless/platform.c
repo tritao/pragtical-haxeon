@@ -5,6 +5,9 @@
 
 #ifdef PHX_WITH_SDL
 #include <SDL3/SDL.h>
+#include "renderer/cache.h"
+#include "renderer/renderer.h"
+#include "renderer/window.h"
 #endif
 
 #define PHX_INDEX_BITS 8
@@ -19,13 +22,24 @@ typedef struct phx_window_slot {
   char title[128];
 #ifdef PHX_WITH_SDL
   SDL_Window *window;
-  SDL_Renderer *renderer;
+  RenWindow *renderer;
 #endif
 } phx_window_slot;
+
+typedef struct phx_font_slot {
+  uint32_t generation;
+  bool occupied;
+  int32_t height;
+  int32_t advance;
+#ifdef PHX_WITH_SDL
+  RenFont *font;
+#endif
+} phx_font_slot;
 
 static bool initialized;
 static bool is_headless;
 static phx_window_slot windows[PHX_MAX_WINDOWS];
+static phx_font_slot fonts[PHX_MAX_FONTS];
 static phx_event events[PHX_EVENT_CAPACITY];
 static uint32_t event_read;
 static uint32_t event_count;
@@ -79,6 +93,23 @@ static phx_window_slot *resolve_window(phx_handle handle) {
   return slot;
 }
 
+static phx_font_slot *resolve_font(phx_handle handle) {
+  if (handle <= 0) return NULL;
+  uint32_t encoded_index = (uint32_t)handle & PHX_INDEX_MASK;
+  uint32_t generation = (uint32_t)handle >> PHX_INDEX_BITS;
+  if (encoded_index == 0 || encoded_index > PHX_MAX_FONTS) return NULL;
+  phx_font_slot *slot = &fonts[encoded_index - 1];
+  if (!slot->occupied || slot->generation != generation) return NULL;
+  return slot;
+}
+
+#ifdef PHX_WITH_SDL
+static RenColor renderer_color(int32_t rgba) {
+  return (RenColor){.r = (rgba >> 24) & 255, .g = (rgba >> 16) & 255,
+                    .b = (rgba >> 8) & 255, .a = rgba & 255};
+}
+#endif
+
 int32_t phx_platform_abi_version(void) { return PHX_PLATFORM_ABI_VERSION; }
 
 bool phx_platform_init(bool headless) {
@@ -86,10 +117,13 @@ bool phx_platform_init(bool headless) {
 #ifndef PHX_WITH_SDL
   if (!headless) return fail("graphical backend is not compiled in");
 #else
-  if (!headless && !SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
-    return fail(SDL_GetError());
+  if (!headless) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) return fail(SDL_GetError());
+    if (ren_init() != 0) { SDL_Quit(); return fail(SDL_GetError()); }
+  }
 #endif
   memset(windows, 0, sizeof(windows));
+  memset(fonts, 0, sizeof(fonts));
   memset(events, 0, sizeof(events));
   event_read = 0;
   event_count = 0;
@@ -102,15 +136,20 @@ bool phx_platform_init(bool headless) {
 void phx_platform_shutdown(void) {
 #ifdef PHX_WITH_SDL
   if (!is_headless) {
-    for (uint32_t index = 0; index < PHX_MAX_WINDOWS; index++) {
-      if (windows[index].renderer) SDL_DestroyRenderer(windows[index].renderer);
-      if (windows[index].window) SDL_DestroyWindow(windows[index].window);
+    for (uint32_t index = 0; index < PHX_MAX_FONTS; index++) {
+      if (fonts[index].font) ren_font_free(fonts[index].font);
     }
+    for (uint32_t index = 0; index < PHX_MAX_WINDOWS; index++) {
+      if (windows[index].renderer) ren_destroy(windows[index].renderer);
+      else if (windows[index].window) SDL_DestroyWindow(windows[index].window);
+    }
+    ren_free();
     SDL_Quit();
   }
 #endif
   initialized = false;
   memset(windows, 0, sizeof(windows));
+  memset(fonts, 0, sizeof(fonts));
   event_read = 0;
   event_count = 0;
 }
@@ -144,7 +183,7 @@ phx_handle phx_window_create(const char *title, int32_t width, int32_t height) {
         fail(SDL_GetError());
         return 0;
       }
-      slot->renderer = SDL_CreateRenderer(slot->window, NULL);
+      slot->renderer = ren_create(slot->window);
       if (!slot->renderer) {
         SDL_DestroyWindow(slot->window);
         slot->window = NULL;
@@ -152,7 +191,6 @@ phx_handle phx_window_create(const char *title, int32_t width, int32_t height) {
         fail(SDL_GetError());
         return 0;
       }
-      SDL_SetRenderVSync(slot->renderer, 1);
     }
 #endif
     return make_handle(index, slot->generation);
@@ -165,8 +203,8 @@ bool phx_window_destroy(phx_handle handle) {
   phx_window_slot *slot = resolve_window(handle);
   if (!slot) return fail("invalid or stale window handle");
 #ifdef PHX_WITH_SDL
-  if (slot->renderer) SDL_DestroyRenderer(slot->renderer);
-  if (slot->window) SDL_DestroyWindow(slot->window);
+  if (slot->renderer) ren_destroy(slot->renderer);
+  else if (slot->window) SDL_DestroyWindow(slot->window);
   slot->renderer = NULL;
   slot->window = NULL;
 #endif
@@ -233,8 +271,7 @@ bool phx_frame_begin(phx_handle window) {
   if (!slot) return fail("invalid or stale window handle");
 #ifdef PHX_WITH_SDL
   if (!is_headless) {
-    SDL_SetRenderDrawColor(slot->renderer, 24, 24, 24, 255);
-    SDL_RenderClear(slot->renderer);
+    rencache_begin_frame(&slot->renderer->cache);
   }
 #endif
   return true;
@@ -247,10 +284,8 @@ bool phx_draw_rect(phx_handle window, int32_t x, int32_t y, int32_t width,
   if (width < 0 || height < 0) return fail("rectangle dimensions are negative");
 #ifdef PHX_WITH_SDL
   if (!is_headless) {
-    SDL_FRect rect = {(float)x, (float)y, (float)width, (float)height};
-    SDL_SetRenderDrawColor(slot->renderer, (rgba >> 24) & 255, (rgba >> 16) & 255,
-                           (rgba >> 8) & 255, rgba & 255);
-    if (!SDL_RenderFillRect(slot->renderer, &rect)) return fail(SDL_GetError());
+    rencache_draw_rect(&slot->renderer->cache,
+                       (RenRect){x, y, width, height}, renderer_color(rgba), true);
   }
 #else
   (void)x; (void)y; (void)rgba;
@@ -258,16 +293,77 @@ bool phx_draw_rect(phx_handle window, int32_t x, int32_t y, int32_t width,
   return true;
 }
 
-bool phx_draw_text(phx_handle window, int32_t x, int32_t y, const char *text,
-                   int32_t rgba) {
-  phx_window_slot *slot = resolve_window(window);
-  if (!slot) return fail("invalid or stale window handle");
+phx_handle phx_font_create(phx_handle window, const char *path, int32_t size) {
+  if (!resolve_window(window)) { fail("invalid or stale window handle"); return 0; }
+  if (size <= 0) { fail("font size must be positive"); return 0; }
+#ifndef PHX_WITH_SDL
+  (void)path;
+#endif
+  for (uint32_t index = 0; index < PHX_MAX_FONTS; index++) {
+    phx_font_slot *slot = &fonts[index];
+    if (slot->occupied) continue;
+    slot->generation++;
+    if (slot->generation == 0) slot->generation = 1;
+    slot->occupied = true;
+    slot->height = size;
+    slot->advance = (size * 3 + 2) / 5;
+#ifdef PHX_WITH_SDL
+    if (!is_headless) {
+      slot->font = ren_font_load(path, (float)size, FONT_ANTIALIASING_GRAYSCALE,
+                                 FONT_HINTING_SLIGHT, 0, true);
+      if (!slot->font) { slot->occupied = false; fail(SDL_GetError()); return 0; }
+      RenFont *group[] = {slot->font, NULL};
+      slot->height = ren_font_group_get_height(group);
+      slot->advance = (int)ren_font_group_get_width(group, "M", 1, (RenTab){0}, NULL);
+    }
+#endif
+    return make_handle(index, slot->generation);
+  }
+  fail("font table is full");
+  return 0;
+}
+
+bool phx_font_destroy(phx_handle font) {
+  phx_font_slot *slot = resolve_font(font);
+  if (!slot) return fail("invalid or stale font handle");
+#ifdef PHX_WITH_SDL
+  if (slot->font) ren_font_free(slot->font);
+  slot->font = NULL;
+#endif
+  slot->occupied = false;
+  return true;
+}
+
+int32_t phx_font_height(phx_handle font) {
+  phx_font_slot *slot = resolve_font(font);
+  if (!slot) { fail("invalid or stale font handle"); return -1; }
+  return slot->height;
+}
+
+int32_t phx_font_text_width(phx_handle font, const char *text) {
+  phx_font_slot *slot = resolve_font(font);
+  if (!slot) { fail("invalid or stale font handle"); return -1; }
 #ifdef PHX_WITH_SDL
   if (!is_headless) {
-    SDL_SetRenderDrawColor(slot->renderer, (rgba >> 24) & 255, (rgba >> 16) & 255,
-                           (rgba >> 8) & 255, rgba & 255);
-    if (!SDL_RenderDebugText(slot->renderer, (float)x, (float)y, text ? text : ""))
-      return fail(SDL_GetError());
+    RenFont *group[] = {slot->font, NULL};
+    return (int)ren_font_group_get_width(group, text ? text : "",
+      text ? strlen(text) : 0, (RenTab){0}, NULL);
+  }
+#endif
+  return (int32_t)strlen(text ? text : "") * slot->advance;
+}
+
+bool phx_draw_text(phx_handle window, phx_handle font, int32_t x, int32_t y,
+                   const char *text, int32_t rgba) {
+  phx_window_slot *slot = resolve_window(window);
+  if (!slot) return fail("invalid or stale window handle");
+  phx_font_slot *font_slot = resolve_font(font);
+  if (!font_slot) return fail("invalid or stale font handle");
+#ifdef PHX_WITH_SDL
+  if (!is_headless) {
+    RenFont *group[] = {font_slot->font, NULL};
+    rencache_draw_text(&slot->renderer->cache, group, text ? text : "",
+      text ? strlen(text) : 0, x, y, renderer_color(rgba), (RenTab){0});
   }
 #else
   (void)x; (void)y; (void)text; (void)rgba;
@@ -279,7 +375,7 @@ bool phx_frame_present(phx_handle window) {
   phx_window_slot *slot = resolve_window(window);
   if (!slot) return fail("invalid or stale window handle");
 #ifdef PHX_WITH_SDL
-  if (!is_headless && !SDL_RenderPresent(slot->renderer)) return fail(SDL_GetError());
+  if (!is_headless) rencache_end_frame(&slot->renderer->cache);
 #endif
   slot->frames++;
   return true;

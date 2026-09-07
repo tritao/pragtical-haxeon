@@ -42,10 +42,20 @@ HL_PRIM bool HL_NAME(draw_rect)(int window, int x, int y, int width, int height,
                                 int rgba) {
   return phx_draw_rect(window, x, y, width, height, rgba);
 }
-HL_PRIM bool HL_NAME(draw_text)(int window, int x, int y, vbyte *text,
+HL_PRIM int HL_NAME(font_create)(int window, vbyte *path, int size) {
+  const char *utf8 = path ? hl_to_utf8((uchar *)path) : "";
+  return phx_font_create(window, utf8, size);
+}
+HL_PRIM bool HL_NAME(font_destroy)(int font) { return phx_font_destroy(font); }
+HL_PRIM int HL_NAME(font_height)(int font) { return phx_font_height(font); }
+HL_PRIM int HL_NAME(font_text_width)(int font, vbyte *text) {
+  const char *utf8 = text ? hl_to_utf8((uchar *)text) : "";
+  return phx_font_text_width(font, utf8);
+}
+HL_PRIM bool HL_NAME(draw_text)(int window, int font, int x, int y, vbyte *text,
                                 int rgba) {
   const char *utf8 = text ? hl_to_utf8((uchar *)text) : "";
-  return phx_draw_text(window, x, y, utf8, rgba);
+  return phx_draw_text(window, font, x, y, utf8, rgba);
 }
 HL_PRIM bool HL_NAME(frame_present)(int window) {
   return phx_frame_present(window);
@@ -68,6 +78,10 @@ DEFINE_PRIM(_BYTES, event_text, _NO_ARG);
 DEFINE_PRIM(_BOOL, event_push_test, _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_BOOL, frame_begin, _I32);
 DEFINE_PRIM(_BOOL, draw_rect, _I32 _I32 _I32 _I32 _I32 _I32);
-DEFINE_PRIM(_BOOL, draw_text, _I32 _I32 _I32 _BYTES _I32);
+DEFINE_PRIM(_I32, font_create, _I32 _BYTES _I32);
+DEFINE_PRIM(_BOOL, font_destroy, _I32);
+DEFINE_PRIM(_I32, font_height, _I32);
+DEFINE_PRIM(_I32, font_text_width, _I32 _BYTES);
+DEFINE_PRIM(_BOOL, draw_text, _I32 _I32 _I32 _I32 _BYTES _I32);
 DEFINE_PRIM(_BOOL, frame_present, _I32);
 DEFINE_PRIM(_I32, frame_count, _I32);

@@ -18,7 +18,11 @@ extern class Native {
 	static function event_push_test(kind:Int, window:Int, a:Int, b:Int):Bool;
 	static function frame_begin(window:Int):Bool;
 	static function draw_rect(window:Int, x:Int, y:Int, width:Int, height:Int, rgba:Int):Bool;
-	static function draw_text(window:Int, x:Int, y:Int, text:String, rgba:Int):Bool;
+	static function font_create(window:Int, path:String, size:Int):Int;
+	static function font_destroy(font:Int):Bool;
+	static function font_height(font:Int):Int;
+	static function font_text_width(font:Int, text:String):Int;
+	static function draw_text(window:Int, font:Int, x:Int, y:Int, text:String, rgba:Int):Bool;
 	static function frame_present(window:Int):Bool;
 	static function frame_count(window:Int):Int;
 }

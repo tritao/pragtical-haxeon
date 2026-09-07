@@ -4,8 +4,9 @@ A new editor implementation with its application core written in Haxeon. The
 native host owns platform lifecycle and resources; reloadable Haxeon domains own
 editor behavior.
 
-The first milestone is a deterministic headless platform backend implementing
-the same ABI that the Pragtical SDL3 renderer will implement next.
+The graphical backend compiles Pragtical's renderer sources directly and uses
+its font shaping, glyph atlas, dirty-region cache, and SDL surface backend behind
+the platform ABI. The editor core never receives SDL or renderer pointers.
 
 ## Build and test
 

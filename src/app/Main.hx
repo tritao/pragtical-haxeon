@@ -8,9 +8,11 @@ class Main {
 		Platform.startHeadless();
 		var first = Native.window_create("Pragtical Haxeon", 960, 640);
 		Platform.require(first != 0, "create window");
+		var font = Native.font_create(first, "ignored-headlessly.ttf", 15);
+		Platform.require(font != 0, "create font");
 		Platform.require(Native.frame_begin(first), "begin frame");
 		Platform.require(Native.draw_rect(first, 0, 0, 960, 640, 0x181818ff), "draw background");
-		Platform.require(Native.draw_text(first, 24, 24, "Pragtical Haxeon", 0xffffffff), "draw title");
+		Platform.require(Native.draw_text(first, font, 24, 24, "Pragtical Haxeon", 0xffffffff), "draw title");
 		Platform.require(Native.frame_present(first), "present frame");
 		Platform.require(Native.frame_count(first) == 1, "count frame");
 
@@ -20,6 +22,7 @@ class Main {
 		Platform.require(Native.event_window() == first, "decode resize window");
 		Platform.require(Native.event_a() == 1200 && Native.event_b() == 800, "decode resize size");
 
+		Platform.require(Native.font_destroy(font), "destroy font");
 		Platform.require(Native.window_destroy(first), "destroy window");
 		Platform.require(!Native.window_valid(first), "reject destroyed handle");
 		var second = Native.window_create("Replacement", 320, 200);

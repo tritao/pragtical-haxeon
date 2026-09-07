@@ -3,6 +3,7 @@ package app;
 import platform.Native;
 import platform.Platform;
 import editor.Document;
+import renderer.Renderer;
 
 class GraphicalMain {
 	static function main():Int {
@@ -12,6 +13,7 @@ class GraphicalMain {
 		var arguments = Sys.args(), path = arguments.length == 0 ? "README.md" : arguments[0], document = Document.open(path);
 		var window = Native.window_create("Pragtical Haxeon", 960, 640), running = true;
 		Platform.require(window != 0, "create editor window");
+		var renderer = new Renderer(window, "data/fonts/JetBrainsMono-Regular.ttf", 15);
 		while (running) {
 			while (Native.event_poll()) {
 				var kind = Native.event_kind();
@@ -48,19 +50,23 @@ class GraphicalMain {
 						document.buffer.moveEnd(shift);
 				}
 			}
-			Platform.require(Native.frame_begin(window), "begin frame");
-			Platform.require(Native.draw_rect(window, 0, 0, 960, 42, 0x252525ff), "draw title bar");
-			Platform.require(Native.draw_rect(window, 0, 42, 220, 598, 0x202020ff), "draw sidebar");
-			Platform.require(Native.draw_text(window, 18, 17, "PRAGTICAL HAXEON", 0xe6e6e6ff), "draw title");
-			Platform.require(Native.draw_text(window, 18, 68, "EXPLORER", 0xaaaaaaff), "draw explorer");
-			Platform.require(Native.draw_text(window, 244, 17, (document.dirty ? "* " : "") + path, 0xccccccff), "draw filename");
-			var lines = document.buffer.text.split("\n"), visible = lines.length < 65 ? lines.length : 65;
+			renderer.begin();
+			renderer.rect(0, 0, 960, 42, 0x252525ff);
+			renderer.rect(0, 42, 220, 598, 0x202020ff);
+			renderer.text(18, 13, "PRAGTICAL HAXEON", 0xe6e6e6ff);
+			renderer.text(18, 62, "EXPLORER", 0xaaaaaaff);
+			renderer.text(244, 13, (document.dirty ? "* " : "") + path, 0xccccccff);
+			var lines = document.buffer.text.split("\n"), visibleLines = Std.int((640 - 54) / renderer.lineHeight),
+				visible = lines.length < visibleLines ? lines.length : visibleLines;
 			for (lineIndex in 0...visible)
-				Platform.require(Native.draw_text(window, 244, 58 + lineIndex * 9, lines[lineIndex], 0xe6e6e6ff), "draw document line");
-			var caretX = 244 + document.buffer.cursorColumn() * 8, caretY = 58 + document.buffer.cursorLine() * 9;
-			Platform.require(Native.draw_rect(window, caretX, caretY, 2, 8, 0xffffffff), "draw caret");
-			Platform.require(Native.frame_present(window), "present frame");
+				renderer.text(244, 54 + lineIndex * renderer.lineHeight, lines[lineIndex], 0xe6e6e6ff);
+			var cursorLine = document.buffer.cursorLine(), cursorColumn = document.buffer.cursorColumn(),
+				caretPrefix = cursorLine < lines.length ? lines[cursorLine].substr(0, cursorColumn) : "",
+				caretX = 244 + renderer.textWidth(caretPrefix), caretY = 54 + cursorLine * renderer.lineHeight;
+			renderer.rect(caretX, caretY, 2, renderer.lineHeight, 0xffffffff);
+			renderer.present();
 		}
+		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy editor window");
 		Native.shutdown();
 		return 0;

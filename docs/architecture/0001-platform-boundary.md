@@ -13,8 +13,16 @@ dependency.
 The native host owns the outer application loop and durable resources. Haxeon
 owns editor state and behavior. Native resources cross the boundary as opaque,
 generation-checked integer handles. Events cross through a pull queue as
-normalized value records. Rendering will use a command buffer once the minimal
-API is proven.
+normalized value records. Rendering reuses Pragtical's renderer sources
+directly, including its font shaping, glyph atlases, dirty-region cache, drawing
+primitives, and portable SDL surface backend. The Haxeon bridge selects that
+backend with a tiny adapter and exposes only opaque font handles and
+value-oriented draw operations.
+
+The renderer source remains owned by the sibling Pragtical checkout rather than
+being forked here. Builds use `PRAGTICAL_ROOT` (defaulting to `../pragtical`), so
+renderer changes can be validated against both applications without maintaining
+a copied implementation.
 
 ## Why
 
@@ -25,7 +33,8 @@ lifetimes, structure layouts, backend choices, and platform-specific main-loop
 rules into reloadable editor code.
 
 This boundary permits a deterministic headless backend, protects native objects
-from stale references after domain reloads, and leaves the renderer replaceable.
+from stale references after domain reloads, and preserves Pragtical's mature
+rendering behavior without exposing its C types to editor code.
 
 ## Ownership
 

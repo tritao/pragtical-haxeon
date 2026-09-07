@@ -7,4 +7,4 @@ haxeon_root=${HAXEON_ROOT:-"$root_dir/../realtime-haxe"}
 "$root_dir/scripts/build-sdl.sh"
 cd "$root_dir/out"
 LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-	exec "$haxeon_root/vendor/hashlink/hl" pragtical-haxeon.hl
+	exec "$haxeon_root/vendor/hashlink/hl" pragtical-haxeon.hl "$@"
