@@ -59,6 +59,12 @@ class TextBuffer {
 		return replace(selectionStart(), selectionEnd(), value);
 	}
 
+	public function replaceRange(from:BufferPosition, to:BufferPosition, value:String):Bool
+		return replace(from, to, value);
+
+	public function replaceAllText(value:String):Bool
+		return replace(new BufferPosition(0, 0), documentEnd(), value);
+
 	public function deleteBackward():Bool {
 		if (hasSelection()) return replace(selectionStart(), selectionEnd(), "");
 		var start = positionOffset(cursor, -1);

@@ -6,6 +6,8 @@ import editor.BufferPosition;
 import syntax.HighlightToken;
 import syntax.BuiltinSyntax;
 import syntax.SyntaxRegistry;
+import search.DocumentSearch;
+import search.SearchOptions;
 
 class DocumentTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -62,6 +64,17 @@ class DocumentTestMain {
 		require(document.dirty && document.buffer.text == " editclean", "document dirty state failed");
 		document.undo();
 		require(!document.dirty && document.buffer.text == "clean", "undo did not restore document savepoint");
+		var searched = new Document("search.txt", "Alpha alpha alphabet\n😀 alpha", syntaxes), options = new SearchOptions();
+		var matches = DocumentSearch.find(searched, "alpha", options);
+		require(matches.length == 4 && matches[3].line == 1 && matches[3].column == 3, "case-insensitive Unicode search positions failed");
+		options.caseSensitive = true;
+		require(DocumentSearch.find(searched, "Alpha", options).length == 1, "case-sensitive search failed");
+		options.caseSensitive = false;
+		options.wholeWord = true;
+		require(DocumentSearch.find(searched, "alpha", options).length == 3, "whole-word search failed");
+		require(DocumentSearch.replaceAll(searched, "alpha", "beta", options) == 3, "replace-all count failed");
+		require(searched.buffer.text == "beta beta alphabet\n😀 beta", "replace-all content failed");
+		require(searched.buffer.undo() && searched.buffer.text == "Alpha alpha alphabet\n😀 alpha", "replace-all was not one undo transaction");
 		var source = new Document("Main.hx", "class Main {\n/* comment\nstill comment */ var value = 42;\n}", syntaxes);
 		source.setPath("Main.txt");
 		require(source.syntax.name == "Plain Text", "path change did not reselect syntax");

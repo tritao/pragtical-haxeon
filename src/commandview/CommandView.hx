@@ -1,57 +1,72 @@
-package palette;
+package commandview;
 
+import platform.Platform;
 import renderer.Renderer;
 
-class CommandPalette {
-	public static inline final FILES = 1;
-	public static inline final COMMANDS = 2;
+class CommandView {
 	public var active(default, null):Bool = false;
-	public var mode(default, null):Int = FILES;
 	public var query(default, null):String = "";
 	public var selected(default, null):Int = 0;
-	public final results:Array<PaletteEntry> = [];
-	var source:Array<PaletteEntry> = [];
+	public final results:Array<CommandViewEntry> = [];
+	var provider:Null<CommandViewProvider>;
 
 	public function new() {}
 
-	public function open(mode:Int, entries:Array<PaletteEntry>):Void {
-		this.mode = mode;
-		source = entries;
+	public function open(provider:CommandViewProvider):Void {
+		this.provider = provider;
 		query = "";
 		selected = 0;
 		active = true;
 		filter();
+		provider.onQuery(query);
 	}
 
-	public function close():Void
+	public function close(cancel:Bool = false):Void {
+		var current = provider;
 		active = false;
+		provider = null;
+		if (cancel && current != null) current.onCancel();
+	}
 
 	public function textInput(value:String):Void {
 		query += value;
-		filter();
+		changed();
 	}
 
-	public function backspace():Void {
-		if (query.length > 0) query = query.substring(0, query.length - 1);
-		filter();
+	public function keyPressed(key:Int, modifiers:Int):Bool {
+		if (!active) return false;
+		if (key == Platform.KEY_ESCAPE) close(true);
+		else if (key == Platform.KEY_BACKSPACE) {
+			if (query.length > 0) query = query.substring(0, query.length - 1);
+			changed();
+		} else if (key == Platform.KEY_UP) move(-1);
+		else if (key == Platform.KEY_DOWN) move(1);
+		else if (key == Platform.KEY_ENTER) accept((modifiers & Platform.MOD_SHIFT) != 0);
+		return true;
 	}
 
-	public function move(delta:Int):Void {
+	function changed():Void {
+		filter();
+		if (provider != null) provider.onQuery(query);
+	}
+
+	function move(delta:Int):Void {
+		if (provider != null) provider.onMove(delta);
 		if (results.length == 0) return;
 		selected += delta;
 		if (selected < 0) selected = results.length - 1;
 		if (selected >= results.length) selected = 0;
 	}
 
-	public function accept():Null<PaletteEntry> {
-		if (selected < 0 || selected >= results.length) return null;
-		var result = results[selected];
-		close();
-		return result;
+	function accept(backwards:Bool):Void {
+		var current = provider;
+		if (current == null) return;
+		var entry = selected >= 0 && selected < results.length ? results[selected] : null;
+		current.onAccept(entry, query, backwards);
 	}
 
 	public function draw(renderer:Renderer, windowWidth:Int, windowHeight:Int):Void {
-		if (!active) return;
+		if (!active || provider == null) return;
 		var width = windowWidth - 80;
 		if (width > 640) width = 640;
 		if (width < 200) width = 200;
@@ -62,7 +77,7 @@ class CommandPalette {
 		renderer.rect(0, 0, windowWidth, windowHeight, 0x00000066);
 		renderer.rect(x - 2, y - 2, width + 4, height + 4, 0x111111ff);
 		renderer.rect(x, y, width, 40, 0x252932ff);
-		renderer.text(x + 12, y + 11, (mode == COMMANDS ? "> " : "") + query, 0xffffffff);
+		renderer.text(x + 12, y + 11, provider.prompt + query, 0xffffffff);
 		for (index in 0...visible) {
 			var rowY = y + 42 + index * rowHeight, entry = results[index];
 			if (index == selected) renderer.rect(x, rowY, width, rowHeight, 0x094771ff);
@@ -73,7 +88,8 @@ class CommandPalette {
 
 	function filter():Void {
 		results.resize(0);
-		for (entry in source) {
+		if (provider == null) return;
+		for (entry in provider.entries) {
 			var score = fuzzyScore(entry.label, query);
 			if (score >= 0) {
 				entry.score = score;

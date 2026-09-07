@@ -1,6 +1,7 @@
 package view;
 
 import editor.Document;
+import search.SearchMatch;
 
 class View {
 	public final title:String;
@@ -22,6 +23,7 @@ class View {
 	public function resize(width:Int, height:Int):Void {}
 	public function textInput(text:String):Void {}
 	public function cursorChanged():Void {}
+	public function setSearchMatches(matches:Array<SearchMatch>):Void {}
 	public function wheel(vertical:Int, horizontal:Int):Void {}
 	public function mouseDown(button:Int, x:Int, y:Int):Void {}
 	public function mouseMove(x:Int, y:Int):Void {}

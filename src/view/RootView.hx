@@ -7,7 +7,9 @@ import editor.EditorView;
 import renderer.Renderer;
 import style.Theme;
 import workspace.Workspace;
-import palette.CommandPalette;
+import commandview.CommandView;
+import search.DocumentSearch;
+import search.SearchMatch;
 
 class RootView {
 	public static inline final TAB_WIDTH = 180;
@@ -20,7 +22,9 @@ class RootView {
 	final documents:DocumentManager;
 	public final workspace:Workspace;
 	public final sidebar:Sidebar;
-	public final palette:CommandPalette;
+	public final searchSidebar:SearchSidebar;
+	public final commandView:CommandView;
+	public var searchVisible(default, null):Bool = false;
 	var width:Int;
 	var height:Int;
 	var draggingDivider:Null<LayoutNode>;
@@ -32,7 +36,8 @@ class RootView {
 		this.workspace = workspace;
 		this.documents = workspace.documents;
 		sidebar = new Sidebar(workspace);
-		palette = new CommandPalette();
+		searchSidebar = new SearchSidebar();
+		commandView = new CommandView();
 		this.width = width;
 		this.height = height;
 		node = new LayoutNode(focus, documents);
@@ -127,8 +132,13 @@ class RootView {
 
 	public function mouseDown(button:Int, x:Int, y:Int):Void {
 		if (button == 1 && x < Sidebar.WIDTH) {
-			var path = sidebar.mouseDown(x, y);
-			if (path != null) openDocument(documents.open(path));
+			if (searchVisible) {
+				var match = searchSidebar.mouseDown(x, y);
+				if (match != null) openSearchMatch(match);
+			} else {
+				var path = sidebar.mouseDown(x, y);
+				if (path != null) openDocument(documents.open(path));
+			}
 			return;
 		}
 		if (button == 1) {
@@ -163,11 +173,43 @@ class RootView {
 	}
 
 	public function draw():Void {
-		sidebar.draw(renderer, height);
+		if (searchVisible) searchSidebar.draw(renderer, height); else sidebar.draw(renderer, height);
 		renderer.clip(0, 0, width, height);
 		drawNode(node);
 		renderer.clip(0, 0, width, height);
-		palette.draw(renderer, width, height);
+		commandView.draw(renderer, width, height);
+	}
+
+	public function showSearchResults(query:String, results:Array<SearchMatch>):Void {
+		searchVisible = true;
+		searchSidebar.setResults(query, results);
+	}
+
+	public function showProjectSidebar():Void
+		searchVisible = false;
+
+	public function searchMove(delta:Int):Bool
+		return searchSidebar.selectBy(delta);
+
+	public function searchActivate():Bool {
+		var match = searchSidebar.active();
+		if (match != null) openSearchMatch(match);
+		return true;
+	}
+
+	public function openSearchMatch(match:SearchMatch):Void {
+		var view = openDocument(documents.open(match.path));
+		var document = view.getDocument();
+		if (document != null) {
+			DocumentSearch.select(document, match);
+			view.cursorChanged();
+		}
+	}
+
+	public function setDocumentSearchMatches(results:Array<SearchMatch>):Void {
+		var view = tabs.activeView;
+		if (view == null) return;
+		view.setSearchMatches(results);
 	}
 
 	public function sidebarMove(delta:Int):Bool

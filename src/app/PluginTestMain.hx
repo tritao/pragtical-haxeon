@@ -73,9 +73,9 @@ class PluginTestMain {
 		require(application.syntaxes.find("file.sample").name == "Sample", "plugin syntax did not register");
 		require(!application.plugins.load(new SamplePlugin()), "duplicate plugin id was accepted");
 		require(application.keyPressed(77, 3) && plugin.performed == 1, "plugin key binding did not dispatch");
-		application.openCommandPalette();
+		application.openCommandView();
 		application.textInput("samplerun");
-		require(application.root.palette.results.length == 1, "plugin command was absent from command palette");
+		require(application.root.commandView.results.length == 1, "plugin command was absent from command view");
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(plugin.performed == 2, "plugin command palette entry did not dispatch");
 		require(application.plugins.unload("sample"), "plugin did not unload");

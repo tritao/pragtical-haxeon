@@ -4,6 +4,7 @@ import editor.Document;
 import editor.EditorView;
 import renderer.Renderer;
 import style.Theme;
+import search.SearchMatch;
 
 class DocumentView extends View {
 	public final document:Document;
@@ -37,6 +38,9 @@ class DocumentView extends View {
 
 	override public function cursorChanged():Void
 		editor.cursorChanged();
+
+	override public function setSearchMatches(matches:Array<SearchMatch>):Void
+		editor.setSearchMatches(matches);
 
 	override public function wheel(vertical:Int, horizontal:Int):Void
 		editor.wheel(vertical, horizontal);

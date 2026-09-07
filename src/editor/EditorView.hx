@@ -3,6 +3,7 @@ package editor;
 import renderer.Renderer;
 import syntax.HighlightToken;
 import style.Theme;
+import search.SearchMatch;
 
 class EditorView {
 	public static inline final HEADER_HEIGHT = 42;
@@ -18,6 +19,7 @@ class EditorView {
 	public var height(default, null):Int;
 	public var scrollX(default, null):Int = 0;
 	public var scrollY(default, null):Int = 0;
+	public final searchMatches:Array<SearchMatch> = [];
 	var mouseSelecting = false;
 
 	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int) {
@@ -46,6 +48,11 @@ class EditorView {
 
 	public function cursorChanged():Void
 		ensureCaretVisible();
+
+	public function setSearchMatches(matches:Array<SearchMatch>):Void {
+		searchMatches.resize(0);
+		for (match in matches) searchMatches.push(match);
+	}
 
 	public function wheel(verticalHundredths:Int, horizontalHundredths:Int):Void {
 		scrollY -= Std.int(verticalHundredths * renderer.lineHeight * 3 / 100);
@@ -99,6 +106,12 @@ class EditorView {
 		for (lineIndex in firstLine...lastLine) {
 			var value = buffer.line(lineIndex),
 				y = contentTop + lineIndex * lineHeight - scrollY, x = textLeft - scrollX;
+			for (match in searchMatches)
+				if (match.line == lineIndex) {
+					var matchX = x + renderer.textWidth(value.substr(0, match.column)),
+						matchWidth = renderer.textWidth(value.substr(match.column, match.length));
+					renderer.rect(matchX, y, matchWidth, lineHeight, 0x613214ff);
+				}
 			if (selectionEnd.line > lineIndex || selectionEnd.line == lineIndex && selectionEnd.column > 0)
 				if (selectionStart.line < lineIndex || selectionStart.line == lineIndex && selectionStart.column <= value.length) {
 				var fromColumn = selectionStart.line == lineIndex ? selectionStart.column : 0,

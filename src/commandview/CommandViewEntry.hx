@@ -1,6 +1,6 @@
-package palette;
+package commandview;
 
-class PaletteEntry {
+class CommandViewEntry {
 	public final label:String;
 	public final detail:String;
 	public final value:String;
