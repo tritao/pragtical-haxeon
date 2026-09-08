@@ -101,6 +101,7 @@ class Application {
 		installSearchCommands();
 		plugins = new PluginManager(commands, keymap, context, syntaxes, root.pluginPanels, workspace.jobs, effectiveSettings,
 			message -> reportError("plugin", message));
+		installPluginCommands();
 		installConfigurationCommands();
 		installFileCommands();
 		commands.add("recovery:open", context -> openRecoveryCommandView());
@@ -470,6 +471,34 @@ class Application {
 		keymap.addDirect(Platform.KEY_PAGE_UP, Platform.MOD_CTRL, ["layout:reorder-tab-left"]);
 		keymap.addDirect(Platform.KEY_PAGE_DOWN, Platform.MOD_CTRL, ["layout:reorder-tab-right"]);
 		keymap.addDirect(Platform.KEY_B, Platform.MOD_CTRL, ["workbench:toggle-sidebar"]);
+	}
+
+	function installPluginCommands():Void {
+		commands.add("plugins:disable", context -> openPluginAction("Disable Plugin: ", plugins.enabledIds(), plugins.disable),
+			context -> plugins.enabledIds().length > 0);
+		commands.add("plugins:enable", context -> openPluginAction("Enable Plugin: ", plugins.disabledIds(), plugins.enable),
+			context -> plugins.disabledIds().length > 0);
+		commands.add("plugins:reload", context -> openPluginAction("Reload Plugin: ", plugins.enabledIds(), plugins.reload),
+			context -> plugins.enabledIds().length > 0);
+		commands.add("plugins:show-diagnostics", function(context) {
+			var entries = [for (diagnostic in plugins.diagnostics()) new CommandViewEntry("Plugin error", diagnostic, diagnostic)];
+			root.commandView.open(new CommandViewProvider("Plugin Diagnostics: ", entries, function(query) {}, function(entry, query, backwards) {
+				root.commandView.close();
+			}));
+		});
+	}
+
+	function openPluginAction(prompt:String, ids:Array<String>, action:String->Bool):Void {
+		var entries = [for (id in ids) new CommandViewEntry(id, "", id)];
+		root.commandView.open(new CommandViewProvider(prompt, entries, function(query) {}, function(entry, query, backwards) {
+			if (entry != null)
+				try {
+					if (action(entry.value)) reportInformation(prompt + entry.value);
+				} catch (error:Dynamic) {
+					reportError("plugin", prompt + entry.value + ": " + Std.string(error));
+				}
+			root.commandView.close();
+		}));
 	}
 
 	function settingsFor(document:Document):config.Settings {

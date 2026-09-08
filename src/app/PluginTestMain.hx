@@ -111,15 +111,27 @@ class PluginTestMain {
 		require(application.root.commandView.results.length == 1, "plugin command was absent from command view");
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(plugin.performed == 2, "plugin command palette entry did not dispatch");
-		require(application.plugins.unload("sample"), "plugin did not unload");
+		require(application.commands.perform("plugins:disable", application.context)
+			&& application.root.commandView.results.length == 1, "plugin disable picker did not open");
+		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(plugin.deactivations == 1 && !application.commands.contains("sample:run") && !application.keyPressed(77, 3),
-			"plugin registrations survived unload");
+			"plugin registrations survived disable");
 		var eventsAfterUnload = plugin.events;
 		application.textInput("after");
 		require(application.root.pluginPanels.find("sample", "status") == null && plugin.events == eventsAfterUnload && plugin.job.cancelled,
-			"plugin panel, event subscription, or scheduled job survived unload");
-		require(application.syntaxes.find("file.sample").name == "Plain Text", "plugin syntax survived unload");
-		require(application.plugins.reload(plugin) && plugin.activations == 2, "plugin did not reload");
+			"plugin panel, event subscription, or scheduled job survived disable");
+		require(application.syntaxes.find("file.sample").name == "Plain Text", "plugin syntax survived disable");
+		require(!application.plugins.isLoaded("sample") && application.plugins.disabledIds().indexOf("sample") >= 0,
+			"disabled plugin definition was not retained");
+		require(application.commands.perform("plugins:enable", application.context)
+			&& application.root.commandView.results.length == 1, "plugin enable picker did not open");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		require(plugin.activations == 2 && application.plugins.isLoaded("sample"),
+			"plugin did not enable with fresh registrations");
+		require(application.commands.perform("plugins:reload", application.context)
+			&& application.root.commandView.results.length == 1, "plugin reload picker did not open");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		require(plugin.activations == 3, "plugin did not reload");
 		var failed = false;
 		try {
 			application.plugins.load(new BrokenPlugin());
@@ -130,7 +142,7 @@ class PluginTestMain {
 			&& !application.plugins.isLoaded("broken")
 			&& !application.commands.contains("broken:leak"), "failed activation leaked plugin state");
 		application.shutdown();
-		require(plugin.deactivations == 2 && application.plugins.count() == 0, "application shutdown did not deactivate plugins");
+		require(plugin.deactivations == 3 && application.plugins.count() == 0, "application shutdown did not deactivate plugins");
 		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy plugin test window");
 		Native.shutdown();

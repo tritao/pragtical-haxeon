@@ -54,37 +54,58 @@ class PluginManager {
 		var index = indexOf(id);
 		if (index < 0)
 			return false;
-		var entry = entries[index], plugin = entry.plugin, context = entry.context, failed = false, failure = "";
-		try {
-			plugin.deactivate(context);
-		} catch (error:Dynamic) {
-			failed = true;
-			failure = Std.string(error);
-		}
-		context.dispose();
+		var entry = entries[index], failure:Null<String> = null;
+		try disable(id) catch (error:Dynamic) failure = Std.string(error);
 		entries.remove(entry);
 		reportedDiagnostics.remove(id);
-		plugin.dispose();
-		if (failed)
-			throw failure;
+		entry.plugin.dispose();
+		if (failure != null) throw failure;
 		return true;
 	}
 
-	public function reload(plugin:Plugin):Bool {
-		unload(plugin.id());
-		return load(plugin);
+	public function disable(id:String):Bool {
+		var entry = entry(id);
+		if (entry == null || entry.context == null) return false;
+		var context:PluginContext = entry.context, failure:Null<String> = null;
+		try entry.plugin.deactivate(context) catch (error:Dynamic) failure = Std.string(error);
+		context.dispose();
+		entry.context = null;
+		if (failure != null) throw failure;
+		return true;
+	}
+
+	public function enable(id:String):Bool {
+		var entry = entry(id);
+		if (entry == null || entry.context != null) return false;
+		var context = createContext(id);
+		try {
+			entry.plugin.activate(context);
+		} catch (error:Dynamic) {
+			context.dispose();
+			throw error;
+		}
+		entry.context = context;
+		return true;
+	}
+
+	public function reload(id:String):Bool {
+		var entry = entry(id);
+		if (entry == null || entry.context == null) return false;
+		if (entry.plugin.refresh()) {
+			recordDiagnostic(entry.plugin);
+			return true;
+		}
+		recordDiagnostic(entry.plugin);
+		if (entry.plugin.diagnostic() != null) return false;
+		disable(id);
+		return enable(id);
 	}
 
 	public function update(now:Float):Void {
 		for (entry in entries) {
+			if (entry.context == null) continue;
 			entry.plugin.update(now);
-			var id = entry.plugin.id(), diagnostic = entry.plugin.diagnostic();
-			if (diagnostic == null) {
-				reportedDiagnostics.remove(id);
-			} else if (!reportedDiagnostics.exists(id) || reportedDiagnostics.get(id) != diagnostic) {
-				reportedDiagnostics.set(id, diagnostic);
-				reportDiagnostic('Plugin "$id": $diagnostic');
-			}
+			recordDiagnostic(entry.plugin);
 		}
 	}
 
@@ -112,8 +133,16 @@ class PluginManager {
 			throw failure;
 	}
 
-	public function isLoaded(id:String):Bool
-		return indexOf(id) >= 0;
+	public function isLoaded(id:String):Bool {
+		var found = entry(id);
+		return found != null && found.context != null;
+	}
+
+	public function enabledIds():Array<String>
+		return ids(true);
+
+	public function disabledIds():Array<String>
+		return ids(false);
 
 	public function count():Int
 		return entries.length;
@@ -123,6 +152,32 @@ class PluginManager {
 			if (entries[index].plugin.id() == id)
 				return index;
 		return -1;
+	}
+
+	function entry(id:String):Null<PluginEntry> {
+		var index = indexOf(id);
+		return index < 0 ? null : entries[index];
+	}
+
+	function createContext(id:String):PluginContext
+		return new PluginContext(id, commands, keymap, commandContext, syntaxes, panels, jobs, settings);
+
+	function ids(enabled:Bool):Array<String> {
+		var values:Array<String> = [];
+		for (entry in entries)
+			if ((entry.context != null) == enabled) values.push(entry.plugin.id());
+		values.sort(Reflect.compare);
+		return values;
+	}
+
+	function recordDiagnostic(plugin:Plugin):Void {
+		var id = plugin.id(), diagnostic = plugin.diagnostic();
+		if (diagnostic == null) {
+			reportedDiagnostics.remove(id);
+		} else if (!reportedDiagnostics.exists(id) || reportedDiagnostics.get(id) != diagnostic) {
+			reportedDiagnostics.set(id, diagnostic);
+			reportDiagnostic('Plugin "$id": $diagnostic');
+		}
 	}
 
 	static function validId(id:String):Bool
