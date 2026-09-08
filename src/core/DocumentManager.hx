@@ -54,6 +54,27 @@ class DocumentManager {
 		return true;
 	}
 
+	public function reconcileRename(source:String, destination:String):Array<Document> {
+		var changed:Array<Document> = [], prefix = source + "/";
+		for (document in documents)
+			if (document.path == source || document.path != null && StringTools.startsWith(document.path, prefix)) {
+				var suffix = document.path == source ? "" : document.path.substring(source.length);
+				document.setPath(destination + suffix);
+				changed.push(document);
+			}
+		return changed;
+	}
+
+	public function reconcileTrash(source:String):Array<Document> {
+		var changed:Array<Document> = [], prefix = source + "/";
+		for (document in documents)
+			if (document.path == source || document.path != null && StringTools.startsWith(document.path, prefix)) {
+				document.detachBacking();
+				changed.push(document);
+			}
+		return changed;
+	}
+
 	public function checkExternalChanges():Void
 		for (document in documents) document.checkExternal();
 

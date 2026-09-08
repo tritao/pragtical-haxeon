@@ -43,6 +43,11 @@ class Sidebar {
 		return node.path;
 	}
 
+	public function activeNode():Null<ProjectNode> {
+		var visible = nodes();
+		return selected < 0 || selected >= visible.length ? null : visible[selected];
+	}
+
 	public function selectPath(path:String):Bool {
 		var visible = nodes();
 		for (index in 0...visible.length)

@@ -23,6 +23,7 @@ class Document {
 	var newline:String = "\n";
 	var hasBom:Bool = false;
 	var savedStateId:Int;
+	var detachedTitle:Null<String>;
 	var highlighterSubscription:Null<BufferSubscription>;
 
 	public function new(path:Null<String>, text:String, registry:SyntaxRegistry, ?fileSystem:EditorFileSystem) {
@@ -40,7 +41,7 @@ class Document {
 		return new Document(null, "", registry, fileSystem);
 
 	function get_title():String
-		return path == null ? "Untitled-" + id : fileName(path);
+		return path == null ? (detachedTitle == null ? "Untitled-" + id : detachedTitle) : fileName(path);
 
 	public function hasBackingPath():Bool
 		return path != null;
@@ -61,6 +62,17 @@ class Document {
 
 	public function setPath(path:String):Void {
 		this.path = path;
+		detachedTitle = null;
+		selectSyntax();
+	}
+
+	/** Keeps removed backing content recoverable as a dirty, pathless document. */
+	public function detachBacking():Void {
+		if (path == null) return;
+		detachedTitle = fileName(path) + " (Deleted)";
+		path = null;
+		savedStateId = -1;
+		externalState = Current;
 		selectSyntax();
 	}
 

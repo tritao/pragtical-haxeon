@@ -11,6 +11,8 @@ import jobs.JobTask;
 import jobs.JobScheduler;
 import search.ReplacementBackupStore;
 import search.WorkspaceReplacement;
+import workspace.FileOperations;
+import workspace.TrashService;
 
 private class CountingJob implements JobTask {
 	public var steps:Int = 0;
@@ -187,19 +189,41 @@ class WorkspaceTestMain {
 			&& application.workspace.fileSystem.read(secondPath) == "needle in second project\n",
 			"could not restore successful replacement fixture");
 		var createdPath = arguments[0] + "/created.txt", movedPath = arguments[0] + "/moved.txt";
+		var fileOperations = new FileOperations(application.workspace,
+			new TrashService(arguments[0] + "-trash", application.workspace.fileSystem));
 		for (index in 0...16) application.workspace.refreshProjects(1);
-		require(application.workspace.fileSystem.createFile(createdPath), "file creation failed");
+		require(fileOperations.createFile(createdPath).success && !fileOperations.createFile(createdPath).success,
+			"file creation or collision handling failed");
 		for (index in 0...16) application.workspace.refreshProjects(1);
 		require(project.files().length == 6,
 			"incremental polling missed created file: generation=" + project.indexGeneration() + ", indexing=" + project.indexing()
 			+ ", jobs=" + application.workspace.jobs.activeCount() + ", files=" + [for (file in project.files()) file.path].join(","));
 		var movedDocument = application.documents.open(createdPath);
 		movedDocument.insert(new BufferSelection(), "moved safely");
-		require(application.documents.rename(movedDocument, movedPath) && movedDocument.path == movedPath,
+		require(fileOperations.move(createdPath, movedPath).success && movedDocument.path == movedPath,
 			"rename did not reconcile dirty open document identity");
-		require(!application.documents.rename(movedDocument, arguments[0] + "/alpha.txt"), "rename overwrote a collision");
-		require(movedDocument.save() && application.workspace.fileSystem.deleteFile(movedPath), "save/delete lifecycle failed");
+		require(!fileOperations.move(movedPath, arguments[0] + "/alpha.txt").success, "rename overwrote a collision");
+		require(movedDocument.save() && !application.workspace.fileSystem.exists(createdPath)
+			&& application.workspace.fileSystem.read(movedPath) == "moved safely", "renamed dirty document saved to its old path");
+		movedDocument.insert(new BufferSelection(), "recoverable ");
+		var removed = fileOperations.remove(movedPath);
+		require(removed.success && removed.destination != null && application.workspace.fileSystem.exists(removed.destination)
+			&& movedDocument.path == null && movedDocument.dirty && movedDocument.buffer.text == "recoverable moved safely",
+			"recoverable deletion did not preserve a dirty open buffer and trash destination");
 		application.documents.close(movedDocument, true);
+		var createdFolder = arguments[0] + "/created-folder", movedFolder = arguments[0] + "/moved-folder",
+			folderFile = createdFolder + "/nested.txt";
+		require(fileOperations.createFolder(createdFolder).success && !fileOperations.createFolder(createdFolder).success
+			&& fileOperations.createFile(folderFile).success, "folder creation or collision handling failed");
+		var folderDocument = application.documents.open(folderFile);
+		folderDocument.insert(new BufferSelection(), "nested");
+		require(fileOperations.move(createdFolder, movedFolder).success && folderDocument.path == movedFolder + "/nested.txt"
+			&& folderDocument.save() && !application.workspace.fileSystem.exists(folderFile),
+			"directory move did not reconcile and safely save a nested open document");
+		folderDocument.insert(new BufferSelection(), "dirty ");
+		require(fileOperations.remove(movedFolder).success && folderDocument.path == null && folderDocument.dirty,
+			"recoverable directory deletion lost its dirty nested document");
+		application.documents.close(folderDocument, true);
 		for (index in 0...16) application.workspace.refreshProjects(1);
 		require(project.files().length == 5, "incremental polling retained deleted file");
 		project.restoreExpanded([arguments[0] + "/src"]);

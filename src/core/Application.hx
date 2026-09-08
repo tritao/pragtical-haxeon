@@ -15,6 +15,8 @@ import syntax.BuiltinSyntax;
 import syntax.SyntaxRegistry;
 import style.Theme;
 import workspace.Workspace;
+import workspace.FileOperations;
+import workspace.TrashService;
 import sys.FileSystem;
 import commandview.CommandViewEntry;
 import commandview.CommandViewProvider;
@@ -40,6 +42,7 @@ import feedback.NotificationKind;
 class Application {
 	public final documents:DocumentManager;
 	public final workspace:Workspace;
+	public final fileOperations:FileOperations;
 	public final focus:FocusManager;
 	public final root:RootView;
 	public final commands:CommandRegistry;
@@ -77,6 +80,7 @@ class Application {
 		BuiltinSyntax.install(syntaxes);
 		theme = new Theme();
 		workspace = new Workspace(syntaxes);
+		fileOperations = new FileOperations(workspace, new TrashService(ConfigurationPaths.trash(), workspace.fileSystem));
 		documents = workspace.documents;
 		focus = new FocusManager();
 		root = new RootView(renderer, theme, focus, workspace, width, height, this.settings.current);
@@ -495,8 +499,8 @@ class Application {
 		commands.add("root:close", context -> requestCloseActiveTab(), context -> context.activeView() != null);
 		commands.add("root:close-pane", context -> requestCloseActivePane());
 		commands.add("folder:new", context -> openCreateFolder());
-		commands.add("file:rename", context -> openRenameFile(), context -> activeDocument() != null);
-		commands.add("file:delete", context -> openDeleteFile(), context -> activeDocument() != null);
+		commands.add("file:rename", context -> openRenameFile(), context -> selectedFileOperationPath() != null);
+		commands.add("file:delete", context -> openDeleteFile(), context -> selectedFileOperationPath() != null);
 	}
 
 	public function requestCloseActiveTab():Bool
@@ -597,10 +601,11 @@ class Application {
 
 	public function openCreateFile():Void {
 		root.commandView.open(new CommandViewProvider("New File: ", [], function(query) {}, function(entry, path, backwards) {
-			if (workspace.fileSystem.createFile(path)) {
+			var result = fileOperations.createFile(path);
+			if (result.success) {
 				workspace.refreshProjects();
-				open(path);
-			} else reportError("file", 'Could not create file "$path"');
+				if (result.destination != null) open(result.destination);
+			} else reportError("file", 'Could not create file "$path": ' + result.detail);
 			root.commandView.close();
 		}));
 	}
@@ -617,34 +622,47 @@ class Application {
 
 	public function openCreateFolder():Void {
 		root.commandView.open(new CommandViewProvider("New Folder: ", [], function(query) {}, function(entry, path, backwards) {
-			if (!workspace.fileSystem.createFolder(path)) reportError("file", 'Could not create folder "$path"');
+			var result = fileOperations.createFolder(path);
+			if (!result.success) reportError("file", 'Could not create folder "$path": ' + result.detail);
 			workspace.refreshProjects();
 			root.commandView.close();
 		}));
 	}
 
 	public function openRenameFile():Void {
-		var document = activeDocument();
-		if (document == null || !document.hasBackingPath()) return;
+		var source = selectedFileOperationPath();
+		if (source == null) return;
 		root.commandView.open(new CommandViewProvider("Rename/Move: ", [], function(query) {}, function(entry, destination, backwards) {
-			if (!documents.rename(document, destination)) reportError("file", 'Could not rename "' + document.path + '"');
-			else root.documentRenamed(document);
+			var result = fileOperations.move(source, destination);
+			if (!result.success) reportError("file", 'Could not rename "$source": ' + result.detail); else
+				for (document in result.documents) root.documentRenamed(document);
 			workspace.refreshProjects();
 			root.commandView.close();
 		}));
 	}
 
 	public function openDeleteFile():Void {
-		var document = activeDocument();
-		if (document == null || !document.hasBackingPath()) return;
-		var path = document.requirePath();
+		var path = selectedFileOperationPath();
+		if (path == null) return;
 		confirmations.choose('Type delete to remove "' + path + '": ', ["delete"], function(answer) {
-			if (!document.dirty && workspace.fileSystem.deleteFile(path)) {
-				root.closeActiveTab(true);
+			var result = fileOperations.remove(path);
+			if (result.success) {
+				for (document in result.documents) root.documentRenamed(document);
+				recovery.save(this);
+				reportInformation('Moved "$path" to ' + result.destination);
 				workspace.refreshProjects();
-			} else reportError("file", 'Could not safely delete "' + path + '"');
+			} else reportError("file", 'Could not safely delete "$path": ' + result.detail);
 			root.commandView.close();
 		});
+	}
+
+	function selectedFileOperationPath():Null<String> {
+		if (!root.searchVisible) {
+			var node = root.sidebar.activeNode();
+			if (node != null) return node.path;
+		}
+		var document = activeDocument();
+		return document == null || !document.hasBackingPath() ? null : document.requirePath();
 	}
 
 	public function openSettingsCommandView():Void {
