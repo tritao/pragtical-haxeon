@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M7.1, performance and endurance qualification.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3, M5.1–M5.3 and M6.1–M6.3.
+- Active task: M7.2, input and platform qualification.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3, M5.1–M5.3, M6.1–M6.3 and M7.1.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: establish reproducible M7.1 startup, editing, idle, scroll,
-  indexing and reload benchmarks before tuning measured hot paths.
-- Editor implementation HEAD: `77394ff`. Haxeon HEAD observed: `21a996b`.
+- Next action: implement distinct IME composition events and close the Linux
+  input, DPI, filename, clipboard, lifecycle and accessibility matrix.
+- Editor implementation HEAD: `6a605d7`. Haxeon HEAD observed: `21a996b`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -23,9 +23,28 @@ Last updated: 2026-09-08.
 | M4 | Complete headlessly | Responsive index/search, safe replacement, recoverable file operations and defensive sessions pass; graphical smoke remains in M0.3 |
 | M5 | Complete headlessly | Live layered configuration, owned APIs, debounced background compilation, transactional reload and editor lifecycle controls pass |
 | M6 | Complete headlessly | Bounded JSON-RPC, lifecycle/synchronization, language commands, diagnostics, restart and real Haxeon edit/diagnose/fix/build smoke pass |
-| M7 | Pending | Packaging, performance and platform checks |
+| M7 | In progress | M7.1 performance/endurance complete; input/platform and packaging remain |
 
 ## Completed records
+
+### M7.1 — performance and endurance
+
+- `2130565` adds the fixed small-file, 10 MiB, 1 MiB-line, document soak,
+  plugin-reload and 10,000-file index/search fixtures. Profiling replaced linear
+  visual-row lookup, repeated width scans, collapsed-selection offset scans,
+  highlight prefix rescans and quadratic project snapshot construction.
+- `6a605d7` gives the cooperative scheduler a six-millisecond wall-clock slice in
+  addition to its step ceiling and turns the latency, idle CPU, progression and
+  cancellation budgets into executable benchmark failures. Both benchmark scripts
+  prepare their own headless native runtime.
+- On the recorded i5-13600K Linux host, typing p95 was 0.051 ms, 10 MiB scrolling
+  p95 was 0.052 ms, idle service CPU was 2.00%, the maximum 32-step indexing turn
+  was 6.37 ms, replacement-search turns stayed below 0.98 ms, and peak RSS was
+  170,708 KiB. First/last soak windows did not show progressive latency. Exact
+  fixtures, limits and results are in `docs/release-qualification.md`.
+- `SKIP_FORMAT_CHECK=1 ./scripts/test.sh`, both benchmark scripts and
+  `./scripts/build-sdl.sh` exited 0. The format skip remains the documented
+  unrelated repository baseline; changed files pass `git diff --check`.
 
 ### M6.3 — language service plugin
 

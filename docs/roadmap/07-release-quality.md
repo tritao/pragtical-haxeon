@@ -5,14 +5,14 @@ remaining reliability, portability and distribution gaps.
 
 ## M7.1 — Performance and endurance
 
-- [ ] Benchmark startup, time to first usable document, typing latency, idle CPU,
+- [x] Benchmark startup, time to first usable document, typing latency, idle CPU,
   scroll frames, memory, index/search cancellation and plugin reload cycles.
-- [ ] Use recorded hardware and fixed fixtures: small source file, 10 MB text,
+- [x] Use recorded hardware and fixed fixtures: small source file, 10 MB text,
   a very long line and a 10,000-file project. Record unsupported size limits.
-- [ ] Establish measured budgets before tuning. Initial local target: scheduling
+- [x] Establish measured budgets before tuning. Initial local target: scheduling
   batches below 8 ms and p95 key-to-frame below 50 ms on the recorded machine;
   report deviations honestly and distinguish rendering from event-loop timing.
-- [ ] Remove unconditional expensive idle work; profile before changing storage
+- [x] Remove unconditional expensive idle work; profile before changing storage
   or renderer architecture. Soak open/edit/save/close and repeated reload paths.
 
 Acceptance: reproducible measurements and no unexplained resource growth or
