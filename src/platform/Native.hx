@@ -33,4 +33,5 @@ extern class Native {
 	static function draw_text(window:Int, font:Int, x:Int, y:Int, text:String, rgba:Int):Bool;
 	static function frame_present(window:Int):Bool;
 	static function frame_count(window:Int):Int;
+	static function plugin_api_install(dispatch:(Int, String, String, String, String)->String):Void;
 }

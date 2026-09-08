@@ -4,6 +4,7 @@
 #include "pragtical_hx/platform.h"
 
 static phx_event current_event;
+static vclosure *plugin_api_dispatch;
 
 static vbyte *utf8_string(const char *text) {
   const char *value = text ? text : "";
@@ -82,6 +83,20 @@ HL_PRIM bool HL_NAME(frame_present)(int window) {
 }
 HL_PRIM int HL_NAME(frame_count)(int window) { return phx_frame_count(window); }
 
+HL_PRIM void HL_NAME(plugin_api_install)(vclosure *dispatch) {
+	if (plugin_api_dispatch == NULL) hl_add_root(&plugin_api_dispatch);
+	plugin_api_dispatch = dispatch;
+}
+
+HL_PRIM vbyte *HL_NAME(plugin_api_call)(int operation, vbyte *token, vbyte *a,
+		vbyte *b, vbyte *c) {
+	if (plugin_api_dispatch == NULL) hl_error("Pragtical plugin host is not installed");
+	if (plugin_api_dispatch->hasValue)
+		return ((vbyte *(*)(vdynamic *, int, vbyte *, vbyte *, vbyte *, vbyte *))plugin_api_dispatch->fun)(
+			(vdynamic *)plugin_api_dispatch->value, operation, token, a, b, c);
+	return ((vbyte *(*)(int, vbyte *, vbyte *, vbyte *, vbyte *))plugin_api_dispatch->fun)(operation, token, a, b, c);
+}
+
 DEFINE_PRIM(_I32, abi_version, _NO_ARG);
 DEFINE_PRIM(_BOOL, init, _BOOL);
 DEFINE_PRIM(_VOID, shutdown, _NO_ARG);
@@ -113,3 +128,5 @@ DEFINE_PRIM(_I32, font_text_width, _I32 _BYTES);
 DEFINE_PRIM(_BOOL, draw_text, _I32 _I32 _I32 _I32 _BYTES _I32);
 DEFINE_PRIM(_BOOL, frame_present, _I32);
 DEFINE_PRIM(_I32, frame_count, _I32);
+DEFINE_PRIM(_VOID, plugin_api_install, _FUN(_BYTES, _I32 _BYTES _BYTES _BYTES _BYTES));
+DEFINE_PRIM(_BYTES, plugin_api_call, _I32 _BYTES _BYTES _BYTES _BYTES);

@@ -25,6 +25,7 @@ class DynamicPlugin implements Plugin {
 		this.manifest = manifest;
 		compiler = new Compiler();
 		compiler.enablePublicationTracking();
+		compiler.update("pragtical/Editor.hx", DynamicEditorApiSource.CONTENT);
 		for (source in manifest.sources) {
 			var content = File.getContent(source);
 			contents.push(content);
@@ -42,7 +43,14 @@ class DynamicPlugin implements Plugin {
 
 	public function activate(context:PluginContext):Void {
 		this.context = context;
-		Runtime.callVoid(requireModule(), functionId("activate"));
+		DynamicHostRouter.begin(context, this);
+		try {
+			Runtime.callVoid(requireModule(), functionId("activate"));
+		} catch (error:Dynamic) {
+			DynamicHostRouter.end();
+			throw error;
+		}
+		DynamicHostRouter.end();
 		for (syntax in manifest.syntaxes)
 			context.addSyntax(syntax.definition());
 		for (command in manifest.commands) {
@@ -107,6 +115,9 @@ class DynamicPlugin implements Plugin {
 	public function callInt(name:String):Int
 		return Runtime.callInt(requireModule(), functionId(name));
 
+	public function callStringArg(name:String, value:String):Void
+		Runtime.callStringArg(requireModule(), functionId(name), value);
+
 	function compilePlugin():compiler.CompileResult {
 		try {
 			return compiler.compile(manifest.entry);
@@ -123,7 +134,15 @@ class DynamicPlugin implements Plugin {
 			nextIds = build.functionIds;
 		try {
 			Runtime.callVoid(previous, functionId("deactivate"));
-			Runtime.callVoid(replacement, requiredId(nextIds, "activate"));
+			if (context == null) throw 'plugin "${manifest.id}" has no active host context';
+			DynamicHostRouter.begin(context, this);
+			try {
+				Runtime.callVoid(replacement, requiredId(nextIds, "activate"));
+			} catch (error:Dynamic) {
+				DynamicHostRouter.end();
+				throw error;
+			}
+			DynamicHostRouter.end();
 			Runtime.callStringArg(replacement, requiredId(nextIds, "restoreState"), state);
 		} catch (error:Dynamic) {
 			Runtime.dispose(replacement);

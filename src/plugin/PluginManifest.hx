@@ -3,7 +3,11 @@ package plugin;
 import sys.io.File;
 
 class PluginManifest {
+	public static inline final MANIFEST_VERSION = 1;
+	public static inline final API_VERSION = 1;
 	public final path:String;
+	public var manifestVersion(default, null):Int = 0;
+	public var apiVersion(default, null):Int = 0;
 	public var id(default, null):String = "";
 	public var version(default, null):String = "";
 	public var entry(default, null):String = "Main";
@@ -18,6 +22,10 @@ class PluginManifest {
 			throw 'plugin manifest "$path" has no id';
 		if (sources.length == 0)
 			throw 'plugin manifest "$path" has no sources';
+		if (manifestVersion != MANIFEST_VERSION)
+			throw 'plugin manifest "$path" requires manifestVersion=${MANIFEST_VERSION}, got $manifestVersion';
+		if (apiVersion != API_VERSION)
+			throw 'plugin manifest "$path" requires apiVersion=${API_VERSION}, got $apiVersion';
 	}
 
 	function parse(content:String):Void {
@@ -30,7 +38,11 @@ class PluginManifest {
 				throw 'invalid plugin manifest line: "$value"';
 			var key = StringTools.trim(value.substring(0, separator)),
 				setting = StringTools.trim(value.substring(separator + 1));
-			if (key == "id")
+			if (key == "manifestVersion")
+				manifestVersion = Std.parseInt(setting);
+			else if (key == "apiVersion")
+				apiVersion = Std.parseInt(setting);
+			else if (key == "id")
 				id = setting;
 			else if (key == "version")
 				version = setting;

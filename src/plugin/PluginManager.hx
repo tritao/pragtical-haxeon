@@ -26,6 +26,7 @@ class PluginManager {
 		this.panels = panels;
 		this.jobs = jobs;
 		this.settings = settings;
+		DynamicHostRouter.initialize();
 	}
 
 	public function load(plugin:Plugin):Bool {
