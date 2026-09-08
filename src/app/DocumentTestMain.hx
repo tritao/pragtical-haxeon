@@ -157,6 +157,11 @@ class DocumentTestMain {
 			"selection indent lost content or reversed selection direction");
 		require(coding.undo(codingSelection) && coding.text == "one\n  two\nthree" && codingSelection.cursor.column == 5,
 			"selection indent was not one undo transaction");
+		var trailing = new TextBuffer("a\n\nc\n"), trailingSelection = new BufferSelection();
+		trailingSelection.restore(trailing, new BufferPosition(3, 0), new BufferPosition(0, 1));
+		require(EditorActions.indent(trailing, trailingSelection, 2, true) && trailing.text == "  a\n  \n  c\n",
+			"partial multiline indent changed the excluded trailing line or skipped a blank line");
+		require(trailing.undo(trailingSelection) && trailing.text == "a\n\nc\n", "trailing-newline indent was not one undo transaction");
 		codingSelection.restore(coding, new BufferPosition(2, 5), new BufferPosition(0, 0));
 		require(EditorActions.unindent(coding, codingSelection, 2) && coding.text == "one\ntwo\nthree", "mixed unindent failed");
 		var autoindent = new TextBuffer("  value"), autoindentSelection = new BufferSelection(autoindent.endPosition());
