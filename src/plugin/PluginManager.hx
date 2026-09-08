@@ -15,10 +15,12 @@ class PluginManager {
 	final panels:PluginPanelRegistry;
 	final jobs:JobScheduler;
 	final settings:Void->Settings;
+	final reportDiagnostic:String->Void;
 	final entries:Array<PluginEntry> = [];
+	final reportedDiagnostics:Map<String, String> = [];
 
 	public function new(commands:CommandRegistry, keymap:Keymap, commandContext:CommandContext, syntaxes:SyntaxRegistry,
-			panels:PluginPanelRegistry, jobs:JobScheduler, settings:Void->Settings) {
+			panels:PluginPanelRegistry, jobs:JobScheduler, settings:Void->Settings, ?reportDiagnostic:String->Void) {
 		this.commands = commands;
 		this.keymap = keymap;
 		this.commandContext = commandContext;
@@ -26,6 +28,7 @@ class PluginManager {
 		this.panels = panels;
 		this.jobs = jobs;
 		this.settings = settings;
+		this.reportDiagnostic = reportDiagnostic == null ? function(message:String) {} : reportDiagnostic;
 		DynamicHostRouter.initialize();
 	}
 
@@ -43,6 +46,7 @@ class PluginManager {
 			throw error;
 		}
 		entries.push(new PluginEntry(plugin, context));
+		reportedDiagnostics.remove(id);
 		return true;
 	}
 
@@ -59,6 +63,7 @@ class PluginManager {
 		}
 		context.dispose();
 		entries.remove(entry);
+		reportedDiagnostics.remove(id);
 		plugin.dispose();
 		if (failed)
 			throw failure;
@@ -70,9 +75,25 @@ class PluginManager {
 		return load(plugin);
 	}
 
-	public function update():Void
-		for (entry in entries)
-			entry.plugin.refresh();
+	public function update(now:Float):Void {
+		for (entry in entries) {
+			entry.plugin.update(now);
+			var id = entry.plugin.id(), diagnostic = entry.plugin.diagnostic();
+			if (diagnostic == null) {
+				reportedDiagnostics.remove(id);
+			} else if (!reportedDiagnostics.exists(id) || reportedDiagnostics.get(id) != diagnostic) {
+				reportedDiagnostics.set(id, diagnostic);
+				reportDiagnostic('Plugin "$id": $diagnostic');
+			}
+		}
+	}
+
+	public function diagnostics():Array<String> {
+		var values:Array<String> = [];
+		for (id => message in reportedDiagnostics) values.push('$id: $message');
+		values.sort(Reflect.compare);
+		return values;
+	}
 
 	public function shutdown():Void {
 		var index = entries.length, failed = false, failure = "";

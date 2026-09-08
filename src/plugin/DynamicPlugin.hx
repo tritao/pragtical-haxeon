@@ -8,6 +8,7 @@ import runtime.LoadedModule;
 import runtime.PatchSet;
 import runtime.Runtime;
 import runtime.RuntimeError;
+import sys.FileSystem;
 import sys.io.File;
 
 class DynamicPlugin implements Plugin {
@@ -17,9 +18,16 @@ class DynamicPlugin implements Plugin {
 
 	final compiler:Compiler;
 	final contents:Array<String> = [];
+	final sourceStamps:Array<String> = [];
 	var module:Null<LoadedModule>;
 	var functionIds:Map<String, Int> = [];
 	var context:Null<PluginContext>;
+	var nextPollAt:Float = 0.0;
+	var changedAt:Float = -1.0;
+	var nextContentAuditAt:Float = 0.0;
+	static inline final POLL_SECONDS = 0.25;
+	static inline final DEBOUNCE_SECONDS = 0.3;
+	static inline final CONTENT_AUDIT_SECONDS = 2.0;
 
 	public function new(manifest:PluginManifest) {
 		this.manifest = manifest;
@@ -29,6 +37,7 @@ class DynamicPlugin implements Plugin {
 		for (source in manifest.sources) {
 			var content = File.getContent(source);
 			contents.push(content);
+			sourceStamps.push(sourceStamp(source));
 			compiler.update(modulePath(source), content);
 		}
 		var build = compilePlugin();
@@ -68,19 +77,42 @@ class DynamicPlugin implements Plugin {
 		this.context = null;
 	}
 
-	public function refresh():Bool {
-		var changed = false;
+	public function update(now:Float):Bool {
+		if (now < nextPollAt) return false;
+		nextPollAt = now + POLL_SECONDS;
+		var observedChange = false;
 		for (index in 0...manifest.sources.length) {
-			var content = File.getContent(manifest.sources[index]);
-			if (content != contents[index]) {
-				contents[index] = content;
-				compiler.update(modulePath(manifest.sources[index]), content);
-				changed = true;
+			var stamp = sourceStamp(manifest.sources[index]);
+			if (stamp != sourceStamps[index]) {
+				sourceStamps[index] = stamp;
+				observedChange = true;
 			}
 		}
-		if (!changed)
-			return false;
+		if (now >= nextContentAuditAt) {
+			nextContentAuditAt = now + CONTENT_AUDIT_SECONDS;
+			if (sourceContentsChanged()) observedChange = true;
+		}
+		if (observedChange) changedAt = now;
+		if (changedAt < 0.0 || now - changedAt < DEBOUNCE_SECONDS) return false;
+		changedAt = -1.0;
+		return refresh();
+	}
+
+	public function refresh():Bool {
 		try {
+			var changed = false;
+			for (index in 0...manifest.sources.length) {
+				var content = File.getContent(manifest.sources[index]);
+				if (content != contents[index]) {
+					contents[index] = content;
+					compiler.update(modulePath(manifest.sources[index]), content);
+					changed = true;
+				}
+			}
+			if (!changed) {
+				lastError = null;
+				return false;
+			}
 			var build = compilePlugin();
 			if (build.patchBytes != null && !build.requiresReload) {
 				try {
@@ -105,6 +137,21 @@ class DynamicPlugin implements Plugin {
 		}
 	}
 
+	function sourceContentsChanged():Bool {
+		try {
+			for (index in 0...manifest.sources.length)
+				if (File.getContent(manifest.sources[index]) != contents[index]) return true;
+		} catch (error:Dynamic) {
+			return true;
+		}
+		return false;
+	}
+
+	static function sourceStamp(path:String):String {
+		var metadata = FileSystem.metadata(path);
+		return metadata == null ? "missing" : Std.string(metadata.size) + ":" + Std.string(metadata.modified);
+	}
+
 	public function dispose():Void {
 		var loaded = module;
 		if (loaded != null)
@@ -117,6 +164,9 @@ class DynamicPlugin implements Plugin {
 
 	public function callStringArg(name:String, value:String):Void
 		Runtime.callStringArg(requireModule(), functionId(name), value);
+
+	public function diagnostic():Null<String>
+		return lastError;
 
 	function compilePlugin():compiler.CompileResult {
 		try {

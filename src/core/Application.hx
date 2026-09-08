@@ -99,7 +99,8 @@ class Application {
 		workspaceSearch = new WorkspaceSearch(workspace, workspace.jobs, workspaceSearchChanged);
 		workspaceReplacement = new WorkspaceReplacement(workspace, new ReplacementBackupStore(ConfigurationPaths.replacementBackup()));
 		installSearchCommands();
-		plugins = new PluginManager(commands, keymap, context, syntaxes, root.pluginPanels, workspace.jobs, effectiveSettings);
+		plugins = new PluginManager(commands, keymap, context, syntaxes, root.pluginPanels, workspace.jobs, effectiveSettings,
+			message -> reportError("plugin", message));
 		installConfigurationCommands();
 		installFileCommands();
 		commands.add("recovery:open", context -> openRecoveryCommandView());
@@ -776,11 +777,12 @@ class Application {
 	}
 
 	public function update():Void {
+		var now = Sys.time();
 		settings.reload();
-		workspaceSearch.update(Sys.time());
+		workspaceSearch.update(now);
 		workspace.jobs.update(32);
-		if (Sys.time() - lastFileSystemCheck >= 1.0) {
-			lastFileSystemCheck = Sys.time();
+		if (now - lastFileSystemCheck >= 1.0) {
+			lastFileSystemCheck = now;
 			documents.checkExternalChanges();
 			workspace.refreshProjects();
 		}
@@ -788,7 +790,7 @@ class Application {
 		if (effective != appliedSettings) applySettings(effective);
 		reportConfigurationDiagnostics();
 		try {
-			plugins.update();
+			plugins.update(now);
 		} catch (error:Dynamic) {
 			reportError("plugin", Std.string(error));
 		}

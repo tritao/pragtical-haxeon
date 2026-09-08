@@ -51,6 +51,12 @@ class SamplePlugin implements Plugin {
 	public function refresh():Bool
 		return false;
 
+	public function update(now:Float):Bool
+		return false;
+
+	public function diagnostic():Null<String>
+		return null;
+
 	public function dispose():Void {}
 }
 
@@ -69,6 +75,12 @@ class BrokenPlugin implements Plugin {
 
 	public function refresh():Bool
 		return false;
+
+	public function update(now:Float):Bool
+		return false;
+
+	public function diagnostic():Null<String>
+		return null;
 
 	public function dispose():Void {}
 }

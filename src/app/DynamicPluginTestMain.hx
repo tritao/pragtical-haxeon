@@ -6,6 +6,7 @@ import platform.Platform;
 import plugin.DynamicPlugin;
 import plugin.PluginManifest;
 import renderer.Renderer;
+import sys.FileSystem;
 import sys.io.File;
 
 class DynamicPluginTestMain {
@@ -43,7 +44,8 @@ class DynamicPluginTestMain {
 
 		var source = File.getContent(arguments[1]);
 		File.saveContent(arguments[1], StringTools.replace(source, "PluginState.value + 1", "PluginState.value + 2"));
-		require(plugin.refresh(), 'compatible source edit did not publish: ${plugin.lastError}');
+		require(!plugin.update(10.0) && !plugin.update(10.2), "source edit bypassed the reload debounce");
+		require(plugin.update(10.31), 'debounced compatible source edit did not publish: ${plugin.lastError}');
 		require(application.commands.perform("example:increment", application.context), "patched command did not dispatch");
 		require(plugin.callInt("current") == 3, "compatible patch did not preserve state or replace behavior");
 		var eventsAfterPatchedCommand = plugin.callInt("eventCount");
@@ -72,6 +74,25 @@ class DynamicPluginTestMain {
 			"activation failure did not restore the last working module and registrations");
 		File.saveContent(arguments[1], structuralSource);
 		require(plugin.refresh(), 'plugin did not recover after activation failure: ${plugin.lastError}');
+
+		FileSystem.deleteFile(arguments[1]);
+		var errorsBeforeRemoval = application.errors.entries.length;
+		application.plugins.update(20.0);
+		application.plugins.update(20.31);
+		application.plugins.update(20.7);
+		require(plugin.lastError != null
+			&& application.plugins.diagnostics().length == 1
+			&& application.errors.entries.length == errorsBeforeRemoval + 1,
+			"removed plugin source did not retain the last working module with a diagnostic");
+		var eventsBeforeMissingSourceCommand = plugin.callInt("eventCount");
+		require(application.commands.perform("example:increment", application.context)
+			&& plugin.callInt("eventCount") == eventsBeforeMissingSourceCommand + 1,
+			"source removal disabled the last working plugin");
+		File.saveContent(arguments[1], structuralSource);
+		application.plugins.update(21.0);
+		application.plugins.update(21.31);
+		require(plugin.lastError == null && application.plugins.diagnostics().length == 0,
+			"restoring unchanged working source did not clear its diagnostic");
 		require(application.plugins.unload("example"), "dynamic plugin did not unload");
 		var textAfterUnload = application.context.requireDocument().buffer.text;
 		application.textInput("after");
