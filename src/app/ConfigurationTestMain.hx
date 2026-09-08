@@ -63,6 +63,14 @@ class ConfigurationTestMain {
 		var beforeRestore = application.documents.documents.length;
 		require(recovery.restore(application, untitledSnapshot) && application.documents.documents.length == beforeRestore + 1,
 			"untitled recovery did not create a distinct pathless document");
+		var many:Array<RecoverySnapshot> = [];
+		for (index in 0...RecoveryStore.MAX_SNAPSHOTS + 5)
+			many.push(new RecoverySnapshot(index + 1, "bounded-" + index, null, "value-" + index));
+		require(recovery.saveSnapshots(many) && recovery.load().length == RecoveryStore.MAX_SNAPSHOTS
+			&& recovery.load()[0].title == "bounded-5", "recovery retention was not bounded to the newest snapshots");
+		var accepted = recovery.load()[0];
+		require(recovery.forgetSnapshot(accepted) && recovery.load().length == RecoveryStore.MAX_SNAPSHOTS - 1,
+			"accepted recovery snapshot was retained");
 		require(!recovery.restore(application, new RecoverySnapshot(2, "missing", arguments[2] + "/missing", "lost")) && recovery.diagnostics.length > 0,
 			"missing recovery source was silently ignored");
 		File.saveContent(recoveryPath, "pragtical-recovery=1\nnope:2:xx");

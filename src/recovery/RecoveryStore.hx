@@ -8,6 +8,7 @@ import workspace.EditorFileSystem;
 
 class RecoveryStore {
 	public static inline final VERSION = 2;
+	public static inline final MAX_SNAPSHOTS = 50;
 	public final path:String;
 	public final diagnostics:Array<String> = [];
 	final fileSystem:EditorFileSystem;
@@ -35,7 +36,9 @@ class RecoveryStore {
 	public function saveSnapshots(snapshots:Array<RecoverySnapshot>):Bool {
 		if (!ensureParent(path)) return false;
 		var output = "pragtical-recovery=" + VERSION + "\n";
-		for (snapshot in snapshots) {
+		var start = snapshots.length > MAX_SNAPSHOTS ? snapshots.length - MAX_SNAPSHOTS : 0;
+		for (index in start...snapshots.length) {
+			var snapshot = snapshots[index];
 			var recoveredPath = snapshot.path == null ? "" : snapshot.path;
 			output += snapshot.id + ":" + snapshot.title.length + ":" + recoveredPath.length + ":" + snapshot.text.length + ":"
 				+ (snapshot.path == null ? "0" : "1") + ":" + snapshot.title + recoveredPath + snapshot.text;
@@ -47,6 +50,12 @@ class RecoveryStore {
 		var snapshots = load();
 		if (diagnostics.length > 0) return false;
 		return saveSnapshots([for (snapshot in snapshots) if (!matches(snapshot, document)) snapshot]);
+	}
+
+	public function forgetSnapshot(accepted:RecoverySnapshot):Bool {
+		var snapshots = load();
+		if (diagnostics.length > 0) return false;
+		return saveSnapshots([for (snapshot in snapshots) if (!sameSnapshot(snapshot, accepted)) snapshot]);
 	}
 
 	public function load():Array<RecoverySnapshot> {
@@ -107,6 +116,9 @@ class RecoveryStore {
 
 	static function matches(snapshot:RecoverySnapshot, document:Document):Bool
 		return snapshot.path == null ? document.path == null && snapshot.id == document.id : snapshot.path == document.path;
+
+	static function sameSnapshot(left:RecoverySnapshot, right:RecoverySnapshot):Bool
+		return left.id == right.id && left.path == right.path && left.text == right.text;
 
 	static function ensureParent(path:String):Bool {
 		var separator = path.lastIndexOf("/");

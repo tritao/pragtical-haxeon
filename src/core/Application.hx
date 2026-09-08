@@ -513,6 +513,7 @@ class Application {
 			if (entry != null) {
 				var selected = Std.parseInt(entry.value);
 				if (selected >= 0 && selected < snapshots.length && recovery.restore(this, snapshots[selected])) {
+					recovery.forgetSnapshot(snapshots[selected]);
 					recovery.save(this);
 				}
 			}
