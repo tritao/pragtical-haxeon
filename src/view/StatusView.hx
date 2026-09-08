@@ -33,10 +33,13 @@ class StatusView {
 			} else {
 				var path = document.path == null ? document.title : document.requirePath(), selection = view.getSelection(), selectionText = "";
 				if (selection != null) {
-					var count = selection.rangeCount(), length = 0;
-					for (range in selection.documentRanges())
-						length += document.buffer.offsetOf(range.end()) - document.buffer.offsetOf(range.start());
-					selectionText = count > 1 ? '  $count selections' : length > 0 ? '  Selected $length' : "";
+					var count = selection.rangeCount();
+					if (count > 1)
+						selectionText = '  $count selections';
+					else if (selection.hasSelection()) {
+						var length = document.buffer.offsetOf(selection.end()) - document.buffer.offsetOf(selection.start());
+						selectionText = '  Selected $length';
+					}
 				}
 				var indentation = settings.insertSpaces ? 'Spaces: ${settings.tabWidth}' : 'Tab Size: ${settings.tabWidth}';
 				result = (document.dirty ? "* " : "") + path + '  Ln ${view.cursorLine() + 1}, Col ${view.cursorColumn() + 1}'

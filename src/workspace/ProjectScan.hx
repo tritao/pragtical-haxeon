@@ -12,6 +12,7 @@ class ProjectScan implements JobTask {
 	final fileSystem:FileSystemService;
 	final ignored:Map<String, Bool>;
 	final directories:Array<ProjectNode>;
+	final snapshotParts:Array<String> = [];
 	final seen:Map<String, Bool> = [];
 	var cursor:Int = 0;
 	var cancelled:Bool = false;
@@ -40,7 +41,7 @@ class ProjectScan implements JobTask {
 					var path = fileSystem.join(node.path, entry), directory = fileSystem.isDirectory(path),
 						child = new ProjectNode(entry, path, directory, node.depth + 1);
 					node.children.push(child);
-					snapshot += path + "\n";
+					snapshotParts.push(path);
 					if (directory) directories.push(child); else files.push(child);
 				}
 			}
@@ -57,6 +58,7 @@ class ProjectScan implements JobTask {
 	}
 
 	function finish():Void {
+		snapshot = snapshotParts.join("\n") + (snapshotParts.length == 0 ? "" : "\n");
 		complete = true;
 		owner.publishScan(this, true);
 	}

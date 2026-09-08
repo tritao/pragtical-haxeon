@@ -12,6 +12,7 @@ class Highlighter {
 	public final buffer:TextBuffer;
 	public final syntax:SyntaxDefinition;
 	final cache:Map<Int, HighlightedLine> = [];
+	var validatedThrough:Int = -1;
 
 	public function new(buffer:TextBuffer, syntax:SyntaxDefinition) {
 		this.buffer = buffer;
@@ -26,14 +27,23 @@ class Highlighter {
 		var stale = [for (index in cache.keys()) index];
 		for (index in stale) cache.remove(index);
 		for (index => highlighted in retained) cache.set(index, highlighted);
+		if (validatedThrough >= line) validatedThrough = line - 1;
 	}
 
 	public function bufferChanged(change:BufferChange):Void
 		invalidate(change.start.line, change.removedLines, change.insertedLines);
 
 	public function line(index:Int):HighlightedLine {
-		var state = NORMAL_STATE;
-		for (lineIndex in 0...index + 1) {
+		if (index <= validatedThrough) return cache.get(index);
+		var start = validatedThrough + 1, state = NORMAL_STATE;
+		if (start > 0) {
+			var previous = cache.get(start - 1);
+			if (previous == null) {
+				start = 0;
+				validatedThrough = -1;
+			} else state = previous.stateAfter;
+		}
+		for (lineIndex in start...index + 1) {
 			var text = buffer.line(lineIndex), cached = cache.get(lineIndex);
 			if (cached == null || cached.text != text || cached.stateBefore != state) {
 				cached = tokenize(text, state);
@@ -41,6 +51,7 @@ class Highlighter {
 			}
 			state = cached.stateAfter;
 		}
+		validatedThrough = index;
 		return cache.get(index);
 	}
 

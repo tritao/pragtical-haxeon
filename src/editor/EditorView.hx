@@ -35,6 +35,8 @@ class EditorView {
 	var draggingHorizontalScrollbar:Bool = false;
 	var wordWrap:Bool = false;
 	var mappedStateId:Int = -1;
+	var measuredVisualRevision:Int = -1;
+	var measuredMaximumWidth:Int = 0;
 	var preferredVisualColumn:Int = -1;
 
 	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int, ?selection:BufferSelection, ?clock:EditorClock,
@@ -44,6 +46,7 @@ class EditorView {
 		this.theme = theme;
 		this.selection = selection == null ? new BufferSelection() : selection;
 		visualLines = new VisualLineMap(document.buffer);
+		mappedStateId = document.buffer.stateId;
 		this.clock = clock == null ? new SystemEditorClock() : clock;
 		this.decorations = decorations;
 		resize(width, height);
@@ -354,12 +357,16 @@ class EditorView {
 	}
 
 	function maximumLineWidth():Int {
+		if (measuredVisualRevision == visualLines.revision) return measuredMaximumWidth;
 		var result = 0;
-		for (row in visualLines.lines()) {
+		for (index in 0...visualLines.rowCount()) {
+			var row = visualLines.lineAt(index);
 			var width = renderer.textWidth(document.buffer.line(row.documentLine).substring(row.startColumn, row.endColumn));
 			if (width > result) result = width;
 		}
-		return result;
+		measuredMaximumWidth = result;
+		measuredVisualRevision = visualLines.revision;
+		return measuredMaximumWidth;
 	}
 
 	function updateVerticalScrollbar(pointerY:Int):Void {

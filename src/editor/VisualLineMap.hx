@@ -4,6 +4,8 @@ package editor;
 class VisualLineMap {
 	public final buffer:TextBuffer;
 	public var wrapColumns(default, null):Int;
+	/** Changes whenever row geometry is rebuilt, including fold-only changes. */
+	public var revision(default, null):Int = 0;
 	final rows:Array<VisualLine> = [];
 	final folds:Array<FoldRegion> = [];
 
@@ -33,13 +35,20 @@ class VisualLineMap {
 	}
 
 	public function rowAt(position:BufferPosition):Int {
-		for (index in 0...rows.length) {
-			var row = rows[index];
-			if (row.foldedThroughLine >= 0 && position.line > row.documentLine && position.line <= row.foldedThroughLine) return index;
-			if (row.documentLine == position.line && position.column >= row.startColumn
-				&& (position.column < row.endColumn || position.column == row.endColumn && isLastSegment(index))) return index;
+		// Rows are ordered by physical line and segment start. The last row whose
+		// key is not greater than the position is its segment; for a hidden line,
+		// that same lookup lands on the preceding fold marker.
+		var lower = 0, upper = rows.length;
+		while (lower < upper) {
+			var middle = lower + Std.int((upper - lower) / 2), row = rows[middle];
+			if (row.documentLine < position.line || row.documentLine == position.line && row.startColumn <= position.column)
+				lower = middle + 1;
+			else
+				upper = middle;
 		}
-		return rows.length - 1;
+		var index = lower - 1;
+		if (index < 0) index = 0;
+		return index;
 	}
 
 	public function positionAt(row:Int, visualColumn:Int):BufferPosition {
@@ -103,6 +112,7 @@ class VisualLineMap {
 			}
 			line = fold == null ? line + 1 : fold.endLine + 1;
 		}
+		revision++;
 	}
 
 	function foldAt(line:Int):Null<FoldRegion> {
@@ -110,6 +120,4 @@ class VisualLineMap {
 		return null;
 	}
 
-	function isLastSegment(index:Int):Bool
-		return index + 1 == rows.length || rows[index + 1].documentLine != rows[index].documentLine;
 }

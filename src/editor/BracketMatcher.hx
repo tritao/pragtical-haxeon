@@ -39,9 +39,10 @@ class BracketMatcher {
 
 	static function bracketAt(buffer:TextBuffer, highlighter:Highlighter, position:BufferPosition):Null<{position:BufferPosition, code:Int}> {
 		var text = buffer.line(position.line);
-		if (position.column < 0 || position.column >= text.length || !codeKind(highlighter, position.line, position.column)) return null;
+		if (position.column < 0 || position.column >= text.length) return null;
 		var code = text.charCodeAt(position.column);
-		return isOpening(code) || isClosing(code) ? {position: position, code: code} : null;
+		return (isOpening(code) || isClosing(code)) && codeKind(highlighter, position.line, position.column)
+			? {position: position, code: code} : null;
 	}
 
 	static function codeKind(highlighter:Highlighter, line:Int, column:Int):Bool {

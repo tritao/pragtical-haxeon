@@ -56,12 +56,13 @@ class Project {
 
 	public function publishScan(source:ProjectScan, finished:Bool):Void {
 		if (source.generation != scanGeneration) return;
-		applyExpanded(source.tree);
-		if (snapshot.length == 0 || finished) {
+		if (tree != source.tree) {
 			tree = source.tree;
-			indexedFiles = source.files.copy();
+			applyExpanded(tree);
 		}
+		indexedFiles = source.files.copy();
 		if (finished) {
+			applyExpanded(tree);
 			changedSincePoll = source.snapshot != snapshot;
 			snapshot = source.snapshot;
 		}
