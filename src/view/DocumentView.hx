@@ -10,16 +10,17 @@ import editor.BufferChange;
 import editor.BufferSubscription;
 import platform.Native;
 import editor.EditorActions;
+import plugin.PluginDecorationRegistry;
 
 class DocumentView extends View {
 	public final document:Document;
 	public final editor:EditorView;
 	final bufferSubscription:BufferSubscription;
 
-	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int) {
+	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int, decorations:PluginDecorationRegistry) {
 		super(document.title);
 		this.document = document;
-		editor = new EditorView(document, renderer, theme, width, height);
+		editor = new EditorView(document, renderer, theme, width, height, null, null, decorations);
 		bufferSubscription = document.buffer.subscribe(bufferChanged);
 	}
 

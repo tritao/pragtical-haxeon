@@ -10,6 +10,9 @@ class DynamicHostRouter {
 	static inline final SET_PANEL_TEXT = 4;
 	static inline final SUBSCRIBE_DOCUMENT = 5;
 	static inline final CONFIGURATION = 6;
+	static inline final ADD_STATUS_ITEM = 7;
+	static inline final SET_STATUS_ITEM_TEXT = 8;
+	static inline final ADD_DECORATION = 9;
 	static var installed:Bool = false;
 	static var nextToken:Int = 1;
 	static var registrations:Map<Int, DynamicHostRegistration> = [];
@@ -62,8 +65,21 @@ class DynamicHostRouter {
 				api.onDocumentChanged(event -> plugin.callStringArg(functionName, event.document.buffer.text));
 				"1";
 			case CONFIGURATION: configuration(api.configuration(), a);
+			case ADD_STATUS_ITEM:
+				api.addStatusItem(a, b, parseInt(c));
+				"1";
+			case SET_STATUS_ITEM_TEXT: api.setStatusItemText(a, b) ? "1" : "0";
+			case ADD_DECORATION:
+				var range = b.split(":"), color = parseInt(c);
+				if (range.length != 3) throw "decoration range must be line:start:end";
+				api.addDecoration(a, parseInt(range[0]), parseInt(range[1]), parseInt(range[2]), color);
+				"1";
 			default: throw 'unknown dynamic editor API operation $operation';
 		};
+	}
+
+	static function parseInt(value:String):Int {
+		return Std.parseInt(value);
 	}
 
 	static function configuration(settings:config.Settings, name:String):String

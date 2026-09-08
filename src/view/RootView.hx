@@ -17,6 +17,8 @@ import feedback.NotificationKind;
 import config.Settings;
 import platform.Native;
 import plugin.PluginPanelRegistry;
+import plugin.PluginDecorationRegistry;
+import plugin.PluginStatusRegistry;
 
 class RootView {
 	public static inline final TAB_WIDTH = 180;
@@ -35,6 +37,8 @@ class RootView {
 	public final notifications:NotificationCenter;
 	public final status:StatusView;
 	public final pluginPanels:PluginPanelRegistry;
+	public final pluginDecorations:PluginDecorationRegistry;
+	public final pluginStatusItems:PluginStatusRegistry;
 	public var sidebarVisible(default, null):Bool = true;
 	public var displayScaleMilli(default, null):Int;
 	public var closeRequest:Void->Void;
@@ -55,8 +59,10 @@ class RootView {
 		searchSidebar = new SearchSidebar();
 		commandView = new CommandView();
 		notifications = new NotificationCenter();
-		status = new StatusView(renderer, theme, settings == null ? new Settings() : settings);
 		pluginPanels = new PluginPanelRegistry();
+		pluginDecorations = new PluginDecorationRegistry();
+		pluginStatusItems = new PluginStatusRegistry();
+		status = new StatusView(renderer, theme, settings == null ? new Settings() : settings, pluginStatusItems);
 		closeRequest = function() {};
 		this.width = width;
 		this.height = height;
@@ -113,7 +119,7 @@ class RootView {
 			tabs.setActive(existing);
 			return existing;
 		}
-		var view = new DocumentView(document, renderer, theme, activeLeaf.width, activeLeaf.height);
+		var view = new DocumentView(document, renderer, theme, activeLeaf.width, activeLeaf.height, pluginDecorations);
 		view.setBounds(activeLeaf.x, activeLeaf.y, activeLeaf.width, activeLeaf.height);
 		return tabs.add(view);
 	}
@@ -124,7 +130,7 @@ class RootView {
 		if (sourceView != null) {
 			var document = sourceView.getDocument();
 			if (document != null)
-				created.tabs.add(new DocumentView(document, renderer, theme, created.width, created.height));
+				created.tabs.add(new DocumentView(document, renderer, theme, created.width, created.height, pluginDecorations));
 		}
 		activateLeaf(created);
 		return true;
@@ -519,7 +525,7 @@ class RootView {
 				if (leaf != null && leaf.isLeaf()) {
 					var document = resolver == null ? resolveSessionDocument(fields[7], fields[8]) : resolver(fields[7], fields[8]);
 					if (document == null) continue;
-					var view = new DocumentView(document, renderer, theme, leaf.width, leaf.height);
+					var view = new DocumentView(document, renderer, theme, leaf.width, leaf.height, pluginDecorations);
 					view.setBounds(leaf.x, leaf.y, leaf.width, leaf.height);
 					leaf.tabs.add(view);
 					view.restoreCursor(Std.parseInt(fields[3]), Std.parseInt(fields[4]));

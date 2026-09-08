@@ -33,6 +33,9 @@ class DynamicPluginTestMain {
 		require(application.syntaxes.find("file.example").name == "Example", "manifest syntax did not register");
 		require(plugin.callInt("hostProbe") == 42, "dynamic plugin direct host API probe failed");
 		require(application.root.pluginPanels.find("example", "status") != null, "dynamic plugin did not invoke the host panel API during activation");
+		require(application.root.pluginStatusItems.find("example", "mode") != null
+			&& application.root.pluginDecorations.find("example", "first-character") != null,
+			"dynamic plugin did not register its owned UI contributions");
 		application.context.requireView().undo();
 		var eventsBeforeCommand = plugin.callInt("eventCount");
 		require(application.commands.perform("example:increment", application.context), "dynamic command did not dispatch");
@@ -137,6 +140,8 @@ class DynamicPluginTestMain {
 		var textAfterUnload = application.context.requireDocument().buffer.text;
 		application.textInput("after");
 		require(application.root.pluginPanels.find("example", "status") == null
+			&& application.root.pluginStatusItems.find("example", "mode") == null
+			&& application.root.pluginDecorations.find("example", "first-character") == null
 			&& application.context.requireDocument().buffer.text != textAfterUnload, "dynamic plugin panel survived unload");
 
 		application.shutdown();

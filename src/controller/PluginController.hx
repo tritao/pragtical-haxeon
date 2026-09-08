@@ -28,7 +28,8 @@ class PluginController {
 		this.root = root;
 		this.reportError = reportError;
 		this.reportInformation = reportInformation;
-		manager = new PluginManager(commands, keymap, context, syntaxes, completions, panels, jobs, settings,
+		manager = new PluginManager(commands, keymap, context, syntaxes, completions, panels, root.pluginDecorations,
+			root.pluginStatusItems, jobs, settings,
 			message -> reportError("plugin", message));
 		installCommands(commands);
 	}

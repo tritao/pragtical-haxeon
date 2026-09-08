@@ -4,7 +4,7 @@ import sys.io.File;
 
 class PluginManifest {
 	public static inline final MANIFEST_VERSION = 1;
-	public static inline final API_VERSION = 1;
+	public static inline final API_VERSION = 2;
 	public final path:String;
 	public var manifestVersion(default, null):Int = 0;
 	public var apiVersion(default, null):Int = 0;

@@ -4,6 +4,8 @@ import renderer.Renderer;
 import syntax.HighlightToken;
 import style.Theme;
 import search.SearchMatch;
+import plugin.PluginDecorationRegistry;
+import plugin.PluginDecoration;
 
 class EditorView {
 	public static inline final HEADER_HEIGHT = 42;
@@ -17,6 +19,7 @@ class EditorView {
 	public final selection:BufferSelection;
 	public final visualLines:VisualLineMap;
 	final clock:EditorClock;
+	final decorations:Null<PluginDecorationRegistry>;
 	public var x(default, null):Int = 0;
 	public var y(default, null):Int = 0;
 	public var width(default, null):Int;
@@ -34,13 +37,15 @@ class EditorView {
 	var mappedStateId:Int = -1;
 	var preferredVisualColumn:Int = -1;
 
-	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int, ?selection:BufferSelection, ?clock:EditorClock) {
+	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int, ?selection:BufferSelection, ?clock:EditorClock,
+			?decorations:PluginDecorationRegistry) {
 		this.document = document;
 		this.renderer = renderer;
 		this.theme = theme;
 		this.selection = selection == null ? new BufferSelection() : selection;
 		visualLines = new VisualLineMap(document.buffer);
 		this.clock = clock == null ? new SystemEditorClock() : clock;
+		this.decorations = decorations;
 		resize(width, height);
 	}
 
@@ -198,6 +203,7 @@ class EditorView {
 		if (textOffset < 0) textOffset = 0;
 		var textLeft = x + textOffset;
 		var bracketPair = document.matchingBrackets(selection.cursor);
+		var pluginDecorations:Array<PluginDecoration> = decorations == null ? [] : decorations.forDocument(document);
 		renderer.rect(x, y, width, height, theme.editorBackground);
 		renderer.rect(x, y, width, HEADER_HEIGHT, theme.surfaceElevated);
 		renderer.text(x + 12, y + 13, (document.dirty ? "* " : "") + path, theme.foregroundMuted);
@@ -215,6 +221,14 @@ class EditorView {
 			var row = visualLines.lineAt(rowIndex), lineIndex = row.documentLine, value = buffer.line(lineIndex),
 				y = contentTop + rowIndex * lineHeight - scrollY, x = textLeft - scrollX,
 				segment = value.substring(row.startColumn, row.endColumn);
+			for (decoration in pluginDecorations)
+				if (decoration.line == lineIndex && decoration.startColumn < row.endColumn && decoration.endColumn > row.startColumn) {
+					var from = decoration.startColumn < row.startColumn ? row.startColumn : decoration.startColumn,
+						to = decoration.endColumn > row.endColumn ? row.endColumn : decoration.endColumn,
+						decorationX = x + renderer.textWidth(value.substring(row.startColumn, from)),
+						decorationWidth = renderer.textWidth(value.substring(from, to));
+					renderer.rect(decorationX, y, decorationWidth, lineHeight, decoration.color);
+				}
 			if (bracketPair != null) {
 				drawBracketBackground(bracketPair.first, row, value, x, y, lineHeight);
 				drawBracketBackground(bracketPair.second, row, value, x, y, lineHeight);

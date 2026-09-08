@@ -11,6 +11,8 @@ function main():Int
 function activate():Void {
 	Editor.connect("example");
 	Editor.addPanel("status", "Example Plugin", "ready");
+	Editor.addStatusItem("mode", "Example Ready", "5");
+	Editor.addDecoration("first-character", "0:0:1", "574920959");
 	Editor.onDocumentChanged("documentChanged");
 }
 function deactivate():Void {}

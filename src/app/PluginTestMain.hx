@@ -12,6 +12,7 @@ import jobs.JobTask;
 import completion.CompletionItem;
 import completion.CompletionProvider;
 import completion.CompletionRequest;
+import plugin.EditorApi;
 
 class SampleCompletionProvider implements CompletionProvider {
 	public function new() {}
@@ -32,6 +33,7 @@ class SamplePlugin implements Plugin {
 	public var performed(default, null):Int = 0;
 	public var events(default, null):Int = 0;
 	public final job:SampleJob = new SampleJob();
+	public var lastApi(default, null):Null<EditorApi>;
 
 	public function new() {}
 
@@ -40,6 +42,7 @@ class SamplePlugin implements Plugin {
 
 	public function activate(context:PluginContext):Void {
 		activations++;
+		lastApi = context.api;
 		context.addSyntax(BuiltinSyntax.definition("Sample", [".sample"], ["sample"], [], []));
 		context.addCommand("sample:run", function(editor:CommandContext) {
 			this.performed++;
@@ -47,6 +50,8 @@ class SamplePlugin implements Plugin {
 		});
 		context.bind(77, 3, ["sample:run"]);
 		context.api.addPanel("status", "Sample", "ready");
+		context.api.addStatusItem("mode", "Sample Ready", 10);
+		context.api.addDecoration("first-word", 0, 0, 1, 0x224488FF);
 		context.api.onDocumentChanged(function(event) {
 			this.events++;
 			context.api.setPanelText("status", event.document.buffer.text);
@@ -81,6 +86,8 @@ class BrokenPlugin implements Plugin {
 
 	public function activate(context:PluginContext):Void {
 		context.addCommand("broken:leak", function(editor:CommandContext) {});
+		context.api.addStatusItem("leak", "broken");
+		context.api.addDecoration("leak", 0, 0, 1, 0xFFFFFFFF);
 		context.bind(1, 0, ["root:close"]);
 	}
 
@@ -127,6 +134,10 @@ class PluginTestMain {
 		application.keyPressed(Platform.KEY_ESCAPE, 0);
 		var panel = application.root.pluginPanels.find("sample", "status");
 		require(panel != null && panel.text == "plugin", "plugin panel or document event contribution was not live");
+		require(application.root.pluginStatusItems.find("sample", "mode") != null
+			&& application.root.status.text(application.context.requireView()).indexOf("Sample Ready") >= 0
+			&& application.root.pluginDecorations.find("sample", "first-word") != null,
+			"plugin status item or editor decoration was not live");
 		application.openCommandView();
 		application.textInput("samplerun");
 		require(application.root.commandView.results.length == 1, "plugin command was absent from command view");
@@ -142,6 +153,13 @@ class PluginTestMain {
 		application.textInput("after");
 		require(application.root.pluginPanels.find("sample", "status") == null && plugin.events == eventsAfterUnload && plugin.job.cancelled,
 			"plugin panel, event subscription, or scheduled job survived disable");
+		require(application.root.pluginStatusItems.find("sample", "mode") == null
+			&& application.root.pluginDecorations.find("sample", "first-word") == null,
+			"plugin status item or editor decoration survived disable");
+		var staleApiRejected = false;
+		try plugin.lastApi.addStatusItem("stale", "leak") catch (error:Dynamic) staleApiRejected = true;
+		require(staleApiRejected && application.root.pluginStatusItems.find("sample", "stale") == null,
+			"retired plugin API accepted or leaked a new contribution");
 		require(application.syntaxes.find("file.sample").name == "Plain Text", "plugin syntax survived disable");
 		require(!application.plugins.isLoaded("sample") && application.plugins.disabledIds().indexOf("sample") >= 0,
 			"disabled plugin definition was not retained");
@@ -170,7 +188,9 @@ class PluginTestMain {
 		}
 		require(failed
 			&& !application.plugins.isLoaded("broken")
-			&& !application.commands.contains("broken:leak"), "failed activation leaked plugin state");
+			&& !application.commands.contains("broken:leak")
+			&& application.root.pluginStatusItems.find("broken", "leak") == null
+			&& application.root.pluginDecorations.find("broken", "leak") == null, "failed activation leaked plugin state");
 		application.shutdown();
 		require(plugin.deactivations == 3 && application.plugins.count() == 0, "application shutdown did not deactivate plugins");
 		renderer.destroy();

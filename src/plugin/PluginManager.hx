@@ -15,6 +15,8 @@ class PluginManager {
 	final syntaxes:SyntaxRegistry;
 	final completions:CompletionRegistry;
 	final panels:PluginPanelRegistry;
+	final decorations:PluginDecorationRegistry;
+	final statusItems:PluginStatusRegistry;
 	final jobs:JobScheduler;
 	final settings:Void->Settings;
 	final reportDiagnostic:String->Void;
@@ -22,13 +24,16 @@ class PluginManager {
 	final reportedDiagnostics:Map<String, String> = [];
 
 	public function new(commands:CommandRegistry, keymap:Keymap, commandContext:CommandContext, syntaxes:SyntaxRegistry,
-			completions:CompletionRegistry, panels:PluginPanelRegistry, jobs:JobScheduler, settings:Void->Settings, ?reportDiagnostic:String->Void) {
+			completions:CompletionRegistry, panels:PluginPanelRegistry, decorations:PluginDecorationRegistry,
+			statusItems:PluginStatusRegistry, jobs:JobScheduler, settings:Void->Settings, ?reportDiagnostic:String->Void) {
 		this.commands = commands;
 		this.keymap = keymap;
 		this.commandContext = commandContext;
 		this.syntaxes = syntaxes;
 		this.completions = completions;
 		this.panels = panels;
+		this.decorations = decorations;
+		this.statusItems = statusItems;
 		this.jobs = jobs;
 		this.settings = settings;
 		this.reportDiagnostic = reportDiagnostic == null ? function(message:String) {} : reportDiagnostic;
@@ -41,7 +46,7 @@ class PluginManager {
 			throw 'invalid plugin id "$id"';
 		if (indexOf(id) >= 0)
 			return false;
-		var context = new PluginContext(id, commands, keymap, commandContext, syntaxes, completions, panels, jobs, settings);
+		var context = createContext(id);
 		try {
 			plugin.activate(context);
 		} catch (error:Dynamic) {
@@ -164,7 +169,7 @@ class PluginManager {
 	}
 
 	function createContext(id:String):PluginContext
-		return new PluginContext(id, commands, keymap, commandContext, syntaxes, completions, panels, jobs, settings);
+		return new PluginContext(id, commands, keymap, commandContext, syntaxes, completions, panels, decorations, statusItems, jobs, settings);
 
 	function ids(enabled:Bool):Array<String> {
 		var values:Array<String> = [];

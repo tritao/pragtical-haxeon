@@ -24,14 +24,15 @@ class PluginContext {
 	var active:Bool = true;
 
 	public function new(id:String, commands:CommandRegistry, keymap:Keymap, editor:CommandContext, syntaxes:SyntaxRegistry,
-			completions:CompletionRegistry, panels:PluginPanelRegistry, jobs:JobScheduler, settings:Void->Settings) {
+			completions:CompletionRegistry, panels:PluginPanelRegistry, decorations:PluginDecorationRegistry,
+			statusItems:PluginStatusRegistry, jobs:JobScheduler, settings:Void->Settings) {
 		this.id = id;
 		this.editor = editor;
 		this.commands = commands;
 		this.keymap = keymap;
 		this.syntaxes = syntaxes;
 		this.completions = completions;
-		api = new EditorApi(id, editor, panels, jobs, settings, own);
+		api = new EditorApi(id, editor, panels, decorations, statusItems, jobs, settings, own);
 	}
 
 	public function addCompletionProvider(provider:CompletionProvider):Void {
