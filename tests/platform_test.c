@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 int main(void) {
   assert(phx_platform_abi_version() == PHX_PLATFORM_ABI_VERSION);
@@ -19,6 +20,8 @@ int main(void) {
   assert(phx_draw_text(first, font, 2, 2, "hello", 0xffffffff));
   assert(phx_frame_present(first));
   assert(phx_frame_count(first) == 1);
+  assert(phx_clipboard_set("first\nOlá 😀"));
+  assert(strcmp(phx_clipboard_get(), "first\nOlá 😀") == 0);
 
   phx_event resize = {
     .kind = PHX_EVENT_WINDOW_RESIZED,

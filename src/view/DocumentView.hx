@@ -8,6 +8,7 @@ import search.SearchMatch;
 import editor.BufferPosition;
 import editor.BufferChange;
 import editor.BufferSubscription;
+import platform.Native;
 
 class DocumentView extends View {
 	public final document:Document;
@@ -50,6 +51,19 @@ class DocumentView extends View {
 		return document.buffer.replaceRange(editor.selection, from, to, text);
 	override public function replaceAllText(text:String):Bool
 		return document.buffer.replaceAllText(text, editor.selection);
+	override public function copy():Bool {
+		if (!editor.selection.hasSelection()) return false;
+		return Native.clipboard_set(editor.selection.selectedText(document.buffer));
+	}
+	override public function cut():Bool {
+		if (!copy()) return false;
+		return document.buffer.insert(editor.selection, "");
+	}
+	override public function paste():Bool {
+		var text = Native.clipboard_get();
+		text = StringTools.replace(StringTools.replace(text, "\r\n", "\n"), "\r", "\n");
+		return document.buffer.insert(editor.selection, text);
+	}
 
 	override public function resize(width:Int, height:Int):Void
 		editor.resize(width, height);

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define PHX_PLATFORM_ABI_VERSION 4
+#define PHX_PLATFORM_ABI_VERSION 5
 #define PHX_MAX_WINDOWS 64
 #define PHX_MAX_FONTS 32
 #define PHX_EVENT_CAPACITY 256
@@ -44,7 +44,10 @@ typedef enum phx_key {
   PHX_KEY_W = 16,
   PHX_KEY_P = 17,
   PHX_KEY_F = 18,
-  PHX_KEY_H = 19
+  PHX_KEY_H = 19,
+  PHX_KEY_C = 20,
+  PHX_KEY_V = 21,
+  PHX_KEY_X = 22
 } phx_key;
 
 #define PHX_MOD_SHIFT 1
@@ -74,6 +77,9 @@ int32_t phx_window_height(phx_handle handle);
 
 bool phx_event_poll(phx_event *event);
 bool phx_event_push_for_test(const phx_event *event);
+
+bool phx_clipboard_set(const char *text);
+const char *phx_clipboard_get(void);
 
 bool phx_frame_begin(phx_handle window);
 bool phx_set_clip_rect(phx_handle window, int32_t x, int32_t y, int32_t width,

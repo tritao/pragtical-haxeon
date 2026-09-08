@@ -35,6 +35,9 @@ class View {
 	public function selectRange(from:BufferPosition, to:BufferPosition):Bool return false;
 	public function replaceRange(from:BufferPosition, to:BufferPosition, text:String):Bool return false;
 	public function replaceAllText(text:String):Bool return false;
+	public function copy():Bool return false;
+	public function cut():Bool return false;
+	public function paste():Bool return false;
 	public function setBounds(x:Int, y:Int, width:Int, height:Int):Void
 		resize(width, height);
 

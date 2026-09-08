@@ -5,6 +5,15 @@
 
 static phx_event current_event;
 
+static vbyte *utf8_string(const char *text) {
+  const char *value = text ? text : "";
+  int length = hl_utf8_length((vbyte *)value, 0);
+  uchar *result = (uchar *)hl_alloc_bytes((length + 1) * (int)sizeof(uchar));
+  hl_from_utf8(result, length, value);
+  result[length] = 0;
+  return (vbyte *)result;
+}
+
 HL_PRIM int HL_NAME(abi_version)(void) { return phx_platform_abi_version(); }
 HL_PRIM bool HL_NAME(init)(bool headless) { return phx_platform_init(headless); }
 HL_PRIM void HL_NAME(shutdown)(void) { phx_platform_shutdown(); }
@@ -31,15 +40,18 @@ HL_PRIM int HL_NAME(event_b)(void) { return current_event.b; }
 HL_PRIM int HL_NAME(event_c)(void) { return current_event.c; }
 HL_PRIM int HL_NAME(event_d)(void) { return current_event.d; }
 HL_PRIM vbyte *HL_NAME(event_text)(void) {
-  int length = hl_utf8_length((vbyte *)current_event.text, 0);
-  uchar *result = (uchar *)hl_alloc_bytes((length + 1) * (int)sizeof(uchar));
-  hl_from_utf8(result, length, current_event.text);
-  result[length] = 0;
-  return (vbyte *)result;
+	return utf8_string(current_event.text);
 }
 HL_PRIM bool HL_NAME(event_push_test)(int kind, int window, int a, int b) {
   phx_event event = {.kind = kind, .window = window, .a = a, .b = b};
   return phx_event_push_for_test(&event);
+}
+HL_PRIM bool HL_NAME(clipboard_set)(vbyte *text) {
+  const char *utf8 = text ? hl_to_utf8((uchar *)text) : "";
+  return phx_clipboard_set(utf8);
+}
+HL_PRIM vbyte *HL_NAME(clipboard_get)(void) {
+  return utf8_string(phx_clipboard_get());
 }
 HL_PRIM bool HL_NAME(frame_begin)(int window) { return phx_frame_begin(window); }
 HL_PRIM bool HL_NAME(set_clip_rect)(int window, int x, int y, int width, int height) {
@@ -87,6 +99,8 @@ DEFINE_PRIM(_I32, event_c, _NO_ARG);
 DEFINE_PRIM(_I32, event_d, _NO_ARG);
 DEFINE_PRIM(_BYTES, event_text, _NO_ARG);
 DEFINE_PRIM(_BOOL, event_push_test, _I32 _I32 _I32 _I32);
+DEFINE_PRIM(_BOOL, clipboard_set, _BYTES);
+DEFINE_PRIM(_BYTES, clipboard_get, _NO_ARG);
 DEFINE_PRIM(_BOOL, frame_begin, _I32);
 DEFINE_PRIM(_BOOL, set_clip_rect, _I32 _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_BOOL, draw_rect, _I32 _I32 _I32 _I32 _I32 _I32);

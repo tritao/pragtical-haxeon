@@ -1,6 +1,7 @@
 #include "pragtical_hx/platform.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifdef PHX_WITH_SDL
@@ -44,6 +45,7 @@ static phx_event events[PHX_EVENT_CAPACITY];
 static uint32_t event_read;
 static uint32_t event_count;
 static char last_error[256];
+static char *clipboard_text;
 
 #ifdef PHX_WITH_SDL
 static int32_t normalize_key(SDL_Keycode key) {
@@ -67,6 +69,9 @@ static int32_t normalize_key(SDL_Keycode key) {
     case SDLK_P: return PHX_KEY_P;
     case SDLK_F: return PHX_KEY_F;
     case SDLK_H: return PHX_KEY_H;
+    case SDLK_C: return PHX_KEY_C;
+    case SDLK_V: return PHX_KEY_V;
+    case SDLK_X: return PHX_KEY_X;
     default: return PHX_KEY_UNKNOWN;
   }
 }
@@ -83,6 +88,16 @@ static int32_t normalize_modifiers(SDL_Keymod modifiers) {
 static bool fail(const char *message) {
   snprintf(last_error, sizeof(last_error), "%s", message);
   return false;
+}
+
+static bool store_clipboard(const char *text) {
+  const char *value = text ? text : "";
+  size_t size = strlen(value) + 1;
+  char *replacement = (char *)realloc(clipboard_text, size);
+  if (!replacement) return fail("could not allocate clipboard text");
+  memcpy(replacement, value, size);
+  clipboard_text = replacement;
+  return true;
 }
 
 static phx_handle make_handle(uint32_t index, uint32_t generation) {
@@ -147,6 +162,10 @@ bool phx_platform_init(bool headless) {
   last_error[0] = '\0';
   initialized = true;
   is_headless = headless;
+  if (!store_clipboard("")) {
+    initialized = false;
+    return false;
+  }
   return true;
 }
 
@@ -169,6 +188,8 @@ void phx_platform_shutdown(void) {
   memset(fonts, 0, sizeof(fonts));
   event_read = 0;
   event_count = 0;
+  free(clipboard_text);
+  clipboard_text = NULL;
 }
 
 const char *phx_platform_last_error(void) { return last_error; }
@@ -339,6 +360,35 @@ bool phx_event_push_for_test(const phx_event *event) {
   events[write] = *event;
   event_count++;
   return true;
+}
+
+bool phx_clipboard_set(const char *text) {
+  if (!initialized) return fail("platform is not initialized");
+#ifdef PHX_WITH_SDL
+  if (!is_headless && !SDL_SetClipboardText(text ? text : ""))
+    return fail(SDL_GetError());
+#endif
+  return store_clipboard(text);
+}
+
+const char *phx_clipboard_get(void) {
+  if (!initialized) {
+    fail("platform is not initialized");
+    return NULL;
+  }
+#ifdef PHX_WITH_SDL
+  if (!is_headless) {
+    char *text = SDL_GetClipboardText();
+    if (!text) {
+      fail(SDL_GetError());
+      return NULL;
+    }
+    bool stored = store_clipboard(text);
+    SDL_free(text);
+    if (!stored) return NULL;
+  }
+#endif
+  return clipboard_text ? clipboard_text : "";
 }
 
 bool phx_frame_begin(phx_handle window) {

@@ -20,6 +20,8 @@ extern class Native {
 	static function event_d():Int;
 	static function event_text():String;
 	static function event_push_test(kind:Int, window:Int, a:Int, b:Int):Bool;
+	static function clipboard_set(text:String):Bool;
+	static function clipboard_get():String;
 	static function frame_begin(window:Int):Bool;
 	static function set_clip_rect(window:Int, x:Int, y:Int, width:Int, height:Int):Bool;
 	static function draw_rect(window:Int, x:Int, y:Int, width:Int, height:Int, rgba:Int):Bool;
