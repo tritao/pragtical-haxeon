@@ -182,6 +182,20 @@ class DocumentTestMain {
 			&& commented.text == "  // value\n// next", "line comment insertion failed");
 		require(EditorActions.toggleLineComment(commented, commentSelection, haxeSyntax)
 			&& commented.text == "  value\nnext", "line comment removal failed");
+		var multiCoding = new TextBuffer("a\nb\nc"), multiCodingSelection = new BufferSelection(new BufferPosition(0, 1));
+		multiCodingSelection.addRange(multiCoding, new BufferPosition(2, 1), new BufferPosition(2, 1));
+		require(EditorActions.indent(multiCoding, multiCodingSelection, 2, true) && multiCoding.text == "  a\nb\n  c"
+			&& multiCodingSelection.rangeCount() == 2, "multi-selection indentation failed");
+		multiCoding.undo(multiCodingSelection);
+		require(multiCoding.text == "a\nb\nc" && multiCodingSelection.rangeCount() == 2,
+			"multi-selection indentation undo lost ranges");
+		require(EditorActions.duplicateLines(multiCoding, multiCodingSelection) && multiCoding.text == "a\na\nb\nc\nc"
+			&& multiCodingSelection.rangeCount() == 2, "multi-selection line duplication failed");
+		multiCoding.undo(multiCodingSelection);
+		require(EditorActions.deleteLines(multiCoding, multiCodingSelection) && multiCoding.text == "b",
+			"multi-selection line deletion failed");
+		require(multiCoding.undo(multiCodingSelection) && multiCoding.text == "a\nb\nc" && multiCodingSelection.rangeCount() == 2,
+			"multi-selection line deletion undo failed");
 		var document = new Document("unused", "clean", syntaxes), documentSelection = new BufferSelection();
 		document.insert(documentSelection, " edit");
 		require(document.dirty && document.buffer.text == " editclean", "document dirty state failed");

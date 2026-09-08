@@ -64,7 +64,7 @@ class DocumentView extends View {
 		return document.buffer.replaceAllText(text, editor.selection);
 	override public function copy():Bool {
 		var values:Array<String> = [];
-		for (range in editor.selection.allRanges()) {
+		for (range in editor.selection.documentRanges()) {
 			if (range.isCollapsed()) return false;
 			values.push(document.buffer.textRange(range.start(), range.end()));
 		}

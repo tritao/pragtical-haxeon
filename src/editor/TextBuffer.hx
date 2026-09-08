@@ -120,12 +120,13 @@ class TextBuffer {
 		if (values.length != 1 && values.length != ranges.length) return false;
 		var pending:Array<PendingSelectionEdit> = [];
 		for (index in 0...ranges.length)
-			pending.push(new PendingSelectionEdit(ranges[index], values.length == 1 ? values[0] : values[index], index == 0));
+			pending.push(new PendingSelectionEdit(ranges[index], values.length == 1 ? values[0] : "", index == 0));
 		pending.sort(function(left, right) {
 			var leftStart = left.range.start(), rightStart = right.range.start();
 			if (leftStart.line != rightStart.line) return leftStart.line - rightStart.line;
 			return leftStart.column - rightStart.column;
 		});
+		if (values.length > 1) for (index in 0...pending.length) pending[index].value = values[index];
 		var replacements:Array<BufferReplacement> = [], finalRanges:Array<BufferRange> = [], primary = 0;
 		for (index in 0...pending.length) {
 			var item = pending[index], position = advance(item.range.start(), item.value), lower = index;
@@ -349,7 +350,7 @@ typedef BufferChangeListener = BufferChange -> Void;
 
 private class PendingSelectionEdit {
 	public final range:BufferRange;
-	public final value:String;
+	public var value:String;
 	public final primary:Bool;
 	public function new(range:BufferRange, value:String, primary:Bool) {
 		this.range = range;

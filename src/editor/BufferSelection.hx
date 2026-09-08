@@ -23,6 +23,17 @@ class BufferSelection {
 		return result;
 	}
 
+	/** Returns normalized ranges in document order for clipboard distribution. */
+	public function documentRanges():Array<BufferRange> {
+		var result = allRanges();
+		result.sort(function(left, right) {
+			var leftStart = left.start(), rightStart = right.start();
+			if (leftStart.line != rightStart.line) return leftStart.line - rightStart.line;
+			return leftStart.column - rightStart.column;
+		});
+		return result;
+	}
+
 	public function snapshot():SelectionSnapshot
 		return new SelectionSnapshot(allRanges(), 0);
 
