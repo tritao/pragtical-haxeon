@@ -4,11 +4,13 @@ import command.CommandRegistry;
 import command.KeyBinding;
 import command.Keymap;
 import config.SettingsService;
+import config.ConfigurationPaths;
 import core.Application;
 import platform.Native;
 import platform.Platform;
 import renderer.Renderer;
 import sys.io.File;
+import sys.FileSystem;
 import session.WorkspaceSession;
 import recovery.RecoverySnapshot;
 import recovery.RecoveryStore;
@@ -21,6 +23,20 @@ class ConfigurationTestMain {
 
 	static function main():Int {
 		var arguments = Sys.args(), userPath = arguments[0], projectPath = arguments[1];
+		var oldPortable = Sys.getEnv("PRAGTICAL_PORTABLE"), oldConfig = Sys.getEnv("XDG_CONFIG_HOME"), oldState = Sys.getEnv("XDG_STATE_HOME");
+		Sys.putEnv("PRAGTICAL_PORTABLE", arguments[2] + "/portable/");
+		require(ConfigurationPaths.userSettings() == arguments[2] + "/portable/settings.conf"
+			&& ConfigurationPaths.session() == arguments[2] + "/portable/session.conf", "portable data root was not authoritative");
+		Sys.putEnv("PRAGTICAL_PORTABLE", "");
+		if (Sys.systemName() != "Windows" && Sys.systemName() != "Mac") {
+			Sys.putEnv("XDG_CONFIG_HOME", arguments[2] + "/xdg-config");
+			Sys.putEnv("XDG_STATE_HOME", arguments[2] + "/xdg-state");
+			require(ConfigurationPaths.userSettings() == arguments[2] + "/xdg-config/pragtical-haxeon/settings.conf"
+				&& ConfigurationPaths.session() == arguments[2] + "/xdg-state/pragtical-haxeon/session.conf", "XDG data roots were not respected");
+		}
+		Sys.putEnv("PRAGTICAL_PORTABLE", oldPortable == null ? "" : oldPortable);
+		Sys.putEnv("XDG_CONFIG_HOME", oldConfig == null ? "" : oldConfig);
+		Sys.putEnv("XDG_STATE_HOME", oldState == null ? "" : oldState);
 		var service = new SettingsService(userPath, projectPath);
 		require(service.diagnostics.length == 0, "valid settings produced diagnostics");
 		require(service.current.fontSize == 18 && service.current.sidebarWidth == 280 && !service.current.insertSpaces, "layer precedence failed");
@@ -31,6 +47,21 @@ class ConfigurationTestMain {
 		File.saveContent(projectPath, "version=1\neditor.fontSize=19\n");
 		require(service.reload() && service.current.fontSize == 19 && service.current.sidebarWidth == 240 && service.current.insertSpaces,
 			"fixed reload did not reapply layered settings and defaults");
+		var notifications = 0, release = service.subscribe(function(value) {
+			notifications++;
+		});
+		require(notifications == 1 && !service.reload(), "subscription or unchanged reload was not stable");
+		release();
+		release();
+		File.saveContent(projectPath, "version=1\neditor.fontSize=20\n");
+		require(service.reload() && notifications == 1, "released settings subscription was retained");
+		FileSystem.deleteFile(projectPath);
+		require(service.reload() && service.current.fontSize == 16 && service.current.sidebarWidth == 240,
+			"removing the project layer did not reset to user/default values");
+		File.saveContent(projectPath, "version=1\neditor.fontSize=19\n");
+		require(service.reload(), "could not restore project settings after reset test");
+		var unreadable = new SettingsService(arguments[2]);
+		require(unreadable.diagnostics.length > 0, "settings read failure did not become a diagnostic");
 
 		Platform.startHeadless();
 		var window = Native.window_create("configuration-test", 640, 320), renderer = new Renderer(window, "ignored-headlessly.ttf", 15),
@@ -38,12 +69,51 @@ class ConfigurationTestMain {
 		application.commands.add("test:configured", function(context) {
 			performed += 1;
 		});
+		var previousFont = renderer.font;
+		File.saveContent(projectPath, "version=1\neditor.fontSize=21\ntheme.selection=123456\nkeybinding=Ctrl+A|test:configured\n");
+		application.update();
+		require(renderer.fontSize == 21 && renderer.font != previousFont && Native.font_height(previousFont) == -1,
+			"live font replacement leaked the retired font handle");
+		require(application.theme.selection == 123456, "live semantic theme update was not applied");
+		require(application.keyPressed(Platform.KEY_A, Platform.MOD_CTRL) && performed == 1,
+			"live configured binding was missing or duplicated");
+		File.saveContent(projectPath, "version=1\n");
+		application.update();
+		var defaultSettings = new config.Settings();
+		require(renderer.fontSize == 16 && application.theme.selection == defaultSettings.selection,
+			"live settings reset did not restore layered defaults");
+		require(application.keymap.commandsFor(Platform.KEY_A, Platform.MOD_CTRL)[0] == "doc:undo",
+			"settings reset did not restore the user-layer binding");
+		performed = 0;
 		application.keymap.setConfigured([new KeyBinding(Platform.KEY_A, Platform.MOD_CTRL, ["test:configured"])]);
 		require(application.keyPressed(Platform.KEY_A, Platform.MOD_CTRL) && performed == 1, "configured binding did not override defaults");
 		application.keymap.setConfigured([]);
 		require(application.keymap.commandsFor(Platform.KEY_A, Platform.MOD_CTRL)[0] == "doc:select-all", "clearing configured bindings lost defaults");
+		var projectSettingsDirectory = arguments[2] + "/.pragtical", workspaceSettingsPath = projectSettingsDirectory + "/settings.conf";
+		if (!FileSystem.exists(projectSettingsDirectory)) FileSystem.createDirectory(projectSettingsDirectory);
+		File.saveContent(workspaceSettingsPath, "version=1\neditor.fontSize=22\ntheme.accent=654321\nfiles.exclude=.git,generated\n");
 		application.openArgument(arguments[2]);
+		require(renderer.fontSize == 22 && application.theme.accent == 654321,
+			"opening a project did not apply its layered settings");
+		File.saveContent(workspaceSettingsPath, "version=1\neditor.fontSize=23\ntheme.accent=765432\nfiles.exclude=.git,generated\n");
+		var activeProject = application.workspace.activeProject;
+		if (activeProject == null || activeProject.settings == null) throw "active project has no settings service";
+		activeProject.settings.reload();
+		application.update();
+		require(renderer.fontSize == 23 && application.theme.accent == 765432,
+			"live project setting changes were not applied through the active layer");
+		var projectLastGood = activeProject.settings.current, errorsBeforeInvalidProject = application.errors.entries.length;
+		File.saveContent(workspaceSettingsPath, "version=1\nrun=untrusted-project-code\n");
+		require(!activeProject.settings.reload() && activeProject.settings.current == projectLastGood,
+			"project configuration was not treated as validated data");
+		application.update();
+		require(application.errors.entries.length > errorsBeforeInvalidProject,
+			"project configuration diagnostics were not visible in the editor");
+		File.saveContent(workspaceSettingsPath, "version=1\neditor.fontSize=23\ntheme.accent=765432\nfiles.exclude=.git,generated\n");
+		require(activeProject.settings.reload(), "valid project configuration did not recover after a diagnostic");
 		application.open(arguments[3]);
+		application.update();
+		require(renderer.fontSize == 16, "leaving the project did not restore user-layer settings");
 		var sessionPath = arguments[2] + "/state/nested/session.conf", session = WorkspaceSession.capture(application);
 		require(session.save(sessionPath), "session did not create its state directory");
 		var loaded = WorkspaceSession.load(sessionPath);

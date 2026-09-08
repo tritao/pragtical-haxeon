@@ -7,7 +7,7 @@ class Project {
 	public final root:String;
 	public final name:String;
 	public var tree(default, null):ProjectNode;
-	public var settings:Null<config.SettingsService>;
+	public var settings(default, null):Null<config.SettingsService>;
 	public final diagnostics:Array<String> = [];
 	final fileSystem:FileSystemService;
 	final scheduler:JobScheduler;
@@ -19,6 +19,7 @@ class Project {
 	var scanGeneration:Int = 0;
 	var changedSincePoll:Bool = false;
 	var requestedExpanded:Map<String, Bool> = [];
+	var releaseSettings:Null<Void->Void>;
 
 	public function new(path:String, fileSystem:FileSystemService, scheduler:JobScheduler, ?ignoredNames:Array<String>) {
 		this.fileSystem = fileSystem;
@@ -38,6 +39,12 @@ class Project {
 		for (name in [".git", ".hg", ".svn", ".devstack", "build", "out", "node_modules"]) ignored.set(name, true);
 		for (name in names) ignored.set(name, true);
 		startScan();
+	}
+
+	public function setSettings(service:config.SettingsService):Void {
+		if (releaseSettings != null) releaseSettings();
+		settings = service;
+		releaseSettings = service.subscribe(value -> setIgnored(value.excludedNames));
 	}
 
 	function startScan():Void {
@@ -65,7 +72,7 @@ class Project {
 	}
 
 	public function pollChanges(directoryBudget:Int):Bool {
-		if (settings != null && settings.reload()) setIgnored(settings.current.excludedNames);
+		if (settings != null) settings.reload();
 		var changed = changedSincePoll;
 		changedSincePoll = false;
 		if (scan != null && scan.complete) startScan();
@@ -73,6 +80,8 @@ class Project {
 	}
 
 	public function cancelIndex():Void {
+		if (releaseSettings != null) releaseSettings();
+		releaseSettings = null;
 		if (scanHandle != null) scheduler.cancel(scanHandle);
 		scan = null;
 		scanHandle = null;

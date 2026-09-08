@@ -65,8 +65,10 @@ class Application {
 	var documentMatchIndex:Int = -1;
 	var documentSearchDocument:Null<Document>;
 	var documentSearchRevision:Int = -1;
-	var settingsListener:Settings->Void;
+	var releaseSettings:Void->Void;
+	var appliedSettings:Null<Settings>;
 	var lastFileSystemCheck:Float = 0.0;
+	var lastConfigurationDiagnostics:String = "";
 	public var quitReady(default, null):Bool = false;
 	var closeDocuments:Array<Document> = [];
 	var closeIndex:Int = 0;
@@ -101,8 +103,7 @@ class Application {
 		installConfigurationCommands();
 		installFileCommands();
 		commands.add("recovery:open", context -> openRecoveryCommandView());
-		settingsListener = applySettings;
-		this.settings.subscribe(settingsListener);
+		releaseSettings = this.settings.subscribe(applySettings);
 	}
 
 	public function open(path:String):View
@@ -113,7 +114,8 @@ class Application {
 			var normalized = workspace.fileSystem.normalize(path);
 			var projectSettings = settings.forProject(ConfigurationPaths.projectSettings(normalized));
 			var project = workspace.addProject(normalized, projectSettings.current.excludedNames);
-			project.settings = projectSettings;
+			project.setSettings(projectSettings);
+			applySettings(projectSettings.current);
 			return null;
 		}
 		return open(path);
@@ -199,7 +201,7 @@ class Application {
 
 	public function openWorkspaceFind():Void {
 		root.commandView.open(new CommandViewProvider("Search: ", [], function(query) {
-			workspaceSearch.request(query, searchOptions, settings.current.searchMaxResults);
+			workspaceSearch.request(query, searchOptions, effectiveSettings().searchMaxResults);
 		}, function(entry, query, backwards) {
 			if (backwards) root.searchMove(-1);
 			root.searchActivate();
@@ -666,15 +668,28 @@ class Application {
 	}
 
 	public function openSettingsCommandView():Void {
-		var value = settings.current, entries = [
+		var value = effectiveSettings(), entries = [
 			new CommandViewEntry("editor.fontPath", value.fontPath, "editor.fontPath"),
 			new CommandViewEntry("editor.fontSize", Std.string(value.fontSize), "editor.fontSize"),
 			new CommandViewEntry("editor.tabWidth", Std.string(value.tabWidth), "editor.tabWidth"),
 			new CommandViewEntry("editor.insertSpaces", Std.string(value.insertSpaces), "editor.insertSpaces"),
 			new CommandViewEntry("workbench.sidebarWidth", Std.string(value.sidebarWidth), "workbench.sidebarWidth"),
-			new CommandViewEntry("search.maxResults", Std.string(value.searchMaxResults), "search.maxResults")
+			new CommandViewEntry("files.exclude", value.excludedNames.join(","), "files.exclude"),
+			new CommandViewEntry("search.caseSensitive", Std.string(value.searchCaseSensitive), "search.caseSensitive"),
+			new CommandViewEntry("search.wholeWord", Std.string(value.searchWholeWord), "search.wholeWord"),
+			new CommandViewEntry("search.maxResults", Std.string(value.searchMaxResults), "search.maxResults"),
+			new CommandViewEntry("theme.editorBackground", Std.string(value.editorBackground), "theme.editorBackground"),
+			new CommandViewEntry("theme.editorForeground", Std.string(value.editorForeground), "theme.editorForeground"),
+			new CommandViewEntry("theme.accent", Std.string(value.accent), "theme.accent"),
+			new CommandViewEntry("theme.surface", Std.string(value.surface), "theme.surface"),
+			new CommandViewEntry("theme.selection", Std.string(value.selection), "theme.selection"),
+			new CommandViewEntry("theme.searchMatch", Std.string(value.searchMatch), "theme.searchMatch"),
+			new CommandViewEntry("theme.caret", Std.string(value.caret), "theme.caret")
 		];
 		for (diagnostic in settings.diagnostics) entries.unshift(new CommandViewEntry("Configuration error", diagnostic, diagnostic));
+		var project = workspace.activeProject;
+		if (project != null && project.settings != null)
+			for (diagnostic in project.settings.diagnostics) entries.unshift(new CommandViewEntry("Configuration error", diagnostic, diagnostic));
 		root.commandView.open(new CommandViewProvider("Settings: ", entries, function(query) {}, function(entry, query, backwards) {
 			root.commandView.close();
 		}));
@@ -682,7 +697,7 @@ class Application {
 
 	public function openKeybindingsCommandView():Void {
 		var entries:Array<CommandViewEntry> = [];
-		for (binding in settings.current.keybindings)
+		for (binding in effectiveSettings().keybindings)
 			entries.push(new CommandViewEntry(keyName(binding.key, binding.modifiers), binding.commands.join(", "), binding.commands[0]));
 		root.commandView.open(new CommandViewProvider("Keybindings: ", entries, function(query) {}, function(entry, query, backwards) {
 			root.commandView.close();
@@ -718,9 +733,28 @@ class Application {
 	}
 
 	function applySettings(value:Settings):Void {
+		appliedSettings = value;
 		theme.editorBackground = value.editorBackground;
 		theme.editorForeground = value.editorForeground;
 		theme.accent = value.accent;
+		theme.surface = value.surface;
+		theme.surfaceElevated = value.surfaceElevated;
+		theme.surfaceActive = value.surfaceActive;
+		theme.surfaceInactive = value.surfaceInactive;
+		theme.surfaceHover = value.surfaceHover;
+		theme.border = value.border;
+		theme.divider = value.divider;
+		theme.foregroundMuted = value.foregroundMuted;
+		theme.foregroundSubtle = value.foregroundSubtle;
+		theme.foregroundDisabled = value.foregroundDisabled;
+		theme.selection = value.selection;
+		theme.searchMatch = value.searchMatch;
+		theme.caret = value.caret;
+		theme.overlay = value.overlay;
+		theme.information = value.information;
+		theme.warning = value.warning;
+		theme.error = value.error;
+		theme.scrollbar = value.scrollbar;
 		root.status.applySettings(value);
 		searchOptions.caseSensitive = value.searchCaseSensitive;
 		searchOptions.wholeWord = value.searchWholeWord;
@@ -750,11 +784,32 @@ class Application {
 			documents.checkExternalChanges();
 			workspace.refreshProjects();
 		}
+		var effective = effectiveSettings();
+		if (effective != appliedSettings) applySettings(effective);
+		reportConfigurationDiagnostics();
 		try {
 			plugins.update();
 		} catch (error:Dynamic) {
 			reportError("plugin", Std.string(error));
 		}
+	}
+
+	function effectiveSettings():Settings {
+		var document = activeDocument();
+		if (document != null) return settingsFor(document);
+		var project = workspace.activeProject;
+		return project == null || project.settings == null ? settings.current : project.settings.current;
+	}
+
+	function reportConfigurationDiagnostics():Void {
+		var values = settings.diagnostics.copy();
+		for (project in workspace.projects)
+			if (project.settings != null)
+				for (diagnostic in project.settings.diagnostics) values.push(diagnostic);
+		var identity = values.join("\n");
+		if (identity == lastConfigurationDiagnostics) return;
+		lastConfigurationDiagnostics = identity;
+		for (diagnostic in values) reportError("configuration", diagnostic);
 	}
 
 	public function reportInformation(message:String):Void
@@ -766,7 +821,7 @@ class Application {
 	}
 
 	public function shutdown():Void {
-		settings.unsubscribe(settingsListener);
+		releaseSettings();
 		plugins.shutdown();
 	}
 }

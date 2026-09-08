@@ -27,6 +27,7 @@ class SettingsCodec {
 			else if (key == "theme.editorBackground") target.editorBackground = parseColor(value, key, source, lineNumber, diagnostics);
 			else if (key == "theme.editorForeground") target.editorForeground = parseColor(value, key, source, lineNumber, diagnostics);
 			else if (key == "theme.accent") target.accent = parseColor(value, key, source, lineNumber, diagnostics);
+			else if (StringTools.startsWith(key, "theme.")) applyThemeColor(key, value, target, source, lineNumber, diagnostics);
 			else if (key == "keybinding") {
 				var binding = parseBinding(value, source, lineNumber, diagnostics);
 				if (binding != null) {
@@ -42,6 +43,31 @@ class SettingsCodec {
 		if (version == 0) diagnostics.push(source + ": missing version=" + Settings.VERSION);
 		target.keybindings = bindings;
 		return diagnostics;
+	}
+
+	static function applyThemeColor(key:String, value:String, target:Settings, source:String, line:Int, diagnostics:Array<String>):Void {
+		var color = parseColor(value, key, source, line, diagnostics);
+		switch key {
+			case "theme.surface": target.surface = color;
+			case "theme.surfaceElevated": target.surfaceElevated = color;
+			case "theme.surfaceActive": target.surfaceActive = color;
+			case "theme.surfaceInactive": target.surfaceInactive = color;
+			case "theme.surfaceHover": target.surfaceHover = color;
+			case "theme.border": target.border = color;
+			case "theme.divider": target.divider = color;
+			case "theme.foregroundMuted": target.foregroundMuted = color;
+			case "theme.foregroundSubtle": target.foregroundSubtle = color;
+			case "theme.foregroundDisabled": target.foregroundDisabled = color;
+			case "theme.selection": target.selection = color;
+			case "theme.searchMatch": target.searchMatch = color;
+			case "theme.caret": target.caret = color;
+			case "theme.overlay": target.overlay = color;
+			case "theme.information": target.information = color;
+			case "theme.warning": target.warning = color;
+			case "theme.error": target.error = color;
+			case "theme.scrollbar": target.scrollbar = color;
+			default: diagnostics.push(source + ":" + (line + 1) + ': unknown setting "$key"');
+		}
 	}
 
 	static function parseBinding(value:String, source:String, line:Int, diagnostics:Array<String>):Null<ConfiguredKeyBinding> {

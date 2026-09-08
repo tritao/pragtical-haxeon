@@ -2,21 +2,38 @@ package config;
 
 class ConfigurationPaths {
 	public static function userSettings():String {
-		var portable = Sys.getEnv("PRAGTICAL_PORTABLE");
-		if (portable != null && portable.length > 0) return portable + "/settings.conf";
-		var config = Sys.getEnv("XDG_CONFIG_HOME");
-		if (config != null && config.length > 0) return config + "/pragtical-haxeon/settings.conf";
-		var home = Sys.getEnv("HOME");
-		return home == null ? "" : home + "/.config/pragtical-haxeon/settings.conf";
+		return child(configurationRoot(), "settings.conf");
 	}
 
 	public static function session():String {
-		var portable = Sys.getEnv("PRAGTICAL_PORTABLE");
-		if (portable != null && portable.length > 0) return portable + "/session.conf";
-		var state = Sys.getEnv("XDG_STATE_HOME");
-		if (state != null && state.length > 0) return state + "/pragtical-haxeon/session.conf";
-		var home = Sys.getEnv("HOME");
-		return home == null ? "" : home + "/.local/state/pragtical-haxeon/session.conf";
+		return child(stateRoot(), "session.conf");
+	}
+
+	public static function configurationRoot():String {
+		var portable = environment("PRAGTICAL_PORTABLE");
+		if (portable != null) return trim(portable);
+		var home = environment("HOME"), system = Sys.systemName();
+		if (system == "Windows") {
+			var roaming = environment("APPDATA");
+			return child(roaming == null ? child(home, "AppData/Roaming") : roaming, "Pragtical Haxeon");
+		}
+		if (system == "Mac") return child(home, "Library/Application Support/Pragtical Haxeon");
+		var xdg = environment("XDG_CONFIG_HOME");
+		return child(xdg == null ? child(home, ".config") : xdg, "pragtical-haxeon");
+	}
+
+	public static function stateRoot():String {
+		var portable = environment("PRAGTICAL_PORTABLE");
+		if (portable != null) return trim(portable);
+		var home = environment("HOME"), system = Sys.systemName();
+		if (system == "Windows") {
+			var local = environment("LOCALAPPDATA");
+			if (local == null) local = environment("APPDATA");
+			return child(local == null ? child(home, "AppData/Local") : local, "Pragtical Haxeon");
+		}
+		if (system == "Mac") return child(home, "Library/Application Support/Pragtical Haxeon");
+		var xdg = environment("XDG_STATE_HOME");
+		return child(xdg == null ? child(home, ".local/state") : xdg, "pragtical-haxeon");
 	}
 
 	public static function recovery():String {
@@ -36,4 +53,20 @@ class ConfigurationPaths {
 
 	public static function projectSettings(root:String):String
 		return root + "/.pragtical/settings.conf";
+
+	static function environment(name:String):Null<String> {
+		var value = Sys.getEnv(name);
+		return value == null || value.length == 0 ? null : value;
+	}
+
+	static function child(parent:Null<String>, name:String):String {
+		if (parent == null || parent.length == 0) return name;
+		return trim(parent) + "/" + name;
+	}
+
+	static function trim(path:String):String {
+		var end = path.length;
+		while (end > 1 && (path.charAt(end - 1) == "/" || path.charAt(end - 1) == "\\")) end--;
+		return path.substring(0, end);
+	}
 }
