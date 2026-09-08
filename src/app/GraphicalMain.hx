@@ -2,6 +2,7 @@ package app;
 
 import platform.Native;
 import platform.Platform;
+import platform.PlatformEvent;
 import core.Application;
 import renderer.Renderer;
 import config.ConfigurationPaths;
@@ -44,26 +45,22 @@ class GraphicalMain {
 	}
 
 	static function onEvent():Void {
-		while (Native.event_poll()) {
-			var kind = Native.event_kind();
-			if (kind == Platform.EVENT_QUIT)
-				application.requestQuit();
-			else if (kind == Platform.EVENT_TEXT_INPUT)
-				application.textInput(Native.event_text());
-			else if (kind == Platform.EVENT_WINDOW_RESIZED)
-				application.root.resize(Native.event_a(), Native.event_b());
-			else if (kind == Platform.EVENT_DISPLAY_SCALE_CHANGED)
-				application.root.displayScaleChanged(Native.event_a());
-			else if (kind == Platform.EVENT_MOUSE_WHEEL)
-				application.root.wheel(Native.event_a(), Native.event_b());
-			else if (kind == Platform.EVENT_MOUSE_BUTTON_DOWN)
-				application.root.mouseDown(Native.event_a(), Native.event_b(), Native.event_c(), Native.event_d());
-			else if (kind == Platform.EVENT_MOUSE_BUTTON_UP)
-				application.root.mouseUp(Native.event_a());
-			else if (kind == Platform.EVENT_MOUSE_MOVED)
-				application.root.mouseMove(Native.event_a(), Native.event_b());
-			else if (kind == Platform.EVENT_KEY_DOWN)
-				application.keyPressed(Native.event_a(), Native.event_b());
+		var event = Platform.pollEvent();
+		while (event != null) {
+			switch event {
+				case Quit: application.requestQuit();
+				case TextInput(_, text): application.textInput(text);
+				case WindowResize(_, width, height): application.root.resize(width, height);
+				case DisplayScaleChanged(_, scaleMilli): application.root.displayScaleChanged(scaleMilli);
+				case MouseWheel(_, vertical, horizontal): application.root.wheel(vertical, horizontal);
+				case MouseButtonDown(_, button, x, y, clicks): application.root.mouseDown(button, x, y, clicks);
+				case MouseButtonUp(_, button, _, _, _): application.root.mouseUp(button);
+				case MouseMove(_, x, y, _, _): application.root.mouseMove(x, y);
+				case KeyDown(_, key, modifiers): application.keyPressed(key, modifiers);
+				case KeyUp(_, _, _):
+				default:
+			}
+			event = Platform.pollEvent();
 		}
 	}
 

@@ -2,6 +2,7 @@ package app;
 
 import platform.Native;
 import platform.Platform;
+import platform.PlatformEvent;
 
 class Main {
 	static function main():Int {
@@ -17,10 +18,12 @@ class Main {
 		Platform.require(Native.frame_count(first) == 1, "count frame");
 
 		Platform.require(Native.event_push_test(Platform.EVENT_WINDOW_RESIZED, first, 1200, 800), "queue resize");
-		Platform.require(Native.event_poll(), "poll resize");
-		Platform.require(Native.event_kind() == Platform.EVENT_WINDOW_RESIZED, "decode resize kind");
-		Platform.require(Native.event_window() == first, "decode resize window");
-		Platform.require(Native.event_a() == 1200 && Native.event_b() == 800, "decode resize size");
+		var resize = Platform.pollEvent();
+		var decoded = switch resize {
+			case WindowResize(window, width, height): window == first && width == 1200 && height == 800;
+			default: false;
+		};
+		Platform.require(decoded, "decode typed resize event");
 
 		Platform.require(Native.font_destroy(font), "destroy font");
 		Platform.require(Native.window_destroy(first), "destroy window");

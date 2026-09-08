@@ -5,6 +5,7 @@ class Platform {
 	public static inline final EVENT_QUIT = 1;
 	public static inline final EVENT_WINDOW_RESIZED = 2;
 	public static inline final EVENT_KEY_DOWN = 3;
+	public static inline final EVENT_KEY_UP = 4;
 	public static inline final EVENT_TEXT_INPUT = 5;
 	public static inline final EVENT_MOUSE_MOVED = 6;
 	public static inline final EVENT_MOUSE_BUTTON_DOWN = 7;
@@ -50,6 +51,24 @@ class Platform {
 	public static function require(condition:Bool, operation:String):Void {
 		if (!condition)
 			throw operation + ": " + Native.last_error();
+	}
+
+	public static function pollEvent():Null<PlatformEvent> {
+		if (!Native.event_poll()) return null;
+		var window = Native.event_window();
+		return switch Native.event_kind() {
+			case EVENT_QUIT: Quit;
+			case EVENT_WINDOW_RESIZED: WindowResize(window, Native.event_a(), Native.event_b());
+			case EVENT_DISPLAY_SCALE_CHANGED: DisplayScaleChanged(window, Native.event_a());
+			case EVENT_KEY_DOWN: KeyDown(window, Native.event_a(), Native.event_b());
+			case EVENT_KEY_UP: KeyUp(window, Native.event_a(), Native.event_b());
+			case EVENT_TEXT_INPUT: TextInput(window, Native.event_text());
+			case EVENT_MOUSE_MOVED: MouseMove(window, Native.event_a(), Native.event_b(), Native.event_c(), Native.event_d());
+			case EVENT_MOUSE_BUTTON_DOWN: MouseButtonDown(window, Native.event_a(), Native.event_b(), Native.event_c(), Native.event_d());
+			case EVENT_MOUSE_BUTTON_UP: MouseButtonUp(window, Native.event_a(), Native.event_b(), Native.event_c(), Native.event_d());
+			case EVENT_MOUSE_WHEEL: MouseWheel(window, Native.event_a(), Native.event_b());
+			default: null;
+		};
 	}
 
 	public static function startHeadless():Void {
