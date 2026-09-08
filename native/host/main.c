@@ -55,7 +55,7 @@ static bool start_haxeon(phx_host *host, int argc, char **argv) {
   host->module = hl_module_alloc(host->code);
   if (!host->module || !hl_module_init(host->module, HL_MODULE_PATCHABLE))
     return false;
-  hl_code_free(host->code);
+  hl_code_free_function_data(host->code);
   entry.t = host->code->functions[
     host->module->functions_indexes[host->module->code->entrypoint]].type;
   entry.fun = host->module->functions_ptrs[host->module->code->entrypoint];
@@ -111,7 +111,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
   phx_platform_shutdown();
   if (host) {
     if (host->module) hl_module_free_shutdown(host->module);
-    if (host->code) hl_free(&host->code->alloc);
+    hl_code_destroy(host->code);
     free(host);
   }
   hl_global_free();
