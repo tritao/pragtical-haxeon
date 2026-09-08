@@ -10,7 +10,7 @@ import workspace.EditorFileSystem;
 class Document {
 	static var nextId:Int = 1;
 	public final id:Int;
-	public var path(default, null):String;
+	public var path(default, null):Null<String>;
 	public var title(get, never):String;
 	public final buffer:TextBuffer;
 	public var highlighter(default, null):Highlighter;
@@ -24,7 +24,7 @@ class Document {
 	var hasBom:Bool = false;
 	var savedStateId:Int;
 
-	public function new(path:String, text:String, registry:SyntaxRegistry, ?fileSystem:EditorFileSystem) {
+	public function new(path:Null<String>, text:String, registry:SyntaxRegistry, ?fileSystem:EditorFileSystem) {
 		id = nextId++;
 		this.path = path;
 		this.syntaxes = registry;
@@ -36,13 +36,18 @@ class Document {
 	}
 
 	public static function untitled(registry:SyntaxRegistry, ?fileSystem:EditorFileSystem):Document
-		return new Document("", "", registry, fileSystem);
+		return new Document(null, "", registry, fileSystem);
 
 	function get_title():String
-		return path.length == 0 ? "Untitled-" + id : fileName(path);
+		return path == null ? "Untitled-" + id : fileName(path);
 
 	public function hasBackingPath():Bool
-		return path.length > 0;
+		return path != null;
+
+	public function requirePath():String {
+		if (path == null) throw "document has no backing path";
+		return path;
+	}
 
 	function get_dirty():Bool
 		return buffer.stateId != savedStateId;
@@ -53,7 +58,7 @@ class Document {
 	}
 
 	function selectSyntax():Void {
-		syntax = syntaxes.find(path, buffer.text.substr(0, 128));
+		syntax = syntaxes.find(path == null ? title : path, buffer.text.substr(0, 128));
 		highlighter = new Highlighter(buffer, syntax);
 		buffer.onChange = highlighter.invalidate;
 	}
@@ -93,8 +98,8 @@ class Document {
 		if (!hasBackingPath()) return false;
 		checkExternal();
 		if (externalState != Current && !force) return false;
-		var encoded = encode(buffer.text);
-		if (!fileSystem.writeAtomic(path, encoded)) return false;
+		var encoded = encode(buffer.text), target = requirePath();
+		if (!fileSystem.writeAtomic(target, encoded)) return false;
 		savedStateId = buffer.stateId;
 		diskContent = encoded;
 		externalState = Current;
@@ -117,13 +122,14 @@ class Document {
 			externalState = Current;
 			return externalState;
 		}
-		if (!fileSystem.exists(path)) {
+		var target = requirePath();
+		if (!fileSystem.exists(target)) {
 			externalState = Deleted;
 			return externalState;
 		}
 		var content:String;
 		try {
-			content = fileSystem.read(path);
+			content = fileSystem.read(target);
 		} catch (error:Dynamic) {
 			externalState = Changed;
 			return externalState;

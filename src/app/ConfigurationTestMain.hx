@@ -48,12 +48,22 @@ class ConfigurationTestMain {
 		require(loaded != null && loaded.projects.length == 1 && loaded.documents.length == 1 && loaded.activeDocument == arguments[3],
 			"session round trip lost workspace state");
 		var recoveryPath = arguments[2] + "/state/recovery.conf", recovery = new RecoveryStore(recoveryPath);
-		require(recovery.saveSnapshots([new RecoverySnapshot(arguments[3], "dirty\nrecovered")]), "recovery snapshot save failed");
+		require(recovery.saveSnapshots([new RecoverySnapshot(1, "recovered", arguments[3], "dirty\nrecovered")]), "recovery snapshot save failed");
 		var snapshots = recovery.load();
 		require(snapshots.length == 1 && snapshots[0].path == arguments[3] && snapshots[0].text == "dirty\nrecovered",
 			"length-framed recovery snapshot round trip failed");
 		require(recovery.save(application) && recovery.load().length == 1, "unaccepted recovery was erased by periodic save");
-		require(!recovery.restore(application, new RecoverySnapshot(arguments[2] + "/missing", "lost")) && recovery.diagnostics.length > 0,
+		var untitledView = application.newDocument(), untitled = untitledView.getDocument();
+		if (untitled == null) throw "untitled view has no document";
+		untitled.insert("unsaved untitled");
+		require(recovery.save(application), "untitled recovery save failed");
+		var withUntitled = recovery.load(), untitledSnapshot:Null<RecoverySnapshot> = null;
+		for (snapshot in withUntitled) if (snapshot.path == null) untitledSnapshot = snapshot;
+		require(untitledSnapshot != null && untitledSnapshot.text == "unsaved untitled", "untitled recovery identity or content was lost");
+		var beforeRestore = application.documents.documents.length;
+		require(recovery.restore(application, untitledSnapshot) && application.documents.documents.length == beforeRestore + 1,
+			"untitled recovery did not create a distinct pathless document");
+		require(!recovery.restore(application, new RecoverySnapshot(2, "missing", arguments[2] + "/missing", "lost")) && recovery.diagnostics.length > 0,
 			"missing recovery source was silently ignored");
 		File.saveContent(recoveryPath, "pragtical-recovery=1\nnope:2:xx");
 		require(recovery.load().length == 0 && recovery.diagnostics.length > 0, "corrupt recovery lengths accepted");

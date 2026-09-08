@@ -17,11 +17,11 @@ class DocumentManager {
 
 	public function open(path:String):Document {
 		for (document in documents)
-			if (document.path == path)
+			if (document.path != null && document.path == path)
 				return document;
 		var normalized = fileSystem.normalize(path);
 		for (document in documents)
-			if (document.path == normalized) return document;
+			if (document.path != null && document.path == normalized) return document;
 		var document = Document.open(normalized, syntaxes, fileSystem);
 		documents.push(document);
 		return document;
@@ -37,7 +37,7 @@ class DocumentManager {
 		try {
 			var normalized = fileSystem.normalize(destination);
 			for (existing in documents)
-				if (existing != document && existing.path.length > 0 && existing.path == normalized) return false;
+				if (existing != document && existing.path != null && existing.path == normalized) return false;
 			if (fileSystem.exists(normalized) && !overwrite) return false;
 			return document.saveAs(normalized);
 		} catch (error:Dynamic) {
@@ -49,7 +49,7 @@ class DocumentManager {
 		if (!document.hasBackingPath()) return false;
 		var normalized = fileSystem.normalize(destination);
 		for (existing in documents) if (existing != document && existing.path == normalized) return false;
-		if (!fileSystem.rename(document.path, normalized)) return false;
+		if (!fileSystem.rename(document.requirePath(), normalized)) return false;
 		document.setPath(normalized);
 		return true;
 	}
@@ -59,7 +59,7 @@ class DocumentManager {
 
 	public function add(document:Document):Document {
 		for (existing in documents)
-			if (existing == document || document.hasBackingPath() && existing.path == document.path)
+			if (existing == document || document.path != null && existing.path == document.path)
 				return existing;
 		documents.push(document);
 		return document;

@@ -5,7 +5,7 @@ import editor.Document;
 
 class DocumentSearch {
 	public static function find(document:Document, query:String, options:SearchOptions):Array<SearchMatch>
-		return findText(document.path, document.buffer.text, query, options, document, document.buffer.stateId);
+		return findText(document.path == null ? document.title : document.path, document.buffer.text, query, options, document, document.buffer.stateId);
 
 	public static function findText(path:String, text:String, query:String, options:SearchOptions, ?document:Document, revision:Int = -1):Array<SearchMatch> {
 		var result:Array<SearchMatch> = [];
@@ -50,7 +50,8 @@ class DocumentSearch {
 	}
 
 	public static function valid(document:Document, match:SearchMatch):Bool {
-		if (match.path != document.path || match.document != null && (match.document != document || match.revision != document.buffer.stateId)) return false;
+		if (match.document != null && (match.document != document || match.revision != document.buffer.stateId)) return false;
+		if (match.document == null && (document.path == null || match.path != document.path)) return false;
 		var from = new BufferPosition(match.line, match.column), to = new BufferPosition(match.line, match.column + match.length);
 		return document.buffer.textRange(from, to) == match.matchedText;
 	}

@@ -122,7 +122,7 @@ class DocumentTestMain {
 				&& File.getContent(saveAsPath) == "new document", "Save As did not assign identity after successful persistence");
 			var another = manager.createUntitled();
 			another.insert("collision");
-			require(!manager.saveAs(another, saveAsPath) && another.path.length == 0 && another.dirty,
+			require(!manager.saveAs(another, saveAsPath) && another.path == null && another.dirty,
 				"Save As collision changed an untitled document identity");
 			FileSystem.deleteFile(saveAsPath);
 			var saved = Document.open(arguments[0], syntaxes);

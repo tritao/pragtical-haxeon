@@ -58,7 +58,7 @@ class RootView {
 	}
 
 	public function openDocument(document:Document):View {
-		if (document.hasBackingPath()) sidebar.selectPath(document.path);
+		if (document.hasBackingPath()) sidebar.selectPath(document.requirePath());
 		var existing = node.findDocument(document);
 		if (existing != null) {
 			var leaf = leafForView(node, existing);
@@ -312,9 +312,9 @@ class RootView {
 		}
 		for (view in current.tabs.views) {
 			var document = view.getDocument();
-			if (document != null && document.hasBackingPath() && document.path.indexOf("\t") < 0 && document.path.indexOf("\n") < 0)
+			if (document != null && document.hasBackingPath() && document.requirePath().indexOf("\t") < 0 && document.requirePath().indexOf("\n") < 0)
 				result.push("T\t" + route + "\t" + (view == current.tabs.activeView ? "1" : "0") + "\t" + view.cursorLine() + "\t"
-					+ view.cursorColumn() + "\t" + view.scrollX() + "\t" + view.scrollY() + "\t" + document.path);
+					+ view.cursorColumn() + "\t" + view.scrollX() + "\t" + view.scrollY() + "\t" + document.requirePath());
 		}
 	}
 

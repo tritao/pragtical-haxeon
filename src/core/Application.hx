@@ -292,7 +292,7 @@ class Application {
 			var spaces = "";
 			var value = settings.current, document = context.requireDocument(), matchedLength = -1;
 			for (project in workspace.projects)
-				if (project.settings != null && StringTools.startsWith(document.path, project.root + "/") && project.root.length > matchedLength) {
+				if (document.path != null && project.settings != null && StringTools.startsWith(document.path, project.root + "/") && project.root.length > matchedLength) {
 					value = project.settings.current;
 					matchedLength = project.root.length;
 				}
@@ -314,7 +314,7 @@ class Application {
 				messages.push('Save blocked for "' + document.path + '": disk changed or write failed');
 				if (document.externalState != editor.ExternalState.Current) confirmOverwrite(document);
 			}
-			else recovery.forget(document.path);
+			else recovery.forget(document);
 		}, context -> activeDocument() != null);
 		commands.add("file:new", context -> openCreateFile());
 		commands.add("doc:new", context -> newDocument());
@@ -328,14 +328,14 @@ class Application {
 		root.commandView.open(new CommandViewProvider("Save As: ", [], function(query) {}, function(entry, destination, backwards) {
 			if (documents.saveAs(document, destination)) {
 				root.documentRenamed(document);
-				recovery.forget(document.path);
+				recovery.forget(document);
 				root.commandView.close();
 			} else if (workspace.fileSystem.exists(destination)) {
 				root.commandView.open(new CommandViewProvider('Type overwrite to replace "$destination": ', [], function(query) {},
 					function(entry, answer, backwards) {
 						if (answer == "overwrite" && documents.saveAs(document, destination, true)) {
 							root.documentRenamed(document);
-							recovery.forget(document.path);
+							recovery.forget(document);
 							root.commandView.close();
 						}
 					}));
@@ -360,7 +360,7 @@ class Application {
 		root.commandView.open(new CommandViewProvider("Disk changed. Type overwrite to save, or Escape to cancel: ", [], function(query) {}, function(entry, answer, backwards) {
 			if (answer != "overwrite") return;
 			if (document.save(true)) {
-				recovery.forget(document.path);
+				recovery.forget(document);
 				messages.push("Saved " + document.path);
 			} else messages.push("Could not save " + document.path);
 			root.commandView.close();
@@ -377,7 +377,7 @@ class Application {
 
 	public function openRenameFile():Void {
 		var document = activeDocument();
-		if (document == null) return;
+		if (document == null || !document.hasBackingPath()) return;
 		root.commandView.open(new CommandViewProvider("Rename/Move: ", [], function(query) {}, function(entry, destination, backwards) {
 			if (!documents.rename(document, destination)) messages.push('Could not rename "' + document.path + '"');
 			else root.documentRenamed(document);
@@ -388,12 +388,13 @@ class Application {
 
 	public function openDeleteFile():Void {
 		var document = activeDocument();
-		if (document == null) return;
-		root.commandView.open(new CommandViewProvider('Type delete to remove "' + document.path + '": ', [], function(query) {}, function(entry, answer, backwards) {
-			if (answer == "delete" && !document.dirty && workspace.fileSystem.deleteFile(document.path)) {
+		if (document == null || !document.hasBackingPath()) return;
+		var path = document.requirePath();
+		root.commandView.open(new CommandViewProvider('Type delete to remove "' + path + '": ', [], function(query) {}, function(entry, answer, backwards) {
+			if (answer == "delete" && !document.dirty && workspace.fileSystem.deleteFile(path)) {
 				root.closeActiveTab(true);
 				workspace.refreshProjects();
-			} else if (answer == "delete") messages.push('Could not safely delete "' + document.path + '"');
+			} else if (answer == "delete") messages.push('Could not safely delete "' + path + '"');
 			root.commandView.close();
 		}));
 	}
@@ -424,7 +425,7 @@ class Application {
 	public function openRecoveryCommandView():Bool {
 		var snapshots = recovery.load(), entries:Array<CommandViewEntry> = [];
 		for (index in 0...snapshots.length)
-			entries.push(new CommandViewEntry(snapshots[index].path, "Recovered unsaved buffer", Std.string(index)));
+			entries.push(new CommandViewEntry(snapshots[index].title, "Recovered unsaved buffer", Std.string(index)));
 		for (diagnostic in recovery.diagnostics) messages.push(diagnostic);
 		if (entries.length == 0) return false;
 		root.commandView.open(new CommandViewProvider("Recover: ", entries, function(query) {}, function(entry, query, backwards) {
