@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M3.2, display-scale consistency, followed by M3.3 status and feedback.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4 and M3.1.
+- Active task: M4.1, cancellable scheduling and a shared incremental project index.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4 and M3.1–M3.3.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: make graphical coordinates and hit testing explicitly scale-aware,
-  then build reusable status, notification and modal feedback primitives.
-- Editor HEAD: `86dd34e`. Haxeon HEAD observed: `4bd73cf`.
+- Next action: introduce the bounded job scheduler and move project enumeration to
+  a shared, generation-checked index consumed by the tree, picker and search.
+- Editor HEAD: `73517b6`. Haxeon HEAD observed: `496f811`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -19,7 +19,7 @@ Last updated: 2026-09-08.
 | M0 | In progress | M0.1/M0.2 complete; interactive M0.3 smoke pending |
 | M1 | Complete headlessly | Stable pathless identity, atomic persistence, Save As, unified close/quit, external conflicts and bounded recovery pass; graphical prompt smoke remains in the M0.3 manual route |
 | M2 | Complete headlessly | Everyday editing, clipboard/navigation, coding transformations and normalized multiple selections pass; graphical keyboard/mouse smoke remains in M0.3 |
-| M3 | In progress | M3.1 complete; pane/tab/sidebar/scroll behavior landed in M3.2, with explicit display-scale handling still required before M3.2 closes |
+| M3 | Complete headlessly | Reusable command input, pane/tab/sidebar navigation, logical-point DPI routing, status, bounded feedback, error inspection and centralized UI roles pass; interactive M0.3 smoke remains |
 | M4 | Partial foundation | Bounded polling, multi-root search, file operations and sessions exist; scheduling/scale and replacement remain |
 | M5 | Partial foundation | Layered typed settings and plugin reload exist; subscriptions and stable editor API remain |
 | M6 | Pending | Development workflow |
@@ -116,7 +116,7 @@ Last updated: 2026-09-08.
 - Headless application and command-view tests cover empty, unmatched and Unicode
   queries, completion, cancellation, history and navigation.
 
-### M3.2 — layout and navigation (partial)
+### M3.2 — layout and navigation
 
 - `86dd34e` adds directional pane focus, tab movement and reordering, lifecycle-
   coordinated close controls, sidebar toggle/resize, active-tab overflow,
@@ -125,8 +125,24 @@ Last updated: 2026-09-08.
   preventing an inactive document from being changed through prompt input.
 - Headless tests cover focus, tab movement/reordering, narrow layouts, close
   routing, modal input isolation and scrollbar dragging; the SDL artifact builds.
-- Explicit display-scale propagation and its hit-test regression remain before
-  M3.2 can be marked complete.
+- `8e56b15` makes the platform coordinate contract explicit: window dimensions,
+  pointer events, clipping and drawing all use logical points while display-scale
+  changes update the backing renderer and propagate through ABI v11. Headless
+  tests preserve logical hit-test/layout coordinates at a synthetic 1.75 scale.
+
+### M3.3 — status and feedback
+
+- `c8004f4` adds a reusable status view with path, dirty state, caret, selection,
+  indentation, UTF-8/BOM and newline details; bounded notification and error
+  histories; an inspectable error command; and reusable typed confirmations.
+- File, recovery, configuration and plugin failures feed actionable notifications
+  and the retained error log. Escape now cancels the lifecycle transaction behind
+  a close confirmation instead of merely hiding its prompt.
+- `8e56b15` centralizes shell/editor colors into semantic theme roles, including
+  focused, hovered, selected, muted and disabled states.
+- `73517b6` covers bounded retention, plugin diagnostics, status transitions,
+  Escape cancellation/re-entry and the inspectable log. `./scripts/test.sh` and
+  `./scripts/build-sdl.sh` both exited 0 at that editor HEAD.
 
 ## Previously delivered roadmap foundations
 

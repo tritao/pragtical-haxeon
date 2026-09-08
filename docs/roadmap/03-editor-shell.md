@@ -19,7 +19,7 @@ work; empty/no-match/long Unicode queries behave predictably.
 
 - [x] Add directional pane focus, move tab between panes, reorder tabs and close
   controls that use M1 lifecycle handling.
-- [ ] Add scrollbars, sidebar resizing/toggling, overflow behavior and minimum
+- [x] Add scrollbars, sidebar resizing/toggling, overflow behavior and minimum
   pane sizes. Keep hit testing consistent with clipping and display scale.
 - [x] Restore prior focus after transient UI; scope commands by active context.
 
@@ -28,10 +28,10 @@ operable; sidebar/prompt input cannot mutate an inactive document unexpectedly.
 
 ## M3.3 — Status and feedback
 
-- [ ] Surface path, dirty state, line/column, selection, indentation and encoding.
-- [ ] Provide reusable confirmations, notifications and an inspectable error log;
+- [x] Surface path, dirty state, line/column, selection, indentation and encoding.
+- [x] Provide reusable confirmations, notifications and an inspectable error log;
   integrate file failures and plugin diagnostics. Bound message retention.
-- [ ] Provide consistent theme roles and focus/hover/disabled states rather than
+- [x] Provide consistent theme roles and focus/hover/disabled states rather than
   scattered hardcoded colors and dimensions.
 
 Acceptance: each failure is actionable from the UI; prompt cancellation restores
