@@ -9,8 +9,6 @@ import renderer.Renderer;
 import view.RootView;
 import view.View;
 import plugin.PluginManager;
-import plugin.DynamicPlugin;
-import plugin.PluginManifest;
 import syntax.BuiltinSyntax;
 import syntax.SyntaxRegistry;
 import style.Theme;
@@ -41,6 +39,7 @@ import completion.DocumentWordCompletionProvider;
 import controller.SearchController;
 import controller.FileController;
 import controller.ConfigurationController;
+import controller.PluginController;
 
 class Application {
 	public final documents:DocumentManager;
@@ -52,6 +51,7 @@ class Application {
 	public final keymap:Keymap;
 	public final context:CommandContext;
 	public final plugins:PluginManager;
+	public final pluginController:PluginController;
 	public final syntaxes:SyntaxRegistry;
 	public final completions:CompletionRegistry;
 	public final theme:Theme;
@@ -103,9 +103,9 @@ class Application {
 		configuration = new ConfigurationController(this.settings, workspace, root, context, commands, keymap, theme, search, reportError);
 		files = new FileController(documents, workspace, fileOperations, root, context, commands, confirmations, recovery,
 			path -> { open(path); }, function() { newDocument(); }, function() { recovery.save(this); }, reportError, reportInformation);
-		plugins = new PluginManager(commands, keymap, context, syntaxes, completions, root.pluginPanels, workspace.jobs, effectiveSettings,
-			message -> reportError("plugin", message));
-		installPluginCommands();
+		pluginController = new PluginController(commands, keymap, context, syntaxes, completions, root.pluginPanels, workspace.jobs,
+			effectiveSettings, root, reportError, reportInformation);
+		plugins = pluginController.manager;
 		installWorkbenchCommands();
 		commands.add("recovery:open", context -> openRecoveryCommandView());
 	}
@@ -131,14 +131,8 @@ class Application {
 	public function newDocument():View
 		return root.openDocument(documents.createUntitled());
 
-	public function loadPluginManifest(path:String):Bool {
-		try {
-			return plugins.load(new DynamicPlugin(new PluginManifest(path)));
-		} catch (error:Dynamic) {
-			reportError("plugin", 'Could not load "$path": ' + Std.string(error));
-			return false;
-		}
-	}
+	public function loadPluginManifest(path:String):Bool
+		return pluginController.loadManifest(path);
 
 	public function keyPressed(key:Int, modifiers:Int):Bool {
 		if (root.commandView.active)
@@ -303,34 +297,6 @@ class Application {
 		keymap.addDirect(Platform.KEY_B, Platform.MOD_CTRL, ["workbench:toggle-sidebar"]);
 	}
 
-	function installPluginCommands():Void {
-		commands.add("plugins:disable", context -> openPluginAction("Disable Plugin: ", plugins.enabledIds(), plugins.disable),
-			context -> plugins.enabledIds().length > 0);
-		commands.add("plugins:enable", context -> openPluginAction("Enable Plugin: ", plugins.disabledIds(), plugins.enable),
-			context -> plugins.disabledIds().length > 0);
-		commands.add("plugins:reload", context -> openPluginAction("Reload Plugin: ", plugins.enabledIds(), plugins.reload),
-			context -> plugins.enabledIds().length > 0);
-		commands.add("plugins:show-diagnostics", function(context) {
-			var entries = [for (diagnostic in plugins.diagnostics()) new CommandViewEntry("Plugin error", diagnostic, diagnostic)];
-			root.commandView.open(new CommandViewProvider("Plugin Diagnostics: ", entries, function(query) {}, function(entry, query, backwards) {
-				root.commandView.close();
-			}));
-		});
-	}
-
-	function openPluginAction(prompt:String, ids:Array<String>, action:String->Bool):Void {
-		var entries = [for (id in ids) new CommandViewEntry(id, "", id)];
-		root.commandView.open(new CommandViewProvider(prompt, entries, function(query) {}, function(entry, query, backwards) {
-			if (entry != null)
-				try {
-					if (action(entry.value)) reportInformation(prompt + entry.value);
-				} catch (error:Dynamic) {
-					reportError("plugin", prompt + entry.value + ": " + Std.string(error));
-				}
-			root.commandView.close();
-		}));
-	}
-
 	public function requestCloseActiveTab():Bool
 		return files.requestCloseActiveTab();
 
@@ -402,11 +368,7 @@ class Application {
 			documents.checkExternalChanges();
 			workspace.refreshProjects();
 		}
-		try {
-			plugins.update(now);
-		} catch (error:Dynamic) {
-			reportError("plugin", Std.string(error));
-		}
+		pluginController.update(now);
 	}
 
 	function effectiveSettings():Settings
@@ -422,6 +384,6 @@ class Application {
 
 	public function shutdown():Void {
 		configuration.shutdown();
-		plugins.shutdown();
+		pluginController.shutdown();
 	}
 }
