@@ -7,6 +7,7 @@ import syntax.SyntaxRegistry;
 import config.Settings;
 import jobs.JobScheduler;
 import completion.CompletionRegistry;
+import process.ProcessManager;
 
 class PluginManager {
 	final commands:CommandRegistry;
@@ -18,6 +19,7 @@ class PluginManager {
 	final decorations:PluginDecorationRegistry;
 	final statusItems:PluginStatusRegistry;
 	final jobs:JobScheduler;
+	final processes:ProcessManager;
 	final settings:Void->Settings;
 	final reportDiagnostic:String->Void;
 	final entries:Array<PluginEntry> = [];
@@ -25,7 +27,7 @@ class PluginManager {
 
 	public function new(commands:CommandRegistry, keymap:Keymap, commandContext:CommandContext, syntaxes:SyntaxRegistry,
 			completions:CompletionRegistry, panels:PluginPanelRegistry, decorations:PluginDecorationRegistry,
-			statusItems:PluginStatusRegistry, jobs:JobScheduler, settings:Void->Settings, ?reportDiagnostic:String->Void) {
+			statusItems:PluginStatusRegistry, jobs:JobScheduler, processes:ProcessManager, settings:Void->Settings, ?reportDiagnostic:String->Void) {
 		this.commands = commands;
 		this.keymap = keymap;
 		this.commandContext = commandContext;
@@ -35,6 +37,7 @@ class PluginManager {
 		this.decorations = decorations;
 		this.statusItems = statusItems;
 		this.jobs = jobs;
+		this.processes = processes;
 		this.settings = settings;
 		this.reportDiagnostic = reportDiagnostic == null ? function(message:String) {} : reportDiagnostic;
 		DynamicHostRouter.initialize();
@@ -169,7 +172,7 @@ class PluginManager {
 	}
 
 	function createContext(id:String):PluginContext
-		return new PluginContext(id, commands, keymap, commandContext, syntaxes, completions, panels, decorations, statusItems, jobs, settings);
+		return new PluginContext(id, commands, keymap, commandContext, syntaxes, completions, panels, decorations, statusItems, jobs, processes, settings);
 
 	function ids(enabled:Bool):Array<String> {
 		var values:Array<String> = [];

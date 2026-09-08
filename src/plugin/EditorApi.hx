@@ -5,6 +5,8 @@ import config.Settings;
 import jobs.JobHandle;
 import jobs.JobScheduler;
 import jobs.JobTask;
+import process.OwnedProcess;
+import process.ProcessManager;
 
 /** Versioned host capabilities available for the lifetime of one plugin context. */
 class EditorApi {
@@ -15,11 +17,12 @@ class EditorApi {
 	final decorations:PluginDecorationRegistry;
 	final statusItems:PluginStatusRegistry;
 	final jobs:JobScheduler;
+	final processes:ProcessManager;
 	final settings:Void->Settings;
 	final own:(Void->Void)->Void;
 
 	public function new(owner:String, editor:CommandContext, panels:PluginPanelRegistry, decorations:PluginDecorationRegistry,
-			statusItems:PluginStatusRegistry, jobs:JobScheduler, settings:Void->Settings,
+			statusItems:PluginStatusRegistry, jobs:JobScheduler, processes:ProcessManager, settings:Void->Settings,
 			own:(Void->Void)->Void) {
 		this.owner = owner;
 		this.editor = editor;
@@ -27,6 +30,7 @@ class EditorApi {
 		this.decorations = decorations;
 		this.statusItems = statusItems;
 		this.jobs = jobs;
+		this.processes = processes;
 		this.settings = settings;
 		this.own = own;
 	}
@@ -94,6 +98,14 @@ class EditorApi {
 			jobs.cancel(handle);
 		});
 		return handle;
+	}
+
+	public function startProcess(executable:String, arguments:Array<String>, cwd:String = "", ?environment:Map<String, String>):OwnedProcess {
+		var process = processes.start(executable, arguments, cwd, environment);
+		ownSafely(function() {
+			processes.release(process);
+		});
+		return process;
 	}
 
 	function ownSafely(dispose:Void->Void):Void {

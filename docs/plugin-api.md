@@ -5,7 +5,7 @@ manifest must declare both versions explicitly:
 
 ```text
 manifestVersion=1
-apiVersion=1
+apiVersion=2
 id=example
 version=1.0.0
 entry=Main
@@ -27,6 +27,8 @@ configured user keybindings take precedence over plugin and built-in bindings.
 - rendered sidebar panels and panel updates;
 - active-document change events;
 - cooperative scheduled jobs.
+- owned subprocesses launched with ordered arguments, cwd and environment
+  overrides; unloading the plugin cancels and destroys every surviving handle.
 
 Commands, syntax contributions and typed completion providers remain methods on
 `PluginContext`. A completion provider receives the active document, caret and

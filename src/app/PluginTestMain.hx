@@ -34,8 +34,9 @@ class SamplePlugin implements Plugin {
 	public var events(default, null):Int = 0;
 	public final job:SampleJob = new SampleJob();
 	public var lastApi(default, null):Null<EditorApi>;
+	final fixture:String;
 
-	public function new() {}
+	public function new(fixture:String) this.fixture = fixture;
 
 	public function id():String
 		return "sample";
@@ -57,6 +58,7 @@ class SamplePlugin implements Plugin {
 			context.api.setPanelText("status", event.document.buffer.text);
 		});
 		context.api.schedule(job);
+		context.api.startProcess(fixture, ["sleep"]);
 		context.addCompletionProvider(new SampleCompletionProvider());
 	}
 
@@ -79,7 +81,8 @@ class SamplePlugin implements Plugin {
 }
 
 class BrokenPlugin implements Plugin {
-	public function new() {}
+	final fixture:String;
+	public function new(fixture:String) this.fixture = fixture;
 
 	public function id():String
 		return "broken";
@@ -88,6 +91,7 @@ class BrokenPlugin implements Plugin {
 		context.addCommand("broken:leak", function(editor:CommandContext) {});
 		context.api.addStatusItem("leak", "broken");
 		context.api.addDecoration("leak", 0, 0, 1, 0xFFFFFFFF);
+		context.api.startProcess(fixture, ["sleep"]);
 		context.bind(1, 0, ["root:close"]);
 	}
 
@@ -116,16 +120,19 @@ class PluginTestMain {
 
 	static function main():Int {
 		Platform.startHeadless();
+		var arguments = Sys.args();
+		require(arguments.length == 1, "plugin test requires process fixture");
 		var window = Native.window_create("plugin-test", 320, 200),
 			renderer = new Renderer(window, "ignored-headlessly.ttf", 15),
 			application = new Application(renderer, 320, 200),
-			plugin = new SamplePlugin();
+			plugin = new SamplePlugin(arguments[0]);
 		application.newDocument();
 		require(application.plugins.load(plugin), "plugin did not activate");
-		require(plugin.activations == 1 && application.plugins.isLoaded("sample") && application.completions.count() == 2,
+		require(plugin.activations == 1 && application.plugins.isLoaded("sample") && application.completions.count() == 2
+			&& application.processes.activeCount() == 1,
 			"plugin activation state or completion contribution was not recorded");
 		require(application.syntaxes.find("file.sample").name == "Sample", "plugin syntax did not register");
-		require(!application.plugins.load(new SamplePlugin()), "duplicate plugin id was accepted");
+		require(!application.plugins.load(new SamplePlugin(arguments[0])), "duplicate plugin id was accepted");
 		require(application.keyPressed(77, 3) && plugin.performed == 1 && plugin.events == 1
 			&& application.context.requireDocument().buffer.text == "plugin", "plugin command did not perform an owned document transaction");
 		require(application.commands.perform("doc:complete-word", application.context)
@@ -149,6 +156,7 @@ class PluginTestMain {
 		require(plugin.deactivations == 1 && !application.commands.contains("sample:run") && !application.keyPressed(77, 3),
 			"plugin registrations survived disable");
 		require(application.completions.count() == 1, "plugin completion provider survived disable");
+		require(application.processes.activeCount() == 0, "plugin-owned process survived disable");
 		var eventsAfterUnload = plugin.events;
 		application.textInput("after");
 		require(application.root.pluginPanels.find("sample", "status") == null && plugin.events == eventsAfterUnload && plugin.job.cancelled,
@@ -166,12 +174,12 @@ class PluginTestMain {
 		require(application.commands.perform("plugins:enable", application.context)
 			&& application.root.commandView.results.length == 1, "plugin enable picker did not open");
 		application.keyPressed(Platform.KEY_ENTER, 0);
-		require(plugin.activations == 2 && application.plugins.isLoaded("sample"),
+		require(plugin.activations == 2 && application.plugins.isLoaded("sample") && application.processes.activeCount() == 1,
 			"plugin did not enable with fresh registrations");
 		require(application.commands.perform("plugins:reload", application.context)
 			&& application.root.commandView.results.length == 1, "plugin reload picker did not open");
 		application.keyPressed(Platform.KEY_ENTER, 0);
-		require(plugin.activations == 3, "plugin did not reload");
+		require(plugin.activations == 3 && application.processes.activeCount() == 1, "plugin did not reload with one owned process");
 		var activeView = application.context.requireView(), activeDocument = application.context.requireDocument(), activeSelection = activeView.getSelection();
 		require(activeSelection != null, "document view did not expose its selection");
 		activeDocument.buffer.replaceAllText("alpha alphabet al", activeSelection);
@@ -182,17 +190,19 @@ class PluginTestMain {
 		require(activeDocument.buffer.text == "alpha alphabet alpha", "completion acceptance did not replace the typed prefix");
 		var failed = false;
 		try {
-			application.plugins.load(new BrokenPlugin());
+			application.plugins.load(new BrokenPlugin(arguments[0]));
 		} catch (error:Dynamic) {
 			failed = true;
 		}
 		require(failed
 			&& !application.plugins.isLoaded("broken")
 			&& !application.commands.contains("broken:leak")
+			&& application.processes.activeCount() == 1
 			&& application.root.pluginStatusItems.find("broken", "leak") == null
 			&& application.root.pluginDecorations.find("broken", "leak") == null, "failed activation leaked plugin state");
 		application.shutdown();
-		require(plugin.deactivations == 3 && application.plugins.count() == 0, "application shutdown did not deactivate plugins");
+		require(plugin.deactivations == 3 && application.plugins.count() == 0 && application.processes.activeCount() == 0,
+			"application shutdown did not deactivate plugins or retire their processes");
 		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy plugin test window");
 		Native.shutdown();

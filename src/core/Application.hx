@@ -108,7 +108,7 @@ class Application {
 		files = new FileController(documents, workspace, fileOperations, root, context, commands, confirmations, recovery,
 			path -> { open(path); }, function() { newDocument(); }, function() { recovery.save(this); }, reportError, reportInformation);
 		pluginController = new PluginController(commands, keymap, context, syntaxes, completions, root.pluginPanels, workspace.jobs,
-			effectiveSettings, root, reportError, reportInformation);
+			effectiveSettings, root, processes, reportError, reportInformation);
 		plugins = pluginController.manager;
 		workbench = new WorkbenchController(workspace, root, commands, keymap, context, completions, errors, search,
 			path -> { open(path); });

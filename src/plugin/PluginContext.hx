@@ -9,6 +9,7 @@ import config.Settings;
 import jobs.JobScheduler;
 import completion.CompletionProvider;
 import completion.CompletionRegistry;
+import process.ProcessManager;
 
 class PluginContext {
 	public final id:String;
@@ -25,14 +26,14 @@ class PluginContext {
 
 	public function new(id:String, commands:CommandRegistry, keymap:Keymap, editor:CommandContext, syntaxes:SyntaxRegistry,
 			completions:CompletionRegistry, panels:PluginPanelRegistry, decorations:PluginDecorationRegistry,
-			statusItems:PluginStatusRegistry, jobs:JobScheduler, settings:Void->Settings) {
+			statusItems:PluginStatusRegistry, jobs:JobScheduler, processes:ProcessManager, settings:Void->Settings) {
 		this.id = id;
 		this.editor = editor;
 		this.commands = commands;
 		this.keymap = keymap;
 		this.syntaxes = syntaxes;
 		this.completions = completions;
-		api = new EditorApi(id, editor, panels, decorations, statusItems, jobs, settings, own);
+		api = new EditorApi(id, editor, panels, decorations, statusItems, jobs, processes, settings, own);
 	}
 
 	public function addCompletionProvider(provider:CompletionProvider):Void {

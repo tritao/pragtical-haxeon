@@ -14,6 +14,7 @@ import plugin.PluginManifest;
 import plugin.PluginPanelRegistry;
 import syntax.SyntaxRegistry;
 import view.RootView;
+import process.ProcessManager;
 
 class PluginController {
 	public final manager:PluginManager;
@@ -24,12 +25,12 @@ class PluginController {
 
 	public function new(commands:CommandRegistry, keymap:Keymap, context:CommandContext, syntaxes:SyntaxRegistry,
 		completions:CompletionRegistry, panels:PluginPanelRegistry, jobs:JobScheduler, settings:Void->Settings, root:RootView,
-		reportError:(String, String)->Void, reportInformation:String->Void) {
+		processes:ProcessManager, reportError:(String, String)->Void, reportInformation:String->Void) {
 		this.root = root;
 		this.reportError = reportError;
 		this.reportInformation = reportInformation;
 		manager = new PluginManager(commands, keymap, context, syntaxes, completions, panels, root.pluginDecorations,
-			root.pluginStatusItems, jobs, settings,
+			root.pluginStatusItems, jobs, processes, settings,
 			message -> reportError("plugin", message));
 		installCommands(commands);
 	}

@@ -107,7 +107,7 @@ printf 'version=1\neditor.fontSize=18\neditor.insertSpaces=false\nworkbench.side
 (
 	cd "$root_dir/out"
 	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-		"$haxeon_root/vendor/hashlink/hl" plugin-test.hl
+		"$haxeon_root/vendor/hashlink/hl" plugin-test.hl "$root_dir/build/process-fixture"
 )
 
 workspace_root="$root_dir/build/workspace-test"
