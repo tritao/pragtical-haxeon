@@ -101,6 +101,10 @@ rm -f "$workspace_root/created.txt" "$workspace_root/moved.txt" "$workspace_root
 printf 'alpha\n' > "$workspace_root/alpha.txt"
 printf 'class Main {}\n' > "$workspace_root/src/Main.hx"
 printf '\0needle in binary\n' > "$workspace_root/binary.dat"
+dd if=/dev/zero of="$workspace_root/oversized.dat" bs=1048576 count=5 status=none
+printf 'needle but unreadable\n' > "$workspace_root/unreadable.txt"
+chmod 000 "$workspace_root/unreadable.txt"
+trap 'chmod 600 "$workspace_root/unreadable.txt" 2>/dev/null || true' EXIT
 printf 'ignored\n' > "$workspace_root/.git/ignored"
 printf 'ignored\n' > "$workspace_root/.cache/ignored"
 printf 'needle in second project\n' > "$workspace_other/second.txt"
@@ -113,6 +117,7 @@ printf 'needle in second project\n' > "$workspace_other/second.txt"
 	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
 		"$haxeon_root/vendor/hashlink/hl" workspace-test.hl "$workspace_root" "$workspace_other"
 )
+chmod 600 "$workspace_root/unreadable.txt"
 
 dynamic_plugin_dir="$root_dir/build/dynamic-plugin"
 mkdir -p "$dynamic_plugin_dir"
