@@ -5,15 +5,15 @@ Depends on M1. Files: `src/editor/`, `src/view/DocumentView.hx`,
 
 ## M2.1 — Positions, transactions and view ownership
 
-- [ ] Document string-index units across Haxeon strings, buffer positions and
+- [x] Document string-index units across Haxeon strings, buffer positions and
   renderer measurement. Add shared boundary conversion helpers; never assume
   UTF-8 bytes, code units and user-visible characters are interchangeable.
-- [ ] Specify caret/selection per view and shared text/history per document.
+- [x] Specify caret/selection per view and shared text/history per document.
   Migrate buffer-owned cursor/anchor deliberately; transform every view's ranges
   through edits and define which view receives restored selection on undo.
-- [ ] Introduce edit transactions for multiple replacements and history grouping.
+- [x] Introduce edit transactions for multiple replacements and history grouping.
   Define typing-group boundaries, redo invalidation and save-point identity.
-- [ ] Replace single-consumer change notification with owned subscriptions or
+- [x] Replace single-consumer change notification with owned subscriptions or
   equivalent fanout for highlighting, views, search and future plugins.
 
 Acceptance: edits in one pane update another without moving its caret arbitrarily;

@@ -4,13 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M2.1, positions, transactions and view ownership.
-- Completed tasks: M0.1, M0.2 and M1.1–M1.4.
+- Active task: M2.2, clipboard and navigation.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4 and M2.1.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: define position units, move caret/selection ownership into views,
-  introduce edit transactions and replace the buffer's single change callback with
-  owned subscriptions.
-- Editor HEAD: `91b0234`. Haxeon HEAD observed: `4bd73cf`.
+- Next action: add the platform clipboard ABI with deterministic headless storage,
+  then wire clipboard commands and richer navigation through view-owned selections.
+- Editor HEAD: `98a0109`. Haxeon HEAD observed: `4bd73cf`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -19,7 +18,7 @@ Last updated: 2026-09-08.
 | --- | --- | --- |
 | M0 | In progress | M0.1/M0.2 complete; interactive M0.3 smoke pending |
 | M1 | Complete headlessly | Stable pathless identity, atomic persistence, Save As, unified close/quit, external conflicts and bounded recovery pass; graphical prompt smoke remains in the M0.3 manual route |
-| M2 | Partial foundation | Unicode-safe surrogate movement and per-view cursor snapshots exist; transactions, clipboard, coding edits and multiple selections remain |
+| M2 | In progress | M2.1 positions, true per-view selection ownership, fanout subscriptions and grouped/multi-replacement transactions pass; clipboard, coding edits and multiple selections remain |
 | M3 | Partial foundation | Command view and split shell exist; navigation, reusable feedback and theme roles remain |
 | M4 | Partial foundation | Bounded polling, multi-root search, file operations and sessions exist; scheduling/scale and replacement remain |
 | M5 | Partial foundation | Layered typed settings and plugin reload exist; subscriptions and stable editor API remain |
@@ -58,6 +57,22 @@ Last updated: 2026-09-08.
   headless acceptance routes.
 - `./scripts/test.sh` exited 0 at editor HEAD `91b0234`; interactive prompt behavior
   remains part of the pending M0.3 graphical smoke route.
+
+### M2.1 — positions, transactions and view ownership
+
+- `9d5ddf3` replaced the single buffer callback with structured, independently
+  releasable change subscriptions and documented UTF-16 code-unit positions at
+  Unicode scalar boundaries.
+- `942fdbc` began transforming inactive-pane ranges through shared edits.
+- `ec158d3` removed caret and selection state from `TextBuffer`; every editor view
+  now owns its selection while documents share text and history. View teardown
+  releases subscriptions.
+- `98a0109` added explicit multi-replacement transactions, adjacent typing groups,
+  movement boundaries, redo invalidation and initiating-view selection restoration.
+- Tests cover emoji surrogate boundaries, the declared combining-mark behavior,
+  independent split-pane cursors, passive range transformation, grouped typing,
+  overlapping-transaction rejection and transaction undo/redo.
+- `./scripts/test.sh` and `./scripts/build-sdl.sh` both exited 0 at `98a0109`.
 
 ## Previously delivered roadmap foundations
 
