@@ -59,20 +59,21 @@ class LanguageServiceTestMain {
 		require(client.requestDefinition(document, new BufferPosition(0, 2), Sys.time(), value -> definitions = value), "definition request was rejected");
 		pump(client, () -> hover != null && completions != null && definitions != null, 5.0);
 		require(hover == "hover 😀", "hover response was not decoded");
+		pump(client, () -> document.buffer.line(0) == "😀serverx value", 5.0);
 		var completed = completionResult(completions), located = definitionResult(definitions);
 		require(completed.length == 1 && completed[0].insertText == "completion", "completion response was not decoded");
 		require(located.length == 1 && located[0].path == sourcePath && located[0].from.column == 2,
 			"definition response did not retain its UTF-16 location");
 
 		var revision = document.buffer.stateId, edit:Dynamic = {
-			range: {start: {line: 0, character: 2}, end: {line: 0, character: 3}},
+			range: {start: {line: 0, character: 8}, end: {line: 0, character: 9}},
 			newText: "ok"
 		};
 		require(!client.applyWorkspaceEdits(document, revision - 1, [edit], selection), "stale workspace edit was applied");
-		require(client.applyWorkspaceEdits(document, revision, [edit], selection) && document.buffer.line(0) == "😀ok value",
+		require(client.applyWorkspaceEdits(document, revision, [edit], selection) && document.buffer.line(0) == "😀serverok value",
 			"workspace edit was not applied transactionally");
 		document.undo(selection);
-		require(document.buffer.line(0) == "😀x value", "workspace edit was not one undo transaction");
+		require(document.buffer.line(0) == "😀serverx value", "workspace edit was not one undo transaction");
 
 		selection.setCursor(document.buffer, document.buffer.endPosition());
 		document.insert(selection, "CRASH");
@@ -80,6 +81,15 @@ class LanguageServiceTestMain {
 		pump(client, () -> client.ready, 5.0);
 		client.stop(Sys.time());
 		pump(client, () -> client.status == "stopped", 5.0);
+		var minimal = new LanguageServiceClient(manager, documents, "python3", [arguments[0], "minimal"], arguments[1]);
+		minimal.start(Sys.time());
+		pump(minimal, () -> minimal.ready, 5.0);
+		require(!minimal.hoverSupported && !minimal.completionSupported && !minimal.definitionSupported,
+			"unsupported server capabilities were advertised by the client");
+		require(!minimal.requestHover(document, new BufferPosition(0, 0), Sys.time(), value -> {}),
+			"unsupported hover request was sent");
+		minimal.stop(Sys.time());
+		pump(minimal, () -> minimal.status == "stopped", 5.0);
 		manager.shutdown();
 		Native.shutdown();
 		Sys.println("PASS: LSP lifecycle, synchronization, stale diagnostics, requests, edits, and restart");

@@ -19,6 +19,9 @@ class LanguageServiceClient {
 	public final diagnostics:Map<String, Array<LanguageDiagnostic>> = [];
 	public var ready(default, null):Bool = false;
 	public var status(default, null):String = "stopped";
+	public var hoverSupported(default, null):Bool = false;
+	public var completionSupported(default, null):Bool = false;
+	public var definitionSupported(default, null):Bool = false;
 	public var report:String->Void = function(message) {};
 
 	final processes:ProcessManager;
@@ -54,7 +57,7 @@ class LanguageServiceClient {
 		transport = session;
 		session.notification = receiveNotification;
 		session.serverRequest = receiveServerRequest;
-		session.failed = message -> scheduleRestart(Sys.time(), message);
+		session.failed = message -> scheduleRestart(Sys.time(), session.stderr.length == 0 ? message : message + ": " + session.stderr);
 		status = "initializing";
 		session.request("initialize", {
 			processId: null,
@@ -92,6 +95,7 @@ class LanguageServiceClient {
 	}
 
 	public function requestHover(document:Document, position:BufferPosition, now:Float, complete:Null<String>->Void):Bool {
+		if (!hoverSupported) return false;
 		return requestAt("textDocument/hover", document, position, now, response -> {
 			if (response.error != null || response.result == null) complete(null); else {
 				var contents:Dynamic = Reflect.field(response.result, "contents"), value:Dynamic = contents == null ? null : Reflect.field(contents, "value");
@@ -101,6 +105,7 @@ class LanguageServiceClient {
 	}
 
 	public function requestCompletion(document:Document, position:BufferPosition, now:Float, complete:Array<CompletionItem>->Void):Bool {
+		if (!completionSupported) return false;
 		return requestAt("textDocument/completion", document, position, now, response -> {
 			var result:Array<CompletionItem> = [];
 			if (response.error == null && response.result != null) {
@@ -117,6 +122,7 @@ class LanguageServiceClient {
 	}
 
 	public function requestDefinition(document:Document, position:BufferPosition, now:Float, complete:Array<LanguageLocation>->Void):Bool {
+		if (!definitionSupported) return false;
 		return requestAt("textDocument/definition", document, position, now, response -> complete(response.error == null ? locations(response.result) : []));
 	}
 
@@ -178,6 +184,9 @@ class LanguageServiceClient {
 			return;
 		}
 		ready = true;
+		hoverSupported = capability(capabilities, "hoverProvider");
+		completionSupported = capability(capabilities, "completionProvider");
+		definitionSupported = capability(capabilities, "definitionProvider");
 		status = "ready";
 		restartCount = 0;
 		transport.notify("initialized", {});
@@ -287,6 +296,9 @@ class LanguageServiceClient {
 
 	function retireSession():Void {
 		ready = false;
+		hoverSupported = false;
+		completionSupported = false;
+		definitionSupported = false;
 		for (state in states) state.release();
 		states.clear();
 		diagnostics.clear();
@@ -319,5 +331,11 @@ class LanguageServiceClient {
 	static function fileName(path:String):String {
 		var slash = path.lastIndexOf("/");
 		return slash < 0 ? path : path.substring(slash + 1);
+	}
+
+	static function capability(capabilities:Dynamic, name:String):Bool {
+		if (capabilities == null) return false;
+		var value:Dynamic = Reflect.field(capabilities, name);
+		return value != null && value != false;
 	}
 }

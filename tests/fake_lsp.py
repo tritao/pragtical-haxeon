@@ -2,6 +2,8 @@
 import json
 import sys
 
+minimal = len(sys.argv) > 1 and sys.argv[1] == "minimal"
+
 
 def read_message():
     length = None
@@ -34,9 +36,10 @@ while True:
         break
     method = message.get("method")
     if method == "initialize":
-        send({"jsonrpc": "2.0", "id": message["id"], "result": {"capabilities": {
-            "positionEncoding": "utf-16", "textDocumentSync": {"openClose": True, "change": 2},
-            "hoverProvider": True, "completionProvider": {}, "definitionProvider": True}}})
+        capabilities = {"positionEncoding": "utf-16", "textDocumentSync": {"openClose": True, "change": 2}}
+        if not minimal:
+            capabilities.update({"hoverProvider": True, "completionProvider": {}, "definitionProvider": True})
+        send({"jsonrpc": "2.0", "id": message["id"], "result": {"capabilities": capabilities}})
     elif method == "initialized":
         pass
     elif method == "textDocument/didOpen":
@@ -46,6 +49,7 @@ while True:
             "uri": item["uri"], "version": item["version"], "diagnostics": []}})
     elif method == "textDocument/didChange":
         item = message["params"]["textDocument"]
+        documents[item["uri"]] = item
         send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {
             "uri": item["uri"], "version": item["version"] - 1, "diagnostics": [{"severity": 1,
                 "message": "stale", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 1}}}]}})
@@ -57,6 +61,10 @@ while True:
     elif method == "textDocument/didClose":
         documents.pop(message["params"]["textDocument"]["uri"], None)
     elif method == "textDocument/hover":
+        item = documents[message["params"]["textDocument"]["uri"]]
+        send({"jsonrpc": "2.0", "id": 9001, "method": "workspace/applyEdit", "params": {"edit": {"documentChanges": [{
+            "textDocument": {"uri": item["uri"], "version": item["version"]},
+            "edits": [{"range": {"start": {"line": 0, "character": 2}, "end": {"line": 0, "character": 2}}, "newText": "server"}]}]}}})
         send({"jsonrpc": "2.0", "id": message["id"], "result": {"contents": {"kind": "markdown", "value": "hover 😀"}}})
     elif method == "textDocument/completion":
         send({"jsonrpc": "2.0", "id": message["id"], "result": {"items": [{"label": "completed", "detail": "fake", "insertText": "completion"}]}})

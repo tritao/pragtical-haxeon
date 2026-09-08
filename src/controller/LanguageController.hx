@@ -75,9 +75,9 @@ class LanguageController {
 	function installCommands():Void {
 		commands.add("language:haxeon-start", commandContext -> start());
 		commands.add("language:haxeon-stop", commandContext -> stop(), commandContext -> client != null);
-		commands.add("language:hover", commandContext -> hover(), hasReadyDocument);
-		commands.add("language:complete", commandContext -> complete(), hasReadyDocument);
-		commands.add("language:go-to-definition", commandContext -> definition(), hasReadyDocument);
+		commands.add("language:hover", commandContext -> hover(), commandContext -> supports("hover"));
+		commands.add("language:complete", commandContext -> complete(), commandContext -> supports("completion"));
+		commands.add("language:go-to-definition", commandContext -> definition(), commandContext -> supports("definition"));
 	}
 
 	function hover():Void {
@@ -135,8 +135,11 @@ class LanguageController {
 		}
 	}
 
-	function hasReadyDocument(commandContext:CommandContext):Bool
-		return client != null && client.ready && activeDocument() != null;
+	function supports(feature:String):Bool {
+		var service = client;
+		if (service == null || !service.ready || activeDocument() == null) return false;
+		return feature == "hover" ? service.hoverSupported : feature == "completion" ? service.completionSupported : service.definitionSupported;
+	}
 
 	function activeDocument():Null<Document> {
 		var view = context.activeView();
