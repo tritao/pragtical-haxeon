@@ -100,6 +100,19 @@ class DocumentTestMain {
 		combiningSelection.setCursor(combining, new BufferPosition(0, 2));
 		combiningSelection.move(combining, -1);
 		require(combiningSelection.cursor.column == 1, "combining-mark scalar boundary policy changed");
+		var navigation = new TextBuffer("one  two\nthree"), navigationSelection = new BufferSelection(new BufferPosition(0, 8));
+		navigationSelection.moveWord(navigation, -1);
+		require(navigationSelection.cursor.column == 5, "previous-word navigation failed");
+		navigationSelection.moveWord(navigation, -1, true);
+		require(navigationSelection.start().column == 0 && navigationSelection.end().column == 5, "word selection failed");
+		navigationSelection.move(navigation, 1);
+		require(!navigationSelection.hasSelection() && navigationSelection.cursor.column == 5,
+			"right movement did not collapse selection to its end");
+		navigationSelection.moveDocumentEnd(navigation);
+		require(navigationSelection.cursor.line == 1 && navigationSelection.cursor.column == 5, "document-end navigation failed");
+		navigationSelection.moveDocumentStart(navigation, true);
+		require(navigationSelection.start().equals(new BufferPosition(0, 0)) && navigationSelection.end().equals(new BufferPosition(1, 5)),
+			"document selection failed");
 		var typing = new TextBuffer(), typingSelection = new BufferSelection();
 		typing.insert(typingSelection, "a", true);
 		typing.insert(typingSelection, "b", true);

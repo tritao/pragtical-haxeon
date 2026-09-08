@@ -38,6 +38,10 @@ class DocumentView extends View {
 		editor.selection.move(document.buffer, delta, extend);
 	override public function moveHome(extend:Bool):Void editor.selection.moveHome(document.buffer, extend);
 	override public function moveEnd(extend:Bool):Void editor.selection.moveEnd(document.buffer, extend);
+	override public function moveWord(direction:Int, extend:Bool):Void editor.selection.moveWord(document.buffer, direction, extend);
+	override public function moveDocumentStart(extend:Bool):Void editor.selection.moveDocumentStart(document.buffer, extend);
+	override public function moveDocumentEnd(extend:Bool):Void editor.selection.moveDocumentEnd(document.buffer, extend);
+	override public function movePage(delta:Int, extend:Bool):Void editor.movePage(delta, extend);
 	override public function selectAll():Void editor.selection.selectAll(document.buffer);
 	override public function undo():Void document.buffer.undo(editor.selection);
 	override public function redo():Void document.buffer.redo(editor.selection);
@@ -97,8 +101,8 @@ class DocumentView extends View {
 	override public function wheel(vertical:Int, horizontal:Int):Void
 		editor.wheel(vertical, horizontal);
 
-	override public function mouseDown(button:Int, x:Int, y:Int):Void {
-		editor.mouseDown(button, x, y);
+	override public function mouseDown(button:Int, x:Int, y:Int, clicks:Int = 1):Void {
+		editor.mouseDown(button, x, y, clicks);
 	}
 
 	override public function mouseMove(x:Int, y:Int):Void {

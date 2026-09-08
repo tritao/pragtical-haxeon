@@ -14,6 +14,7 @@ class EditorView {
 	public final renderer:Renderer;
 	public final theme:Theme;
 	public final selection:BufferSelection;
+	final clock:EditorClock;
 	public var x(default, null):Int = 0;
 	public var y(default, null):Int = 0;
 	public var width(default, null):Int;
@@ -22,12 +23,16 @@ class EditorView {
 	public var scrollY(default, null):Int = 0;
 	public final searchMatches:Array<SearchMatch> = [];
 	var mouseSelecting = false;
+	var dragMouseX:Int = 0;
+	var dragMouseY:Int = 0;
+	var lastDragScroll:Float = -1.0;
 
-	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int, ?selection:BufferSelection) {
+	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int, ?selection:BufferSelection, ?clock:EditorClock) {
 		this.document = document;
 		this.renderer = renderer;
 		this.theme = theme;
 		this.selection = selection == null ? new BufferSelection() : selection;
+		this.clock = clock == null ? new SystemEditorClock() : clock;
 		resize(width, height);
 	}
 
@@ -45,6 +50,13 @@ class EditorView {
 
 	public function moveVertical(delta:Int, extend:Bool):Void {
 		selection.moveVertical(document.buffer, delta, extend);
+		ensureCaretVisible();
+	}
+
+	public function movePage(delta:Int, extend:Bool):Void {
+		var lines = Std.int((height - HEADER_HEIGHT - PADDING) / renderer.lineHeight);
+		if (lines < 1) lines = 1;
+		selection.moveVertical(document.buffer, delta * lines, extend);
 		ensureCaretVisible();
 	}
 
@@ -68,18 +80,31 @@ class EditorView {
 		clampScroll();
 	}
 
-	public function mouseDown(button:Int, x:Int, y:Int):Void {
+	public function mouseDown(button:Int, x:Int, y:Int, clicks:Int = 1):Void {
 		if (button != 1 || !insideText(x, y))
 			return;
-		selection.setCursor(document.buffer, positionFromPoint(x, y));
+		var position = positionFromPoint(x, y), buffer = document.buffer;
+		if (clicks >= 3) {
+			var from = new BufferPosition(position.line, 0), to = position.line + 1 < buffer.lineCount()
+				? new BufferPosition(position.line + 1, 0) : new BufferPosition(position.line, buffer.line(position.line).length);
+			selection.restore(buffer, to, from);
+		} else if (clicks == 2)
+			selection.restore(buffer, buffer.wordEndAt(position), buffer.wordStartAt(position));
+		else selection.setCursor(buffer, position);
 		mouseSelecting = true;
+		dragMouseX = x;
+		dragMouseY = y;
+		lastDragScroll = -1.0;
 		ensureCaretVisible();
 	}
 
 	public function mouseMove(x:Int, y:Int):Void {
 		if (!mouseSelecting)
 			return;
+		dragMouseX = x;
+		dragMouseY = y;
 		selection.setCursor(document.buffer, positionFromPoint(x, y), true);
+		updateDragAutoscroll();
 		ensureCaretVisible();
 	}
 
@@ -89,6 +114,7 @@ class EditorView {
 	}
 
 	public function draw(path:String):Void {
+		updateDragAutoscroll();
 		var buffer = document.buffer, lineHeight = renderer.lineHeight, contentTop = y + HEADER_HEIGHT + PADDING,
 			contentHeight = height - HEADER_HEIGHT - PADDING, textOffset = GUTTER_WIDTH;
 		if (contentHeight < 1) contentHeight = 1;
@@ -142,6 +168,21 @@ class EditorView {
 			caretY = contentTop + cursorLine * lineHeight - scrollY;
 		renderer.rect(caretX, caretY, 2, lineHeight, 0xffffffff);
 		renderer.clip(x, y, width, height);
+	}
+
+	function updateDragAutoscroll():Void {
+		if (!mouseSelecting) return;
+		var top = y + HEADER_HEIGHT + PADDING, bottom = y + height, direction = 0;
+		if (dragMouseY < top) direction = -1 - Std.int((top - dragMouseY) / renderer.lineHeight);
+		else if (dragMouseY >= bottom) direction = 1 + Std.int((dragMouseY - bottom) / renderer.lineHeight);
+		if (direction == 0) return;
+		var now = clock.now();
+		if (lastDragScroll >= 0 && now - lastDragScroll < 0.05) return;
+		lastDragScroll = now;
+		scrollY += direction * renderer.lineHeight;
+		clampScroll();
+		var targetY = direction < 0 ? top : bottom - 1;
+		selection.setCursor(document.buffer, positionFromPoint(dragMouseX, targetY), true);
 	}
 
 	function ensureCaretVisible():Void {

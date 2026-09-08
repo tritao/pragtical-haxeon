@@ -27,6 +27,10 @@ class View {
 	public function moveHorizontal(delta:Int, extend:Bool):Void {}
 	public function moveHome(extend:Bool):Void {}
 	public function moveEnd(extend:Bool):Void {}
+	public function moveWord(direction:Int, extend:Bool):Void {}
+	public function moveDocumentStart(extend:Bool):Void {}
+	public function moveDocumentEnd(extend:Bool):Void {}
+	public function movePage(delta:Int, extend:Bool):Void {}
 	public function selectAll():Void {}
 	public function undo():Void {}
 	public function redo():Void {}
@@ -56,7 +60,7 @@ class View {
 	public function setSearchMatches(matches:Array<SearchMatch>):Void {}
 	public function searchMatchCount():Int return 0;
 	public function wheel(vertical:Int, horizontal:Int):Void {}
-	public function mouseDown(button:Int, x:Int, y:Int):Void {}
+	public function mouseDown(button:Int, x:Int, y:Int, clicks:Int = 1):Void {}
 	public function mouseMove(x:Int, y:Int):Void {}
 	public function mouseUp(button:Int):Void {}
 	public function dispose():Void {}

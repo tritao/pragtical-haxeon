@@ -49,7 +49,7 @@ class GraphicalMain {
 				else if (kind == Platform.EVENT_MOUSE_WHEEL)
 					application.root.wheel(Native.event_a(), Native.event_b());
 				else if (kind == Platform.EVENT_MOUSE_BUTTON_DOWN)
-					application.root.mouseDown(Native.event_a(), Native.event_b(), Native.event_c());
+					application.root.mouseDown(Native.event_a(), Native.event_b(), Native.event_c(), Native.event_d());
 				else if (kind == Platform.EVENT_MOUSE_BUTTON_UP)
 					application.root.mouseUp(Native.event_a());
 				else if (kind == Platform.EVENT_MOUSE_MOVED)

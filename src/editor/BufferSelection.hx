@@ -34,14 +34,50 @@ class BufferSelection {
 		preferredColumn = -1;
 	}
 
-	public function move(buffer:TextBuffer, delta:Int, extend:Bool = false):Void
+	public function move(buffer:TextBuffer, delta:Int, extend:Bool = false):Void {
+		if (!extend && hasSelection()) {
+			setCursor(buffer, delta < 0 ? start() : end());
+			return;
+		}
 		setCursor(buffer, buffer.positionOffset(cursor, delta), extend);
+	}
+
+	public function moveWord(buffer:TextBuffer, direction:Int, extend:Bool = false):Void {
+		if (!extend && hasSelection()) {
+			setCursor(buffer, direction < 0 ? start() : end());
+			return;
+		}
+		var position = cursor;
+		if (direction < 0) {
+			while (!position.equals(new BufferPosition(0, 0))) {
+				var previous = buffer.positionOffset(position, -1);
+				if (isWord(buffer.characterCodeAt(previous))) break;
+				position = previous;
+			}
+			while (!position.equals(new BufferPosition(0, 0))) {
+				var previous = buffer.positionOffset(position, -1);
+				if (!isWord(buffer.characterCodeAt(previous))) break;
+				position = previous;
+			}
+		} else {
+			var end = buffer.endPosition();
+			while (!position.equals(end) && isWord(buffer.characterCodeAt(position))) position = buffer.positionOffset(position, 1);
+			while (!position.equals(end) && !isWord(buffer.characterCodeAt(position))) position = buffer.positionOffset(position, 1);
+		}
+		setCursor(buffer, position, extend);
+	}
 
 	public function moveHome(buffer:TextBuffer, extend:Bool = false):Void
 		setCursor(buffer, new BufferPosition(cursor.line, 0), extend);
 
 	public function moveEnd(buffer:TextBuffer, extend:Bool = false):Void
 		setCursor(buffer, new BufferPosition(cursor.line, buffer.line(cursor.line).length), extend);
+
+	public function moveDocumentStart(buffer:TextBuffer, extend:Bool = false):Void
+		setCursor(buffer, new BufferPosition(0, 0), extend);
+
+	public function moveDocumentEnd(buffer:TextBuffer, extend:Bool = false):Void
+		setCursor(buffer, buffer.endPosition(), extend);
 
 	public function moveVertical(buffer:TextBuffer, delta:Int, extend:Bool = false):Void {
 		if (preferredColumn < 0) preferredColumn = cursor.column;
@@ -71,4 +107,7 @@ class BufferSelection {
 		anchor = buffer.positionAt(transformedAnchor.line, transformedAnchor.column);
 		preferredColumn = -1;
 	}
+
+	static function isWord(code:Int):Bool
+		return code >= 48 && code <= 57 || code >= 65 && code <= 90 || code >= 97 && code <= 122 || code == 95 || code >= 128;
 }

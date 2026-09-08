@@ -167,6 +167,30 @@ class TextBuffer {
 		return result;
 	}
 
+	public function characterCodeAt(position:BufferPosition):Int {
+		var value = sanitize(position);
+		if (value.column < lines[value.line].length) return lines[value.line].charCodeAt(value.column);
+		return value.line + 1 < lines.length ? 10 : -1;
+	}
+
+	public function wordStartAt(position:BufferPosition):BufferPosition {
+		var result = sanitize(position);
+		if (!isWordCode(characterCodeAt(result))) return result;
+		while (result.line != 0 || result.column != 0) {
+			var previous = positionOffset(result, -1);
+			if (!isWordCode(characterCodeAt(previous))) break;
+			result = previous;
+		}
+		return result;
+	}
+
+	public function wordEndAt(position:BufferPosition):BufferPosition {
+		var result = sanitize(position), end = endPosition();
+		if (!isWordCode(characterCodeAt(result))) return positionOffset(result, 1);
+		while (!result.equals(end) && isWordCode(characterCodeAt(result))) result = positionOffset(result, 1);
+		return result;
+	}
+
 	public function textRange(from:BufferPosition, to:BufferPosition):String {
 		var start = sanitize(from), end = sanitize(to);
 		if (end.before(start)) {
@@ -260,6 +284,9 @@ class TextBuffer {
 
 	static function isLowSurrogate(code:Int):Bool
 		return code >= 0xDC00 && code <= 0xDFFF;
+
+	static function isWordCode(code:Int):Bool
+		return code >= 48 && code <= 57 || code >= 65 && code <= 90 || code >= 97 && code <= 122 || code == 95 || code >= 128;
 }
 
 typedef BufferChangeListener = BufferChange -> Void;

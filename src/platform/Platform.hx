@@ -1,7 +1,7 @@
 package platform;
 
 class Platform {
-	public static inline final ABI_VERSION = 5;
+	public static inline final ABI_VERSION = 6;
 	public static inline final EVENT_QUIT = 1;
 	public static inline final EVENT_WINDOW_RESIZED = 2;
 	public static inline final EVENT_KEY_DOWN = 3;
@@ -33,6 +33,8 @@ class Platform {
 	public static inline final KEY_C = 20;
 	public static inline final KEY_V = 21;
 	public static inline final KEY_X = 22;
+	public static inline final KEY_PAGE_UP = 23;
+	public static inline final KEY_PAGE_DOWN = 24;
 	public static inline final MOD_SHIFT = 1;
 	public static inline final MOD_CTRL = 2;
 

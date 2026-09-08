@@ -167,7 +167,7 @@ class RootView {
 		if (tabs.activeView != null) tabs.activeView.wheel(vertical, horizontal);
 	}
 
-	public function mouseDown(button:Int, x:Int, y:Int):Void {
+	public function mouseDown(button:Int, x:Int, y:Int, clicks:Int = 1):Void {
 		if (button == 1 && x < sidebar.width) {
 			if (searchVisible) {
 				var match = searchSidebar.mouseDown(x, y);
@@ -193,7 +193,7 @@ class RootView {
 			if (index >= 0 && index < tabs.views.length) tabs.setActive(tabs.views[index]);
 			return;
 		}
-		if (tabs.activeView != null) tabs.activeView.mouseDown(button, x, y);
+		if (tabs.activeView != null) tabs.activeView.mouseDown(button, x, y, clicks);
 	}
 
 	public function mouseMove(x:Int, y:Int):Void {

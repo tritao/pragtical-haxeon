@@ -72,6 +72,8 @@ static int32_t normalize_key(SDL_Keycode key) {
     case SDLK_C: return PHX_KEY_C;
     case SDLK_V: return PHX_KEY_V;
     case SDLK_X: return PHX_KEY_X;
+    case SDLK_PAGEUP: return PHX_KEY_PAGE_UP;
+    case SDLK_PAGEDOWN: return PHX_KEY_PAGE_DOWN;
     default: return PHX_KEY_UNKNOWN;
   }
 }

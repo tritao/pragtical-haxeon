@@ -28,6 +28,18 @@ class EditorCommands {
 		registry.add("doc:select-to-next-line", context -> context.requireView().moveVertical(1, true), hasDocument);
 		registry.add("doc:select-to-start-of-line", context -> context.requireView().moveHome(true), hasDocument);
 		registry.add("doc:select-to-end-of-line", context -> context.requireView().moveEnd(true), hasDocument);
+		registry.add("doc:move-to-previous-word", context -> context.requireView().moveWord(-1, false), hasDocument);
+		registry.add("doc:move-to-next-word", context -> context.requireView().moveWord(1, false), hasDocument);
+		registry.add("doc:select-to-previous-word", context -> context.requireView().moveWord(-1, true), hasDocument);
+		registry.add("doc:select-to-next-word", context -> context.requireView().moveWord(1, true), hasDocument);
+		registry.add("doc:move-to-start-of-document", context -> context.requireView().moveDocumentStart(false), hasDocument);
+		registry.add("doc:move-to-end-of-document", context -> context.requireView().moveDocumentEnd(false), hasDocument);
+		registry.add("doc:select-to-start-of-document", context -> context.requireView().moveDocumentStart(true), hasDocument);
+		registry.add("doc:select-to-end-of-document", context -> context.requireView().moveDocumentEnd(true), hasDocument);
+		registry.add("doc:move-page-up", context -> context.requireView().movePage(-1, false), hasDocument);
+		registry.add("doc:move-page-down", context -> context.requireView().movePage(1, false), hasDocument);
+		registry.add("doc:select-page-up", context -> context.requireView().movePage(-1, true), hasDocument);
+		registry.add("doc:select-page-down", context -> context.requireView().movePage(1, true), hasDocument);
 		registry.add("root:switch-to-next-tab", context -> context.root.tabs.switchBy(1));
 		registry.add("root:switch-to-previous-tab", context -> context.root.tabs.switchBy(-1));
 		registry.add("root:close", context -> context.root.closeActiveTab(), context -> context.focus.activeView != null);
@@ -62,6 +74,18 @@ class EditorCommands {
 		bindMovement(keymap, Platform.KEY_DOWN, "next-line");
 		bindMovement(keymap, Platform.KEY_HOME, "start-of-line");
 		bindMovement(keymap, Platform.KEY_END, "end-of-line");
+		keymap.addDirect(Platform.KEY_LEFT, Platform.MOD_CTRL, ["doc:move-to-previous-word"]);
+		keymap.addDirect(Platform.KEY_RIGHT, Platform.MOD_CTRL, ["doc:move-to-next-word"]);
+		keymap.addDirect(Platform.KEY_LEFT, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["doc:select-to-previous-word"]);
+		keymap.addDirect(Platform.KEY_RIGHT, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["doc:select-to-next-word"]);
+		keymap.addDirect(Platform.KEY_HOME, Platform.MOD_CTRL, ["doc:move-to-start-of-document"]);
+		keymap.addDirect(Platform.KEY_END, Platform.MOD_CTRL, ["doc:move-to-end-of-document"]);
+		keymap.addDirect(Platform.KEY_HOME, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["doc:select-to-start-of-document"]);
+		keymap.addDirect(Platform.KEY_END, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["doc:select-to-end-of-document"]);
+		keymap.addDirect(Platform.KEY_PAGE_UP, 0, ["doc:move-page-up"]);
+		keymap.addDirect(Platform.KEY_PAGE_DOWN, 0, ["doc:move-page-down"]);
+		keymap.addDirect(Platform.KEY_PAGE_UP, Platform.MOD_SHIFT, ["doc:select-page-up"]);
+		keymap.addDirect(Platform.KEY_PAGE_DOWN, Platform.MOD_SHIFT, ["doc:select-page-down"]);
 	}
 
 	static function hasDocument(context:CommandContext):Bool
