@@ -54,6 +54,12 @@ class WorkbenchController {
 		}
 	}
 
+	public function setComposition(text:String, start:Int, length:Int):Void
+		root.setComposition(text, start, length);
+
+	public function clearComposition():Void
+		root.clearComposition();
+
 	public function openFileCommandView():Void {
 		var entries:Array<CommandViewEntry> = [];
 		for (project in workspace.projects)

@@ -42,6 +42,7 @@ class GraphicalMain {
 			switch event {
 				case Quit: application.requestQuit();
 				case TextInput(_, text): application.textInput(text);
+				case TextEditing(_, text, start, length): application.setComposition(text, start, length);
 				case WindowResize(_, width, height): application.root.resize(width, height);
 				case DisplayScaleChanged(_, scaleMilli): application.root.displayScaleChanged(scaleMilli);
 				case MouseWheel(_, vertical, horizontal): application.root.wheel(vertical, horizontal);
@@ -60,6 +61,8 @@ class GraphicalMain {
 		application.update();
 		renderer.begin();
 		application.root.draw();
+		var area = application.root.textInputArea();
+		if (area != null) Platform.require(Native.text_input_area(window, area.x, area.y, area.width, area.height, area.cursor), "place text input");
 		renderer.present();
 		return application.quitReady ? 0 : 1;
 	}

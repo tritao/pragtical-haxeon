@@ -3,6 +3,7 @@ package commandview;
 import platform.Platform;
 import renderer.Renderer;
 import style.Theme;
+import platform.TextInputArea;
 
 class CommandView {
 	public var active(default, null):Bool = false;
@@ -11,6 +12,9 @@ class CommandView {
 	public final results:Array<CommandViewEntry> = [];
 	public final input:CommandInput = new CommandInput();
 	var provider:Null<CommandViewProvider>;
+	public var compositionText(default, null):String = "";
+	var compositionStart:Int = 0;
+	var compositionLength:Int = 0;
 
 	public function new() {}
 
@@ -19,6 +23,7 @@ class CommandView {
 	public function open(provider:CommandViewProvider):Void {
 		this.provider = provider;
 		input.reset();
+		clearComposition();
 		selected = 0;
 		active = true;
 		provider.onQuery(query);
@@ -29,12 +34,33 @@ class CommandView {
 		var current = provider;
 		active = false;
 		provider = null;
+		clearComposition();
 		if (cancel && current != null) current.onCancel();
 	}
 
 	public function textInput(value:String):Void {
+		clearComposition();
 		input.insert(value);
 		changed();
+	}
+
+	public function setComposition(text:String, start:Int, length:Int):Void {
+		compositionText = text;
+		compositionStart = start < 0 ? 0 : start;
+		compositionLength = length < 0 ? 0 : length;
+	}
+
+	public function clearComposition():Void {
+		compositionText = "";
+		compositionStart = 0;
+		compositionLength = 0;
+	}
+
+	public function textInputArea(renderer:Renderer, windowWidth:Int):TextInputArea {
+		var width = commandWidth(windowWidth), x = Std.int((windowWidth - width) / 2), inputX = x + 12,
+			promptWidth = provider == null ? 0 : renderer.textWidth(provider.prompt),
+			caretX = inputX + promptWidth + renderer.textWidth(query.substring(0, input.selection.cursor.column));
+		return new TextInputArea(caretX, 55, 2, 24);
 	}
 
 	public function setQuery(value:String):Void {
@@ -103,9 +129,7 @@ class CommandView {
 	public function draw(renderer:Renderer, theme:Theme, windowWidth:Int, windowHeight:Int):Void {
 		var current = provider;
 		if (!active || current == null) return;
-		var width = windowWidth - 80;
-		if (width > 640) width = 640;
-		if (width < 200) width = 200;
+		var width = commandWidth(windowWidth);
 		var x = Std.int((windowWidth - width) / 2), y = 48, rowHeight = 26, visible = results.length;
 		if (visible > 10) visible = 10;
 		var height = 42 + visible * rowHeight;
@@ -123,12 +147,39 @@ class CommandView {
 		renderer.text(inputX, inputY, current.prompt + query, theme.caret);
 		var caretX = inputX + promptWidth + renderer.textWidth(query.substring(0, input.selection.cursor.column));
 		renderer.rect(caretX, y + 7, 2, 24, theme.caret);
+		if (compositionText.length > 0) {
+			var start = utf16Column(compositionText, compositionStart), end = utf16Column(compositionText, compositionStart + compositionLength);
+			if (end > start) renderer.rect(caretX + renderer.textWidth(compositionText.substring(0, start)), y + 7,
+				renderer.textWidth(compositionText.substring(start, end)), 24, theme.selection);
+			renderer.text(caretX, inputY, compositionText, theme.caret);
+			renderer.rect(caretX, y + 30, renderer.textWidth(compositionText), 1, theme.caret);
+		}
 		for (index in 0...visible) {
 			var rowY = y + 42 + index * rowHeight, entry = results[index];
 			if (index == selected) renderer.rect(x, rowY, width, rowHeight, theme.accent);
 			renderer.text(x + 12, rowY + 5, entry.label, theme.editorForeground);
 			if (entry.detail.length > 0) renderer.text(x + Std.int(width * 0.55), rowY + 5, entry.detail, theme.foregroundMuted);
 		}
+	}
+
+	static function commandWidth(windowWidth:Int):Int {
+		var width = windowWidth - 80;
+		if (width > 640) width = 640;
+		if (width < 200) width = 200;
+		return width;
+	}
+
+	static function utf16Column(value:String, characters:Int):Int {
+		var column = 0, remaining = characters;
+		while (column < value.length && remaining > 0) {
+			var code = value.charCodeAt(column++);
+			if (code >= 0xd800 && code <= 0xdbff && column < value.length) {
+				var next = value.charCodeAt(column);
+				if (next >= 0xdc00 && next <= 0xdfff) column++;
+			}
+			remaining--;
+		}
+		return column;
 	}
 
 	function filter():Void {

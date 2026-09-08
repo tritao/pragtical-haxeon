@@ -150,6 +150,12 @@ class Application {
 	public function textInput(text:String):Void
 		workbench.textInput(text);
 
+	public function setComposition(text:String, start:Int, length:Int):Void
+		workbench.setComposition(text, start, length);
+
+	public function clearComposition():Void
+		workbench.clearComposition();
+
 	public function openFileCommandView():Void
 		workbench.openFileCommandView();
 

@@ -20,6 +20,12 @@ class ApplicationTestMain {
 			application = new Application(renderer, 640, 320), first = new Document("first", "one", application.syntaxes),
 			second = new Document("second", "two", application.syntaxes);
 		var firstView = application.add(first), secondView = application.add(second);
+		application.setComposition("に😀", 1, 1);
+		var compositionArea = application.root.textInputArea();
+		require(second.buffer.text == "two" && compositionArea != null,
+			"document composition mutated text or lacked candidate placement");
+		application.clearComposition();
+		require(second.buffer.text == "two", "clearing document composition mutated text");
 		application.root.displayScaleChanged(1750);
 		require(application.root.displayScaleMilli == 1750 && application.root.node.width == 640 - view.Sidebar.WIDTH,
 			"display-scale change altered the logical layout coordinate space");

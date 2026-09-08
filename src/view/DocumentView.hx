@@ -11,6 +11,7 @@ import editor.BufferSubscription;
 import platform.Native;
 import editor.EditorActions;
 import plugin.PluginDecorationRegistry;
+import platform.TextInputArea;
 
 class DocumentView extends View {
 	public final document:Document;
@@ -123,10 +124,15 @@ class DocumentView extends View {
 		editor.setBounds(x, y, width, height);
 
 	override public function textInput(text:String):Void {
+		editor.clearComposition();
 		if (editor.selection.rangeCount() > 1) document.buffer.replaceSelections(editor.selection, [text]);
 		else document.buffer.insert(editor.selection, text, text.indexOf("\n") < 0);
 		editor.cursorChanged();
 	}
+	override public function setComposition(text:String, start:Int, length:Int):Void editor.setComposition(text, start, length);
+	override public function clearComposition():Void editor.clearComposition();
+	override public function textInputArea():Null<TextInputArea> return editor.textInputArea();
+	override public function deactivate():Void editor.clearComposition();
 
 	override public function cursorChanged():Void {
 		editor.cursorChanged();
@@ -164,6 +170,7 @@ class DocumentView extends View {
 	override public function draw():Void editor.draw(document.title);
 
 	function bufferChanged(change:BufferChange):Void {
+		editor.clearComposition();
 		editor.selection.transform(document.buffer, change);
 	}
 }

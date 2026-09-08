@@ -44,7 +44,15 @@ class CommandTestMain {
 		commandView.open(new CommandViewProvider("> ", entries, function(query) {}, function(entry, query, backwards) {
 			accepted = query;
 		}));
+		commandView.setComposition("日😀", 1, 1);
+		require(commandView.query == "" && commandView.compositionText == "日😀"
+			&& commandView.textInputArea(renderer, 320).height == 24,
+			"command composition mutated its query or lacked candidate placement");
+		renderer.begin();
+		commandView.draw(renderer, application.theme, 320, 200);
+		renderer.present();
 		commandView.textInput("f");
+		require(commandView.compositionText == "", "committed command input retained preedit text");
 		commandView.keyPressed(Platform.KEY_DOWN, 0);
 		var preserved = commandView.results[commandView.selected].value;
 		commandView.textInput("o");

@@ -6,6 +6,7 @@ import style.Theme;
 import search.SearchMatch;
 import plugin.PluginDecorationRegistry;
 import plugin.PluginDecoration;
+import platform.TextInputArea;
 
 class EditorView {
 	public static inline final HEADER_HEIGHT = 42;
@@ -38,6 +39,9 @@ class EditorView {
 	var measuredVisualRevision:Int = -1;
 	var measuredMaximumWidth:Int = 0;
 	var preferredVisualColumn:Int = -1;
+	public var compositionText(default, null):String = "";
+	var compositionStart:Int = 0;
+	var compositionLength:Int = 0;
 
 	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int, ?selection:BufferSelection, ?clock:EditorClock,
 			?decorations:PluginDecorationRegistry) {
@@ -140,6 +144,26 @@ class EditorView {
 	public function setSearchMatches(matches:Array<SearchMatch>):Void {
 		searchMatches.resize(0);
 		for (match in matches) searchMatches.push(match);
+	}
+
+	public function setComposition(text:String, start:Int, length:Int):Void {
+		compositionText = text;
+		compositionStart = start < 0 ? 0 : start;
+		compositionLength = length < 0 ? 0 : length;
+	}
+
+	public function clearComposition():Void {
+		compositionText = "";
+		compositionStart = 0;
+		compositionLength = 0;
+	}
+
+	public function textInputArea():TextInputArea {
+		syncVisualLines();
+		var rowIndex = visualLines.rowAt(selection.cursor), row = visualLines.lineAt(rowIndex), value = document.buffer.line(row.documentLine),
+			caretX = x + GUTTER_WIDTH - scrollX + renderer.textWidth(value.substring(row.startColumn, selection.cursor.column)),
+			caretY = y + HEADER_HEIGHT + PADDING + rowIndex * renderer.lineHeight - scrollY;
+		return new TextInputArea(caretX, caretY, 2, renderer.lineHeight);
 	}
 
 	public function wheel(verticalHundredths:Int, horizontalHundredths:Int):Void {
@@ -276,8 +300,36 @@ class EditorView {
 				caretY = contentTop + cursorRowIndex * lineHeight - scrollY;
 			renderer.rect(caretX, caretY, 2, lineHeight, theme.caret);
 		}
+		drawComposition();
 		drawScrollbars(contentTop, contentHeight);
 		renderer.clip(x, y, width, height);
+	}
+
+	function drawComposition():Void {
+		if (compositionText.length == 0) return;
+		var area = textInputArea(), start = utf16Column(compositionText, compositionStart),
+			end = utf16Column(compositionText, compositionStart + compositionLength);
+		if (end < start) end = start;
+		if (end > start) {
+			var selectedX = area.x + renderer.textWidth(compositionText.substring(0, start)),
+				selectedWidth = renderer.textWidth(compositionText.substring(start, end));
+			renderer.rect(selectedX, area.y, selectedWidth, area.height, theme.selection);
+		}
+		renderer.text(area.x, area.y, compositionText, theme.editorForeground);
+		renderer.rect(area.x, area.y + area.height - 2, renderer.textWidth(compositionText), 1, theme.caret);
+	}
+
+	static function utf16Column(value:String, characters:Int):Int {
+		var column = 0, remaining = characters;
+		while (column < value.length && remaining > 0) {
+			var code = value.charCodeAt(column++);
+			if (code >= 0xd800 && code <= 0xdbff && column < value.length) {
+				var next = value.charCodeAt(column);
+				if (next >= 0xdc00 && next <= 0xdfff) column++;
+			}
+			remaining--;
+		}
+		return column;
 	}
 
 	function drawBracketBackground(position:BufferPosition, row:VisualLine, value:String, x:Int, y:Int, lineHeight:Int):Void {

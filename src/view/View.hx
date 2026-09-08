@@ -4,6 +4,7 @@ import editor.Document;
 import editor.BufferPosition;
 import editor.BufferSelection;
 import search.SearchMatch;
+import platform.TextInputArea;
 
 class View {
 	public var title(default, null):String;
@@ -58,6 +59,9 @@ class View {
 
 	public function resize(width:Int, height:Int):Void {}
 	public function textInput(text:String):Void {}
+	public function setComposition(text:String, start:Int, length:Int):Void {}
+	public function clearComposition():Void {}
+	public function textInputArea():Null<TextInputArea> return null;
 	public function cursorChanged():Void {}
 	public function scrollX():Int return 0;
 	public function scrollY():Int return 0;

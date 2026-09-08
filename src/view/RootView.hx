@@ -19,6 +19,7 @@ import platform.Native;
 import plugin.PluginPanelRegistry;
 import plugin.PluginDecorationRegistry;
 import plugin.PluginStatusRegistry;
+import platform.TextInputArea;
 
 class RootView {
 	public static inline final TAB_WIDTH = 180;
@@ -233,6 +234,21 @@ class RootView {
 
 	public function textInput(text:String):Void {
 		if (tabs.activeView != null) tabs.activeView.textInput(text);
+	}
+
+	public function setComposition(text:String, start:Int, length:Int):Void {
+		if (commandView.active) commandView.setComposition(text, start, length);
+		else if (tabs.activeView != null) tabs.activeView.setComposition(text, start, length);
+	}
+
+	public function clearComposition():Void {
+		commandView.clearComposition();
+		if (tabs.activeView != null) tabs.activeView.clearComposition();
+	}
+
+	public function textInputArea():Null<TextInputArea> {
+		if (commandView.active) return commandView.textInputArea(renderer, width);
+		return tabs.activeView == null ? null : tabs.activeView.textInputArea();
 	}
 
 	public function cursorChanged():Void {
