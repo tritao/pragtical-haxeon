@@ -7,6 +7,20 @@ import renderer.Renderer;
 import session.WorkspaceSession;
 import view.LayoutKind;
 import editor.BufferSelection;
+import jobs.JobTask;
+
+private class CountingJob implements JobTask {
+	public var steps:Int = 0;
+	public var cancelled:Bool = false;
+	final target:Int;
+
+	public function new(target:Int) this.target = target;
+	public function step():Bool {
+		steps++;
+		return steps >= target;
+	}
+	public function cancel():Void cancelled = true;
+}
 
 class WorkspaceTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -20,6 +34,14 @@ class WorkspaceTestMain {
 		var window = Native.window_create("workspace-test", 640, 320), renderer = new Renderer(window, "ignored-headlessly.ttf", 15),
 			application = new Application(renderer, 640, 320), project = application.workspace.addProject(arguments[0], [".cache"]),
 			visible = project.visibleNodes();
+		var firstJob = new CountingJob(3), firstHandle = application.workspace.jobs.schedule(firstJob);
+		require(application.workspace.jobs.update(2) == 2 && firstJob.steps == 2 && application.workspace.jobs.activeCount() == 1,
+			"job scheduler exceeded its bounded update or retired work early");
+		var replacementJob = new CountingJob(1), replacementHandle = application.workspace.jobs.replace(firstHandle, replacementJob);
+		require(firstJob.cancelled && replacementHandle.id == firstHandle.id && replacementHandle.generation == firstHandle.generation + 1
+			&& !application.workspace.jobs.cancel(firstHandle), "job generation did not reject a stale handle");
+		require(application.workspace.jobs.update(1) == 1 && replacementJob.steps == 1 && application.workspace.jobs.activeCount() == 0,
+			"replacement job did not complete and retire");
 		require(application.workspace.activeProject == project && visible.length == 3, "project root did not scan or ignored entries leaked");
 		require(visible[0] == project.tree && visible[1].name == "alpha.txt" && visible[2].name == "src", "project tree ordering failed");
 		project.restoreExpanded([arguments[0] + "/src"]);

@@ -2,18 +2,21 @@ package workspace;
 
 import core.DocumentManager;
 import syntax.SyntaxRegistry;
+import jobs.JobScheduler;
 
 class Workspace {
 	public final projects:Array<Project> = [];
 	public final documents:DocumentManager;
 	public final syntaxes:SyntaxRegistry;
 	public final fileSystem:FileSystemService;
+	public final jobs:JobScheduler;
 	public var activeProject(default, null):Null<Project>;
 
 	public function new(syntaxes:SyntaxRegistry, ?fileSystem:FileSystemService) {
 		this.syntaxes = syntaxes;
 		this.fileSystem = fileSystem == null ? new FileSystemService() : fileSystem;
 		documents = new DocumentManager(syntaxes, this.fileSystem);
+		jobs = new JobScheduler();
 	}
 
 	public function addProject(path:String, ?ignoredNames:Array<String>):Project {
@@ -30,6 +33,7 @@ class Workspace {
 	}
 
 	public function refreshProjects(directoryBudget:Int = 32):Bool {
+		jobs.update(directoryBudget);
 		var changed = false;
 		for (project in projects) if (project.pollChanges(directoryBudget)) changed = true;
 		return changed;
