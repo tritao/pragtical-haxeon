@@ -8,6 +8,8 @@ interface Plugin {
 	function update(now:Float):Bool;
 	/** Forces a source comparison and publication attempt. */
 	function refresh():Bool;
+	/** Requests nonblocking refresh work when the plugin has a compiler. */
+	function requestRefresh():Bool;
 	function diagnostic():Null<String>;
 	function dispose():Void;
 }

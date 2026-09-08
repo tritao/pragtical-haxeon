@@ -45,7 +45,16 @@ class DynamicPluginTestMain {
 		var source = File.getContent(arguments[1]);
 		File.saveContent(arguments[1], StringTools.replace(source, "PluginState.value + 1", "PluginState.value + 2"));
 		require(!plugin.update(10.0) && !plugin.update(10.2), "source edit bypassed the reload debounce");
-		require(plugin.update(10.31), 'debounced compatible source edit did not publish: ${plugin.lastError}');
+		var revisionBeforeBackgroundCompile = plugin.revision;
+		require(!plugin.update(10.31) && plugin.revision == revisionBeforeBackgroundCompile,
+			"debounced compilation published on the observing event-loop turn");
+		var compileWait = 0;
+		while (plugin.revision == revisionBeforeBackgroundCompile && compileWait < 2000) {
+			Sys.sleep(0.001);
+			plugin.update(10.32 + compileWait * 0.001);
+			compileWait++;
+		}
+		require(plugin.revision != revisionBeforeBackgroundCompile, 'background compatible source edit did not publish: ${plugin.lastError}');
 		require(application.commands.perform("example:increment", application.context), "patched command did not dispatch");
 		require(plugin.callInt("current") == 3, "compatible patch did not preserve state or replace behavior");
 		var eventsAfterPatchedCommand = plugin.callInt("eventCount");
@@ -93,7 +102,12 @@ class DynamicPluginTestMain {
 		application.plugins.update(21.31);
 		require(plugin.lastError == null && application.plugins.diagnostics().length == 0,
 			"restoring unchanged working source did not clear its diagnostic");
+		File.saveContent(arguments[1], structuralSource + "\n");
+		application.plugins.update(30.0);
+		application.plugins.update(30.31);
+		require(plugin.busy(), "debounced source edit did not start background compilation");
 		require(application.plugins.unload("example"), "dynamic plugin did not unload");
+		Sys.sleep(0.05);
 		var textAfterUnload = application.context.requireDocument().buffer.text;
 		application.textInput("after");
 		require(application.root.pluginPanels.find("example", "status") == null

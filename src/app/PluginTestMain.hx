@@ -57,6 +57,9 @@ class SamplePlugin implements Plugin {
 	public function diagnostic():Null<String>
 		return null;
 
+	public function requestRefresh():Bool
+		return false;
+
 	public function dispose():Void {}
 }
 
@@ -81,6 +84,9 @@ class BrokenPlugin implements Plugin {
 
 	public function diagnostic():Null<String>
 		return null;
+
+	public function requestRefresh():Bool
+		return false;
 
 	public function dispose():Void {}
 }

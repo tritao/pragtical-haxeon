@@ -10,6 +10,8 @@ import runtime.Runtime;
 import runtime.RuntimeError;
 import sys.FileSystem;
 import sys.io.File;
+import sys.thread.Mutex;
+import sys.thread.Thread;
 
 class DynamicPlugin implements Plugin {
 	public final manifest:PluginManifest;
@@ -25,6 +27,12 @@ class DynamicPlugin implements Plugin {
 	var nextPollAt:Float = 0.0;
 	var changedAt:Float = -1.0;
 	var nextContentAuditAt:Float = 0.0;
+	var observationGeneration:Int = 0;
+	var compiling:Bool = false;
+	var disposed:Bool = false;
+	var completion:Null<DynamicCompileCompletion>;
+	final completionMutex = new Mutex();
+	static final compilerMutex = new Mutex();
 	static inline final POLL_SECONDS = 0.25;
 	static inline final DEBOUNCE_SECONDS = 0.3;
 	static inline final CONTENT_AUDIT_SECONDS = 2.0;
@@ -78,7 +86,8 @@ class DynamicPlugin implements Plugin {
 	}
 
 	public function update(now:Float):Bool {
-		if (now < nextPollAt) return false;
+		var published = publishCompletion();
+		if (now < nextPollAt) return published;
 		nextPollAt = now + POLL_SECONDS;
 		var observedChange = false;
 		for (index in 0...manifest.sources.length) {
@@ -92,28 +101,97 @@ class DynamicPlugin implements Plugin {
 			nextContentAuditAt = now + CONTENT_AUDIT_SECONDS;
 			if (sourceContentsChanged()) observedChange = true;
 		}
-		if (observedChange) changedAt = now;
-		if (changedAt < 0.0 || now - changedAt < DEBOUNCE_SECONDS) return false;
+		if (observedChange) {
+			changedAt = now;
+			observationGeneration++;
+		}
+		if (changedAt < 0.0 || now - changedAt < DEBOUNCE_SECONDS) return published;
 		changedAt = -1.0;
-		return refresh();
+		requestRefresh();
+		return published;
+	}
+
+	public function requestRefresh():Bool {
+		if (compiling || disposed) return false;
+		try {
+			if (!updateCompilerSources()) {
+				lastError = null;
+				return false;
+			}
+		} catch (error:Dynamic) {
+			lastError = Std.string(error);
+			return false;
+		}
+		var generation = observationGeneration;
+		compiling = true;
+		Thread.create(function() {
+			var build:Null<compiler.CompileResult> = null, error:Null<String> = null;
+			compilerMutex.acquire();
+			try build = compilePlugin() catch (failure:Dynamic) error = Std.string(failure);
+			compilerMutex.release();
+			completionMutex.acquire();
+			if (disposed) {
+				if (build != null) compiler.rejectPublication(build.revision);
+				compiling = false;
+			} else {
+				completion = new DynamicCompileCompletion(generation, build, error);
+			}
+			completionMutex.release();
+		});
+		return true;
 	}
 
 	public function refresh():Bool {
 		try {
-			var changed = false;
-			for (index in 0...manifest.sources.length) {
-				var content = File.getContent(manifest.sources[index]);
-				if (content != contents[index]) {
-					contents[index] = content;
-					compiler.update(modulePath(manifest.sources[index]), content);
-					changed = true;
-				}
-			}
+			if (compiling) return false;
+			var changed = updateCompilerSources();
 			if (!changed) {
 				lastError = null;
 				return false;
 			}
-			var build = compilePlugin();
+			return publish(compilePlugin());
+		} catch (error:RuntimeError) {
+			lastError = error.message;
+			return false;
+		} catch (error:Dynamic) {
+			lastError = Std.string(error);
+			return false;
+		}
+	}
+
+	function updateCompilerSources():Bool {
+		var changed = false;
+		for (index in 0...manifest.sources.length) {
+			var content = File.getContent(manifest.sources[index]);
+			if (content != contents[index]) {
+				contents[index] = content;
+				compiler.update(modulePath(manifest.sources[index]), content);
+				changed = true;
+			}
+		}
+		return changed;
+	}
+
+	function publishCompletion():Bool {
+		completionMutex.acquire();
+		var finished = completion;
+		completion = null;
+		completionMutex.release();
+		if (finished == null) return false;
+		compiling = false;
+		if (finished.generation != observationGeneration) {
+			if (finished.build != null) compiler.rejectPublication(finished.build.revision);
+			return false;
+		}
+		if (finished.error != null) {
+			lastError = finished.error;
+			return false;
+		}
+		return publish(finished.build);
+	}
+
+	function publish(build:compiler.CompileResult):Bool {
+		try {
 			if (build.patchBytes != null && !build.requiresReload) {
 				try {
 					Runtime.patchSet(requireModule(), new PatchSet(revision, build.revision, build.patchBytes, build.changedFunctions));
@@ -153,6 +231,12 @@ class DynamicPlugin implements Plugin {
 	}
 
 	public function dispose():Void {
+		completionMutex.acquire();
+		disposed = true;
+		var finished = completion;
+		completion = null;
+		if (finished != null && finished.build != null) compiler.rejectPublication(finished.build.revision);
+		completionMutex.release();
 		var loaded = module;
 		if (loaded != null)
 			Runtime.dispose(loaded);
@@ -167,6 +251,9 @@ class DynamicPlugin implements Plugin {
 
 	public function diagnostic():Null<String>
 		return lastError;
+
+	public function busy():Bool
+		return compiling;
 
 	function compilePlugin():compiler.CompileResult {
 		try {

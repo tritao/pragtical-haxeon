@@ -91,6 +91,7 @@ class PluginManager {
 	public function reload(id:String):Bool {
 		var entry = entry(id);
 		if (entry == null || entry.context == null) return false;
+		if (entry.plugin.requestRefresh()) return true;
 		if (entry.plugin.refresh()) {
 			recordDiagnostic(entry.plugin);
 			return true;
