@@ -268,9 +268,11 @@ class DynamicPlugin implements Plugin {
 		var previous = requireModule(),
 			previousIds = functionIds,
 			previousRevision = revision,
+			previousStateVersion = Runtime.callInt(previous, functionId("stateVersion")),
 			state = Runtime.callString(previous, functionId("saveState")),
 			replacement = Runtime.load(HlWriter.encode(build.module), build.runtimeIdentity),
-			nextIds = build.functionIds;
+			nextIds = build.functionIds,
+			nextStateVersion = Runtime.callInt(replacement, requiredId(nextIds, "stateVersion"));
 		if (context == null) {
 			Runtime.dispose(replacement);
 			compiler.rejectPublication(build.revision);
@@ -284,7 +286,8 @@ class DynamicPlugin implements Plugin {
 			module = replacement;
 			functionIds = nextIds;
 			revision = build.revision;
-			Runtime.callStringArg(replacement, requiredId(nextIds, "restoreState"), state);
+			if (previousStateVersion == nextStateVersion)
+				Runtime.callStringArg(replacement, requiredId(nextIds, "restoreState"), state);
 			activate(activeContext);
 		} catch (error:Dynamic) {
 			activeContext.dispose();

@@ -62,6 +62,15 @@ class DynamicPluginTestMain {
 			"patched dynamic plugin lost host API access or duplicated its event subscription");
 
 		var compatibleSource = File.getContent(arguments[1]);
+		File.saveContent(arguments[1], compatibleSource + "\nfunction unfinished(");
+		require(!plugin.refresh() && plugin.lastError != null, "compile failure replaced the last working module");
+		var eventsBeforeCompileFailureProbe = plugin.callInt("eventCount");
+		require(plugin.callInt("hostProbe") == 42
+			&& plugin.callInt("current") == 3
+			&& plugin.callInt("eventCount") == eventsBeforeCompileFailureProbe + 1,
+			"compile failure disabled the last working plugin");
+		File.saveContent(arguments[1], compatibleSource);
+		require(plugin.refresh() && plugin.lastError == null, "restoring last-good source did not clear the compile diagnostic");
 		File.saveContent(arguments[1], StringTools.replace(compatibleSource, "public static var events = 0;",
 			"public static var events = 0;\n\tpublic static var structural = 7;"));
 		require(plugin.refresh(), 'structural source edit did not publish: ${plugin.lastError}');
@@ -83,6 +92,12 @@ class DynamicPluginTestMain {
 			"activation failure did not restore the last working module and registrations");
 		File.saveContent(arguments[1], structuralSource);
 		require(plugin.refresh(), 'plugin did not recover after activation failure: ${plugin.lastError}');
+		var recoveredSource = File.getContent(arguments[1]);
+		File.saveContent(arguments[1], StringTools.replace(recoveredSource, "function stateVersion():Int\n\treturn 1;",
+			"function stateVersion():Int\n\treturn 2;\n\nclass IncompatibleStateShape {\n\tpublic static var marker = 1;\n}"));
+		require(plugin.refresh() && plugin.callInt("current") == 0,
+			"incompatible state version restored an obsolete state payload");
+		structuralSource = File.getContent(arguments[1]);
 
 		FileSystem.deleteFile(arguments[1]);
 		var errorsBeforeRemoval = application.errors.entries.length;

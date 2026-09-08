@@ -38,3 +38,17 @@ the host compiler. They call `Editor.connect(id)` during `activate`, then use th
 same document, panel, event, and configuration capabilities through an opaque
 context token. Tokens cannot name another plugin's registrations and are retired
 before its runtime module is disposed.
+
+## Reload state
+
+Dynamic plugins export `stateVersion():Int`, `saveState():String` and
+`restoreState(String)`. Compatible body patches keep live runtime state and owned
+host resources. A structural reload creates a replacement runtime domain; the host
+transfers the opaque saved payload only when the old and replacement
+`stateVersion()` values are equal. A changed state version starts with replacement
+defaults, preventing an old payload from being interpreted as a new shape.
+
+Compilation runs away from the event loop. Completed artifacts are published only
+from an editor update safe point. Obsolete results are rejected by compiler
+generation, and unloading retires an unpublished build before disposing its runtime
+module.
