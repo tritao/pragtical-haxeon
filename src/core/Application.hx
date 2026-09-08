@@ -52,6 +52,11 @@ class Application {
 	var settingsListener:Settings->Void;
 	var lastFileSystemCheck:Float = 0.0;
 	public final messages:Array<String> = [];
+	public var quitReady(default, null):Bool = false;
+	var closeDocuments:Array<Document> = [];
+	var closeIndex:Int = 0;
+	var closeAction:Null<Void->Bool>;
+	var closePending:Bool = false;
 
 	public function new(renderer:Renderer, width:Int, height:Int, ?settings:SettingsService) {
 		this.settings = settings == null ? new SettingsService() : settings;
@@ -319,17 +324,92 @@ class Application {
 		commands.add("file:new", context -> openCreateFile());
 		commands.add("doc:new", context -> newDocument());
 		commands.add("doc:save-as", context -> openSaveAs(context.requireDocument()), context -> activeDocument() != null);
+		commands.add("root:close", context -> requestCloseActiveTab(), context -> context.activeView() != null);
+		commands.add("root:close-pane", context -> requestCloseActivePane());
 		commands.add("folder:new", context -> openCreateFolder());
 		commands.add("file:rename", context -> openRenameFile(), context -> activeDocument() != null);
 		commands.add("file:delete", context -> openDeleteFile(), context -> activeDocument() != null);
 	}
 
-	public function openSaveAs(document:Document):Void {
+	public function requestCloseActiveTab():Bool
+		return beginClose(root.documentsLostByClosingActiveTab(), function() return root.closeActiveTab(true));
+
+	public function requestCloseActivePane():Bool {
+		if (root.activeLeaf == root.node) return false;
+		return beginClose(root.documentsLostByClosingActivePane(), function() return root.closeActivePane(true));
+	}
+
+	public function requestQuit():Bool {
+		if (quitReady) return true;
+		var dirty:Array<Document> = [];
+		for (document in documents.documents) if (document.dirty && dirty.indexOf(document) < 0) dirty.push(document);
+		return beginClose(dirty, function() {
+			quitReady = true;
+			return true;
+		});
+	}
+
+	function beginClose(candidates:Array<Document>, action:Void->Bool):Bool {
+		if (closePending) return false;
+		closeDocuments.resize(0);
+		for (document in candidates) if (document.dirty && closeDocuments.indexOf(document) < 0) closeDocuments.push(document);
+		closeIndex = 0;
+		closeAction = action;
+		closePending = true;
+		continueClose();
+		return true;
+	}
+
+	function continueClose():Void {
+		if (!closePending) return;
+		if (closeIndex >= closeDocuments.length) {
+			var action = closeAction;
+			closePending = false;
+			closeAction = null;
+			root.commandView.close();
+			if (action != null) action();
+			return;
+		}
+		var document = closeDocuments[closeIndex];
+		root.commandView.open(new CommandViewProvider('Save changes to "' + document.title + '"? Type save, discard, or cancel: ', [],
+			function(query) {}, function(entry, answer, backwards) {
+				if (answer == "cancel") cancelClose();
+				else if (answer == "discard") {
+						recovery.forget(document);
+						closeIndex++;
+						continueClose();
+				} else if (answer == "save") {
+						if (document.hasBackingPath()) {
+							if (!document.save()) {
+								messages.push('Could not save "' + document.title + '"; close cancelled');
+								cancelClose();
+							} else {
+								recovery.forget(document);
+								closeIndex++;
+								continueClose();
+							}
+						} else openSaveAs(document, function() {
+							closeIndex++;
+							continueClose();
+						});
+				}
+			}));
+	}
+
+	function cancelClose():Void {
+		closePending = false;
+		closeDocuments.resize(0);
+		closeAction = null;
+		root.commandView.close();
+	}
+
+	public function openSaveAs(document:Document, ?onSuccess:Void->Void):Void {
 		root.commandView.open(new CommandViewProvider("Save As: ", [], function(query) {}, function(entry, destination, backwards) {
 			if (documents.saveAs(document, destination)) {
 				root.documentRenamed(document);
 				recovery.forget(document);
 				root.commandView.close();
+				if (onSuccess != null) onSuccess();
 			} else if (workspace.fileSystem.exists(destination)) {
 				root.commandView.open(new CommandViewProvider('Type overwrite to replace "$destination": ', [], function(query) {},
 					function(entry, answer, backwards) {
@@ -337,6 +417,7 @@ class Application {
 							root.documentRenamed(document);
 							recovery.forget(document);
 							root.commandView.close();
+							if (onSuccess != null) onSuccess();
 						}
 					}));
 			} else {

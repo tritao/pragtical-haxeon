@@ -92,6 +92,33 @@ class RootView {
 		return true;
 	}
 
+	public function documentsLostByClosingActiveTab():Array<Document> {
+		var view = tabs.activeView;
+		if (view == null) return [];
+		var document = view.getDocument();
+		return document != null && !containsDocumentExcept(node, document, [view]) ? [document] : [];
+	}
+
+	public function documentsLostByClosingActivePane():Array<Document> {
+		if (activeLeaf == node) return [];
+		var result:Array<Document> = [], excluded = activeLeaf.tabs.views;
+		for (view in excluded) {
+			var document = view.getDocument();
+			if (document != null && result.indexOf(document) < 0 && !containsDocumentExcept(node, document, excluded)) result.push(document);
+		}
+		return result;
+	}
+
+	function containsDocumentExcept(current:LayoutNode, document:Document, excluded:Array<View>):Bool {
+		if (current.isLeaf()) {
+			for (view in current.tabs.views)
+				if (excluded.indexOf(view) < 0 && view.getDocument() == document) return true;
+			return false;
+		}
+		return containsDocumentExcept(current.requireFirst(), document, excluded)
+			|| containsDocumentExcept(current.requireSecond(), document, excluded);
+	}
+
 	public function closeActivePane(force:Bool = false):Bool {
 		if (activeLeaf == node) return false;
 		for (view in activeLeaf.tabs.views)

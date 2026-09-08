@@ -33,8 +33,14 @@ class ApplicationTestMain {
 		require(application.focus.activeView == firstView, "tab switch did not update focus");
 		application.commands.perform("doc:newline", application.context);
 		require(first.buffer.text == "\none", "command context captured the wrong document");
-		require(!application.root.closeActiveTab(), "dirty document closed without confirmation");
-		require(application.root.closeActiveTab(true), "forced document close failed");
+		require(application.requestCloseActiveTab() && application.root.commandView.active, "dirty document close did not request a decision");
+		application.textInput("cancel");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		require(application.documents.documents.indexOf(first) >= 0, "cancelled document close released the document");
+		require(!application.root.commandView.active, "cancelled document close left its prompt active");
+		require(application.requestCloseActiveTab(), "document close could not restart after cancellation");
+		application.textInput("discard");
+		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(application.documents.documents.length == 1 && application.focus.activeView == secondView,
 			"closing a tab did not reconcile ownership and focus");
 		application.commands.perform("root:split-right", application.context);
@@ -61,8 +67,26 @@ class ApplicationTestMain {
 		renderer.begin();
 		application.root.draw();
 		renderer.present();
-		require(application.root.closeActivePane(true) && !application.root.node.isLeaf(), "nested pane did not collapse into its sibling");
+		require(application.requestCloseActivePane() && !application.root.commandView.active && !application.root.node.isLeaf(),
+			"shared-document pane close prompted or failed to collapse");
 		require(application.root.closeActivePane(true) && application.root.node.isLeaf(), "closing final pane did not collapse layout root");
+		var failing = new Document("/missing-parent/failure.txt", "clean", application.syntaxes);
+		failing.insert("dirty");
+		application.add(failing);
+		require(application.requestCloseActiveTab(), "failed-save close did not start");
+		application.textInput("save");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		require(application.documents.documents.indexOf(failing) >= 0 && failing.dirty && !application.root.commandView.active,
+			"failed save closed or cleaned the document");
+		var quitOther = application.documents.createUntitled();
+		quitOther.insert("quit dirty");
+		require(application.requestQuit(), "quit coordination did not start");
+		application.textInput("discard");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		application.textInput("cancel");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		require(!application.quitReady && application.documents.documents.indexOf(failing) >= 0
+			&& application.documents.documents.indexOf(quitOther) >= 0, "cancel during multi-document quit released state");
 		renderer.begin();
 		application.root.draw();
 		renderer.present();

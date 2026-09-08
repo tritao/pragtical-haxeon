@@ -41,7 +41,7 @@ class GraphicalMain {
 			while (Native.event_poll()) {
 				var kind = Native.event_kind();
 				if (kind == Platform.EVENT_QUIT)
-					running = false;
+					application.requestQuit();
 				else if (kind == Platform.EVENT_TEXT_INPUT) {
 					application.textInput(Native.event_text());
 				} else if (kind == Platform.EVENT_WINDOW_RESIZED)
@@ -58,6 +58,7 @@ class GraphicalMain {
 					application.keyPressed(Native.event_a(), Native.event_b());
 				}
 			}
+			if (application.quitReady) running = false;
 			renderer.begin();
 			application.root.draw();
 			renderer.present();
