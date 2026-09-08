@@ -64,6 +64,7 @@ class DocumentView extends View {
 
 	override public function setSearchMatches(matches:Array<SearchMatch>):Void
 		editor.setSearchMatches(matches);
+	override public function searchMatchCount():Int return editor.searchMatches.length;
 
 	override public function wheel(vertical:Int, horizontal:Int):Void
 		editor.wheel(vertical, horizontal);

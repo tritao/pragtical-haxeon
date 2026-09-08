@@ -215,15 +215,24 @@ class RootView {
 		var view = openDocument(documents.open(match.path));
 		var document = view.getDocument();
 		if (document != null) {
-			DocumentSearch.select(document, match);
-			view.cursorChanged();
+			if (DocumentSearch.select(document, match)) view.cursorChanged();
 		}
 	}
 
 	public function setDocumentSearchMatches(results:Array<SearchMatch>):Void {
+		clearSearchMatches(node);
 		var view = tabs.activeView;
 		if (view == null) return;
 		view.setSearchMatches(results);
+	}
+
+	function clearSearchMatches(current:LayoutNode):Void {
+		if (current.isLeaf()) {
+			for (view in current.tabs.views) view.setSearchMatches([]);
+			return;
+		}
+		clearSearchMatches(current.requireFirst());
+		clearSearchMatches(current.requireSecond());
 	}
 
 	public function documentRenamed(document:Document):Void

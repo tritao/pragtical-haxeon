@@ -42,6 +42,24 @@ class WorkspaceTestMain {
 		require(application.documentMatches.length == 1 && application.documents.documents[1].buffer.hasSelection(),
 			"document find did not select an unsaved match");
 		application.keyPressed(Platform.KEY_ESCAPE, 0);
+		application.textInput("changed");
+		require(application.documentMatches.length == 0, "document find retained a stale match after editing");
+		application.documents.documents[1].undo();
+		application.commands.perform("find:next", application.context);
+		require(application.documentMatches.length == 1, "document find did not refresh after undo");
+		require(application.replaceAll("found") == 1 && application.documents.documents[1].buffer.text.indexOf("needle") < 0,
+			"replace all did not apply as one document operation");
+		application.documents.documents[1].undo();
+		require(application.documents.documents[1].buffer.text.indexOf("needle") >= 0, "one undo did not restore replace all");
+		application.openDocumentFind();
+		application.textInput("needle");
+		application.keyPressed(Platform.KEY_ESCAPE, 0);
+		require(application.root.tabs.activeView != null && application.root.tabs.activeView.searchMatchCount() == 0,
+			"cancelled find retained transient highlights");
+		application.root.tabs.switchBy(-1);
+		application.commands.perform("find:next", application.context);
+		require(application.documentMatches.length == 0, "document find results leaked across active documents");
+		application.root.tabs.switchBy(1);
 		require(application.keyPressed(Platform.KEY_F, Platform.MOD_CTRL + Platform.MOD_SHIFT), "Ctrl+Shift+F did not open workspace search");
 		application.textInput("needle");
 		require(application.root.searchVisible && application.root.searchSidebar.results.length == 2,
@@ -49,6 +67,8 @@ class WorkspaceTestMain {
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(application.root.searchSidebar.active() != null, "workspace result activation failed");
 		application.keyPressed(Platform.KEY_ESCAPE, 0);
+		application.commands.perform("project:show-sidebar", application.context);
+		require(!application.root.searchVisible, "workspace search could not return to the project sidebar");
 		require(application.keyPressed(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT), "Ctrl+Shift+P did not open command palette");
 		application.textInput("sidebarprevious");
 		require(application.root.commandView.results.length == 1, "command view fuzzy filtering failed");

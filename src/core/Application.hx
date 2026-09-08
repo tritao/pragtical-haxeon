@@ -47,6 +47,8 @@ class Application {
 	public final documentMatches:Array<SearchMatch> = [];
 	public var documentSearchQuery(default, null):String = "";
 	var documentMatchIndex:Int = -1;
+	var documentSearchDocument:Null<Document>;
+	var documentSearchRevision:Int = -1;
 	var settingsListener:Settings->Void;
 	var lastFileSystemCheck:Float = 0.0;
 	public final messages:Array<String> = [];
@@ -101,12 +103,16 @@ class Application {
 		var handled = keymap.onKeyPressed(key, modifiers, context);
 		if (handled)
 			root.cursorChanged();
+		if (handled && documentSearchQuery.length > 0) ensureDocumentSearchFresh();
 		return handled;
 	}
 
 	public function textInput(text:String):Void {
 		if (root.commandView.active) root.commandView.textInput(text);
-		else root.textInput(text);
+		else {
+			root.textInput(text);
+			if (documentSearchQuery.length > 0) ensureDocumentSearchFresh();
+		}
 	}
 
 	public function openFileCommandView():Void {
@@ -182,6 +188,8 @@ class Application {
 		documentSearchQuery = query;
 		documentMatches.resize(0);
 		var document = activeDocument();
+		documentSearchDocument = document;
+		documentSearchRevision = document == null ? -1 : document.buffer.stateId;
 		if (document != null)
 			for (match in DocumentSearch.find(document, query, searchOptions)) documentMatches.push(match);
 		documentMatchIndex = documentMatches.length == 0 ? -1 : 0;
@@ -190,6 +198,7 @@ class Application {
 	}
 
 	function navigateDocumentMatch(delta:Int):Void {
+		ensureDocumentSearchFresh();
 		if (documentMatches.length == 0) return;
 		documentMatchIndex += delta;
 		if (documentMatchIndex < 0) documentMatchIndex = documentMatches.length - 1;
@@ -200,9 +209,14 @@ class Application {
 	function selectDocumentMatch():Void {
 		var document = activeDocument(), match = currentDocumentMatch();
 		if (document != null && match != null) {
-			DocumentSearch.select(document, match);
-			root.cursorChanged();
+			if (DocumentSearch.select(document, match)) root.cursorChanged();
 		}
+	}
+
+	function ensureDocumentSearchFresh():Void {
+		var document = activeDocument();
+		if (document != documentSearchDocument || document != null && document.buffer.stateId != documentSearchRevision)
+			refreshDocumentSearch(documentSearchQuery);
 	}
 
 	function activeDocument():Null<Document> {
@@ -246,6 +260,9 @@ class Application {
 		});
 		commands.add("workspace:search-previous", function(context) {
 			root.searchMove(-1);
+		});
+		commands.add("project:show-sidebar", function(context) {
+			root.showProjectSidebar();
 		});
 		keymap.addDirect(Platform.KEY_F, Platform.MOD_CTRL, ["find:open"]);
 		keymap.addDirect(Platform.KEY_F, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["workspace:search"]);

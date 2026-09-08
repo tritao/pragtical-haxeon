@@ -35,6 +35,7 @@ class View {
 	public function cursorColumn():Int return 0;
 	public function restoreCursor(line:Int, column:Int):Void {}
 	public function setSearchMatches(matches:Array<SearchMatch>):Void {}
+	public function searchMatchCount():Int return 0;
 	public function wheel(vertical:Int, horizontal:Int):Void {}
 	public function mouseDown(button:Int, x:Int, y:Int):Void {}
 	public function mouseMove(x:Int, y:Int):Void {}

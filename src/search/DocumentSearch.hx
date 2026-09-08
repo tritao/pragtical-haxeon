@@ -5,9 +5,9 @@ import editor.Document;
 
 class DocumentSearch {
 	public static function find(document:Document, query:String, options:SearchOptions):Array<SearchMatch>
-		return findText(document.path, document.buffer.text, query, options);
+		return findText(document.path, document.buffer.text, query, options, document, document.buffer.stateId);
 
-	public static function findText(path:String, text:String, query:String, options:SearchOptions):Array<SearchMatch> {
+	public static function findText(path:String, text:String, query:String, options:SearchOptions, ?document:Document, revision:Int = -1):Array<SearchMatch> {
 		var result:Array<SearchMatch> = [];
 		if (query.length == 0) return result;
 		var needle = options.caseSensitive ? query : query.toLowerCase(), lines = text.split("\n");
@@ -17,21 +17,25 @@ class DocumentSearch {
 				var column = haystack.indexOf(needle, from);
 				if (column < 0) break;
 				if (!options.wholeWord || isBoundary(line, column - 1) && isBoundary(line, column + query.length))
-					result.push(new SearchMatch(path, lineIndex, column, query.length, StringTools.trim(line)));
+					result.push(new SearchMatch(path, lineIndex, column, query.length, StringTools.trim(line), line.substring(column, column + query.length),
+						document, revision));
 				from = column + (needle.length == 0 ? 1 : needle.length);
 			}
 		}
 		return result;
 	}
 
-	public static function select(document:Document, match:SearchMatch):Void {
+	public static function select(document:Document, match:SearchMatch):Bool {
+		if (!valid(document, match)) return false;
 		var start = new BufferPosition(match.line, match.column), end = new BufferPosition(match.line, match.column + match.length);
 		document.buffer.setCursor(start);
 		document.buffer.setCursor(end, true);
+		return true;
 	}
 
 	public static function replaceCurrent(document:Document, match:SearchMatch, replacement:String):Bool
-		return document.buffer.replaceRange(new BufferPosition(match.line, match.column), new BufferPosition(match.line, match.column + match.length), replacement);
+		return valid(document, match)
+			&& document.buffer.replaceRange(new BufferPosition(match.line, match.column), new BufferPosition(match.line, match.column + match.length), replacement);
 
 	public static function replaceAll(document:Document, query:String, replacement:String, options:SearchOptions):Int {
 		var matches = find(document, query, options);
@@ -43,6 +47,12 @@ class DocumentSearch {
 		}
 		document.buffer.replaceAllText(text);
 		return matches.length;
+	}
+
+	public static function valid(document:Document, match:SearchMatch):Bool {
+		if (match.path != document.path || match.document != null && (match.document != document || match.revision != document.buffer.stateId)) return false;
+		var from = new BufferPosition(match.line, match.column), to = new BufferPosition(match.line, match.column + match.length);
+		return document.buffer.textRange(from, to) == match.matchedText;
 	}
 
 	static function isBoundary(value:String, index:Int):Bool {
