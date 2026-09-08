@@ -1,6 +1,7 @@
 package view;
 
 import renderer.Renderer;
+import style.Theme;
 import workspace.ProjectNode;
 import workspace.Workspace;
 
@@ -58,17 +59,17 @@ class Sidebar {
 		return activate();
 	}
 
-	public function draw(renderer:Renderer, height:Int):Void {
+	public function draw(renderer:Renderer, theme:Theme, height:Int):Void {
 		renderer.clip(0, 0, width, height);
-		renderer.rect(0, 0, width, height, 0x202020ff);
-		renderer.text(16, 13, "EXPLORER", 0xaaaaaaff);
+		renderer.rect(0, 0, width, height, theme.surface);
+		renderer.text(16, 13, "EXPLORER", theme.foregroundMuted);
 		var visible = nodes(), maxRows = Std.int((height - HEADER_HEIGHT) / ROW_HEIGHT);
 		if (maxRows > visible.length) maxRows = visible.length;
 		for (index in 0...maxRows) {
 			var node = visible[index], y = HEADER_HEIGHT + index * ROW_HEIGHT;
-			if (index == selected) renderer.rect(0, y, width, ROW_HEIGHT, 0x2c313aff);
+			if (index == selected) renderer.rect(0, y, width, ROW_HEIGHT, theme.surfaceActive);
 			var marker = node.directory ? (node.expanded ? "v " : "> ") : "  ", indent = node.depth * 14;
-			renderer.text(10 + indent, y + 3, marker + node.name, node.directory ? 0xccccccff : 0xe6e6e6ff);
+			renderer.text(10 + indent, y + 3, marker + node.name, node.directory ? theme.foregroundMuted : theme.editorForeground);
 		}
 		renderer.clip(0, 0, width, height);
 	}

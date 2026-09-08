@@ -32,6 +32,7 @@ HL_PRIM bool HL_NAME(window_valid)(int window) {
 }
 HL_PRIM int HL_NAME(window_width)(int window) { return phx_window_width(window); }
 HL_PRIM int HL_NAME(window_height)(int window) { return phx_window_height(window); }
+HL_PRIM int HL_NAME(window_display_scale_milli)(int window) { return phx_window_display_scale_milli(window); }
 HL_PRIM bool HL_NAME(event_poll)(void) { return phx_event_poll(&current_event); }
 HL_PRIM int HL_NAME(event_kind)(void) { return current_event.kind; }
 HL_PRIM int HL_NAME(event_window)(void) { return current_event.window; }
@@ -90,6 +91,7 @@ DEFINE_PRIM(_BOOL, window_destroy, _I32);
 DEFINE_PRIM(_BOOL, window_valid, _I32);
 DEFINE_PRIM(_I32, window_width, _I32);
 DEFINE_PRIM(_I32, window_height, _I32);
+DEFINE_PRIM(_I32, window_display_scale_milli, _I32);
 DEFINE_PRIM(_BOOL, event_poll, _NO_ARG);
 DEFINE_PRIM(_I32, event_kind, _NO_ARG);
 DEFINE_PRIM(_I32, event_window, _NO_ARG);

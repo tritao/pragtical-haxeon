@@ -2,6 +2,7 @@ package commandview;
 
 import platform.Platform;
 import renderer.Renderer;
+import style.Theme;
 
 class CommandView {
 	public var active(default, null):Bool = false;
@@ -99,7 +100,7 @@ class CommandView {
 		changed();
 	}
 
-	public function draw(renderer:Renderer, windowWidth:Int, windowHeight:Int):Void {
+	public function draw(renderer:Renderer, theme:Theme, windowWidth:Int, windowHeight:Int):Void {
 		if (!active || provider == null) return;
 		var width = windowWidth - 80;
 		if (width > 640) width = 640;
@@ -108,24 +109,24 @@ class CommandView {
 		if (visible > 10) visible = 10;
 		var height = 42 + visible * rowHeight;
 		renderer.clip(0, 0, windowWidth, windowHeight);
-		renderer.rect(0, 0, windowWidth, windowHeight, 0x00000066);
-		renderer.rect(x - 2, y - 2, width + 4, height + 4, 0x111111ff);
-		renderer.rect(x, y, width, 40, 0x252932ff);
+		renderer.rect(0, 0, windowWidth, windowHeight, theme.overlay);
+		renderer.rect(x - 2, y - 2, width + 4, height + 4, theme.border);
+		renderer.rect(x, y, width, 40, theme.surfaceElevated);
 		var inputX = x + 12, inputY = y + 11, promptWidth = renderer.textWidth(provider.prompt),
 			selectionStart = input.selection.start().column, selectionEnd = input.selection.end().column;
 		if (selectionEnd > selectionStart) {
 			var selectionX = inputX + promptWidth + renderer.textWidth(query.substring(0, selectionStart)),
 				selectionWidth = renderer.textWidth(query.substring(selectionStart, selectionEnd));
-			renderer.rect(selectionX, y + 5, selectionWidth, 28, 0x264f78ff);
+			renderer.rect(selectionX, y + 5, selectionWidth, 28, theme.selection);
 		}
-		renderer.text(inputX, inputY, provider.prompt + query, 0xffffffff);
+		renderer.text(inputX, inputY, provider.prompt + query, theme.caret);
 		var caretX = inputX + promptWidth + renderer.textWidth(query.substring(0, input.selection.cursor.column));
-		renderer.rect(caretX, y + 7, 2, 24, 0xffffffff);
+		renderer.rect(caretX, y + 7, 2, 24, theme.caret);
 		for (index in 0...visible) {
 			var rowY = y + 42 + index * rowHeight, entry = results[index];
-			if (index == selected) renderer.rect(x, rowY, width, rowHeight, 0x094771ff);
-			renderer.text(x + 12, rowY + 5, entry.label, 0xe6e6e6ff);
-			if (entry.detail.length > 0) renderer.text(x + Std.int(width * 0.55), rowY + 5, entry.detail, 0x999999ff);
+			if (index == selected) renderer.rect(x, rowY, width, rowHeight, theme.accent);
+			renderer.text(x + 12, rowY + 5, entry.label, theme.editorForeground);
+			if (entry.detail.length > 0) renderer.text(x + Std.int(width * 0.55), rowY + 5, entry.detail, theme.foregroundMuted);
 		}
 	}
 

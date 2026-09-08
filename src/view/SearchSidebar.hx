@@ -1,6 +1,7 @@
 package view;
 
 import renderer.Renderer;
+import style.Theme;
 import search.SearchMatch;
 
 class SearchSidebar {
@@ -39,17 +40,17 @@ class SearchSidebar {
 		return active();
 	}
 
-	public function draw(renderer:Renderer, height:Int):Void {
+	public function draw(renderer:Renderer, theme:Theme, height:Int):Void {
 		renderer.clip(0, 0, width, height);
-		renderer.rect(0, 0, width, height, 0x202020ff);
-		renderer.text(16, 13, 'SEARCH (${results.length})', 0xaaaaaaff);
+		renderer.rect(0, 0, width, height, theme.surface);
+		renderer.text(16, 13, 'SEARCH (${results.length})', theme.foregroundMuted);
 		var maxRows = Std.int((height - HEADER_HEIGHT) / ROW_HEIGHT);
 		if (maxRows > results.length) maxRows = results.length;
 		for (index in 0...maxRows) {
 			var match = results[index], y = HEADER_HEIGHT + index * ROW_HEIGHT;
-			if (index == selected) renderer.rect(0, y, width, ROW_HEIGHT, 0x2c313aff);
-			renderer.text(10, y + 3, shortPath(match.path) + ':' + (match.line + 1), 0xccccccff);
-			renderer.text(18, y + 20, match.preview, 0x999999ff);
+			if (index == selected) renderer.rect(0, y, width, ROW_HEIGHT, theme.surfaceActive);
+			renderer.text(10, y + 3, shortPath(match.path) + ':' + (match.line + 1), theme.foregroundMuted);
+			renderer.text(18, y + 20, match.preview, theme.foregroundSubtle);
 		}
 	}
 

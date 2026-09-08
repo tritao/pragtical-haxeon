@@ -46,6 +46,8 @@ class GraphicalMain {
 					application.textInput(Native.event_text());
 				} else if (kind == Platform.EVENT_WINDOW_RESIZED)
 					application.root.resize(Native.event_a(), Native.event_b());
+				else if (kind == Platform.EVENT_DISPLAY_SCALE_CHANGED)
+					application.root.displayScaleChanged(Native.event_a());
 				else if (kind == Platform.EVENT_MOUSE_WHEEL)
 					application.root.wheel(Native.event_a(), Native.event_b());
 				else if (kind == Platform.EVENT_MOUSE_BUTTON_DOWN)

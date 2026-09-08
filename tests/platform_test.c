@@ -9,7 +9,8 @@ int main(void) {
   assert(phx_platform_init(true));
   phx_handle first = phx_window_create("test", 800, 600);
   assert(first != 0 && phx_window_valid(first));
-  assert(phx_window_width(first) == 800 && phx_window_height(first) == 600);
+	assert(phx_window_width(first) == 800 && phx_window_height(first) == 600);
+	assert(phx_window_display_scale_milli(first) == 1000);
   phx_handle font = phx_font_create(first, "ignored-headlessly.ttf", 15);
   assert(font != 0);
   assert(phx_font_height(font) == 15);
@@ -39,8 +40,15 @@ int main(void) {
                      .a = 30, .b = 40, .c = 2, .d = -1};
   assert(phx_event_push_for_test(&mouse));
   assert(phx_event_poll(&result));
-  assert(result.kind == PHX_EVENT_MOUSE_MOVED && result.a == 30 && result.b == 40);
-  assert(result.c == 2 && result.d == -1);
+	assert(result.kind == PHX_EVENT_MOUSE_MOVED && result.a == 30 && result.b == 40);
+	assert(result.c == 2 && result.d == -1);
+
+	phx_event scale = {.kind = PHX_EVENT_DISPLAY_SCALE_CHANGED, .window = first,
+	                   .a = 1750};
+	assert(phx_event_push_for_test(&scale));
+	assert(phx_event_poll(&result));
+	assert(result.kind == PHX_EVENT_DISPLAY_SCALE_CHANGED && result.window == first);
+	assert(result.a == 1750);
 
   assert(phx_font_destroy(font));
   assert(phx_window_destroy(first));

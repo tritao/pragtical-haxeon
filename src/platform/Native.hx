@@ -11,6 +11,7 @@ extern class Native {
 	static function window_valid(window:Int):Bool;
 	static function window_width(window:Int):Int;
 	static function window_height(window:Int):Int;
+	static function window_display_scale_milli(window:Int):Int;
 	static function event_poll():Bool;
 	static function event_kind():Int;
 	static function event_window():Int;

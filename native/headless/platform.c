@@ -281,6 +281,15 @@ int32_t phx_window_height(phx_handle handle) {
   return slot->height;
 }
 
+int32_t phx_window_display_scale_milli(phx_handle handle) {
+  phx_window_slot *slot = resolve_window(handle);
+  if (!slot) { fail("invalid or stale window handle"); return -1; }
+#ifdef PHX_WITH_SDL
+  if (!is_headless) return (int32_t)(SDL_GetWindowDisplayScale(slot->window) * 1000.0f + 0.5f);
+#endif
+  return 1000;
+}
+
 bool phx_event_poll(phx_event *event) {
   if (!event) return false;
   if (event_count > 0) {
@@ -307,6 +316,19 @@ bool phx_event_poll(phx_event *event) {
               windows[index].height = event->b;
               event->window = make_handle(index, windows[index].generation);
               ren_resize_window(windows[index].renderer);
+              break;
+            }
+          }
+          return true;
+        case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+          event->kind = PHX_EVENT_DISPLAY_SCALE_CHANGED;
+          event->window = window_handle_from_id(input.window.windowID);
+          for (uint32_t index = 0; index < PHX_MAX_WINDOWS; index++) {
+            if (windows[index].occupied && windows[index].window &&
+                SDL_GetWindowID(windows[index].window) == input.window.windowID) {
+              ren_resize_window(windows[index].renderer);
+              event->a = phx_window_display_scale_milli(
+                make_handle(index, windows[index].generation));
               break;
             }
           }

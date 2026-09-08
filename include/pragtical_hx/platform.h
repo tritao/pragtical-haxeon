@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define PHX_PLATFORM_ABI_VERSION 10
+#define PHX_PLATFORM_ABI_VERSION 11
 #define PHX_MAX_WINDOWS 64
 #define PHX_MAX_FONTS 32
 #define PHX_EVENT_CAPACITY 256
@@ -21,7 +21,8 @@ typedef enum phx_event_kind {
   PHX_EVENT_MOUSE_MOVED = 6,
   PHX_EVENT_MOUSE_BUTTON_DOWN = 7,
   PHX_EVENT_MOUSE_BUTTON_UP = 8,
-  PHX_EVENT_MOUSE_WHEEL = 9
+  PHX_EVENT_MOUSE_WHEEL = 9,
+  PHX_EVENT_DISPLAY_SCALE_CHANGED = 10
 } phx_event_kind;
 
 typedef enum phx_key {
@@ -82,6 +83,9 @@ bool phx_window_destroy(phx_handle handle);
 bool phx_window_valid(phx_handle handle);
 int32_t phx_window_width(phx_handle handle);
 int32_t phx_window_height(phx_handle handle);
+/* Window sizes, pointer coordinates and renderer coordinates are logical
+   points. The display scale only describes their backing-pixel density. */
+int32_t phx_window_display_scale_milli(phx_handle handle);
 
 bool phx_event_poll(phx_event *event);
 bool phx_event_push_for_test(const phx_event *event);

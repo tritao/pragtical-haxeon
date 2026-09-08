@@ -15,6 +15,7 @@ import editor.BufferPosition;
 import feedback.NotificationCenter;
 import feedback.NotificationKind;
 import config.Settings;
+import platform.Native;
 
 class RootView {
 	public static inline final TAB_WIDTH = 180;
@@ -33,11 +34,14 @@ class RootView {
 	public final notifications:NotificationCenter;
 	public final status:StatusView;
 	public var sidebarVisible(default, null):Bool = true;
+	public var displayScaleMilli(default, null):Int;
 	public var closeRequest:Void->Void;
 	var width:Int;
 	var height:Int;
 	var draggingDivider:Null<LayoutNode>;
 	var draggingSidebar:Bool = false;
+	var pointerX:Int = -1;
+	var pointerY:Int = -1;
 
 	public function new(renderer:Renderer, theme:Theme, focus:FocusManager, workspace:Workspace, width:Int, height:Int, ?settings:Settings) {
 		this.renderer = renderer;
@@ -53,6 +57,7 @@ class RootView {
 		closeRequest = function() {};
 		this.width = width;
 		this.height = height;
+		displayScaleMilli = Native.window_display_scale_milli(renderer.window);
 		node = new LayoutNode(focus, documents);
 		activeLeaf = node;
 		setNodeBounds();
@@ -182,6 +187,12 @@ class RootView {
 		if (sidebarVisible) setSidebarWidth(sidebar.width); else setNodeBounds();
 	}
 
+	public function displayScaleChanged(scaleMilli:Int):Void {
+		if (scaleMilli <= 0) throw "display scale must be positive";
+		displayScaleMilli = scaleMilli;
+		setNodeBounds();
+	}
+
 	public function setSidebarWidth(width:Int):Void {
 		var maximum = this.width - LayoutNode.MIN_SIZE;
 		if (maximum < 0) maximum = 0;
@@ -257,6 +268,8 @@ class RootView {
 	}
 
 	public function mouseMove(x:Int, y:Int):Void {
+		pointerX = x;
+		pointerY = y;
 		if (draggingSidebar) {
 			setSidebarWidth(x);
 			return;
@@ -278,23 +291,23 @@ class RootView {
 
 	public function draw():Void {
 		if (sidebarVisible) {
-			if (searchVisible) searchSidebar.draw(renderer, height); else sidebar.draw(renderer, height);
+			if (searchVisible) searchSidebar.draw(renderer, theme, height); else sidebar.draw(renderer, theme, height);
 		}
 		renderer.clip(0, 0, width, height);
 		drawNode(node);
 		renderer.clip(0, 0, width, height);
-		commandView.draw(renderer, width, height);
+		commandView.draw(renderer, theme, width, height);
 		var notification = notifications.current();
 		if (notification != null) {
 			renderer.clip(0, 0, width, height);
 			var notificationY = height - StatusView.HEIGHT - 28;
 			var color = switch notification.kind {
-				case Information: 0x29435cff;
-				case Warning: 0x66521fff;
-				case Error: 0x4c3030ff;
+				case Information: theme.information;
+				case Warning: theme.warning;
+				case Error: theme.error;
 			};
 			renderer.rect(0, notificationY, width, 28, color);
-			renderer.text(8, notificationY + 5, notification.message, 0xffffffff);
+			renderer.text(8, notificationY + 5, notification.message, theme.caret);
 		}
 		status.draw(focus.activeView, width, height);
 	}
@@ -376,9 +389,9 @@ class RootView {
 		renderer.clip(0, 0, width, height);
 		var first = current.requireFirst();
 		if (current.kind == LayoutKind.Horizontal)
-			renderer.rect(first.x + first.width, current.y, LayoutNode.DIVIDER_SIZE, current.height, 0x101010ff);
+			renderer.rect(first.x + first.width, current.y, LayoutNode.DIVIDER_SIZE, current.height, theme.divider);
 		else
-			renderer.rect(current.x, first.y + first.height, current.width, LayoutNode.DIVIDER_SIZE, 0x101010ff);
+			renderer.rect(current.x, first.y + first.height, current.width, LayoutNode.DIVIDER_SIZE, theme.divider);
 	}
 
 	function drawLeaf(leaf:LayoutNode):Void {
@@ -392,10 +405,13 @@ class RootView {
 		if (end > leaf.tabs.views.length) end = leaf.tabs.views.length;
 		for (index in start...end) {
 			var view = leaf.tabs.views[index];
-			var active = view == leaf.tabs.activeView;
-			renderer.rect(x, leaf.y, TAB_WIDTH, EditorView.HEADER_HEIGHT, active ? 0x303030ff : 0x222222ff);
-			renderer.text(x + 12, leaf.y + 13, (view.isDirty() ? "* " : "") + view.title, active ? 0xffffffff : 0xaaaaaaff);
-			renderer.text(x + TAB_WIDTH - 18, leaf.y + 13, "x", active ? 0xffffffff : 0x777777ff);
+			var active = view == leaf.tabs.activeView,
+				hovered = pointerX >= x && pointerX < x + TAB_WIDTH && pointerY >= leaf.y && pointerY < leaf.y + EditorView.HEADER_HEIGHT;
+			renderer.rect(x, leaf.y, TAB_WIDTH, EditorView.HEADER_HEIGHT,
+				active ? theme.surfaceActive : hovered ? theme.surfaceHover : theme.surfaceInactive);
+			renderer.text(x + 12, leaf.y + 13, (view.isDirty() ? "* " : "") + view.title, active ? theme.caret : theme.foregroundMuted);
+			var closeHovered = hovered && pointerX >= x + TAB_WIDTH - 22;
+			renderer.text(x + TAB_WIDTH - 18, leaf.y + 13, "x", closeHovered ? theme.caret : active ? theme.editorForeground : theme.foregroundSubtle);
 			x += TAB_WIDTH;
 		}
 		if (leaf == activeLeaf) renderer.rect(leaf.x, leaf.y, leaf.width, 2, theme.accent);

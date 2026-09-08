@@ -140,8 +140,8 @@ class EditorView {
 		if (textOffset < 0) textOffset = 0;
 		var textLeft = x + textOffset;
 		renderer.rect(x, y, width, height, theme.editorBackground);
-		renderer.rect(x, y, width, HEADER_HEIGHT, 0x252525ff);
-		renderer.text(x + 12, y + 13, (document.dirty ? "* " : "") + path, 0xccccccff);
+		renderer.rect(x, y, width, HEADER_HEIGHT, theme.surfaceElevated);
+		renderer.text(x + 12, y + 13, (document.dirty ? "* " : "") + path, theme.foregroundMuted);
 
 		renderer.clip(x, contentTop, width, contentHeight);
 		var firstLine = Std.int(scrollY / lineHeight), lastLine = firstLine + Std.int(contentHeight / lineHeight) + 2,
@@ -150,7 +150,7 @@ class EditorView {
 			lastLine = lineCount;
 		for (lineIndex in firstLine...lastLine) {
 			var y = contentTop + lineIndex * lineHeight - scrollY;
-			renderer.text(x + 8, y, Std.string(lineIndex + 1), 0x666666ff);
+			renderer.text(x + 8, y, Std.string(lineIndex + 1), theme.foregroundDisabled);
 		}
 
 		renderer.clip(textLeft, contentTop, width - textOffset - SCROLLBAR_SIZE, contentHeight);
@@ -161,7 +161,7 @@ class EditorView {
 				if (match.line == lineIndex) {
 					var matchX = x + renderer.textWidth(value.substr(0, match.column)),
 						matchWidth = renderer.textWidth(value.substr(match.column, match.length));
-					renderer.rect(matchX, y, matchWidth, lineHeight, 0x613214ff);
+					renderer.rect(matchX, y, matchWidth, lineHeight, theme.searchMatch);
 				}
 			for (range in selection.allRanges()) {
 				var selectionStart = range.start(), selectionEnd = range.end();
@@ -172,7 +172,7 @@ class EditorView {
 							selectionX = x + renderer.textWidth(value.substr(0, fromColumn)),
 							selectionWidth = renderer.textWidth(value.substring(fromColumn, toColumn));
 						if (selectionEnd.line > lineIndex) selectionWidth += renderer.textWidth(" ");
-						renderer.rect(selectionX, y, selectionWidth, lineHeight, 0x264f78ff);
+						renderer.rect(selectionX, y, selectionWidth, lineHeight, theme.selection);
 					}
 			}
 			var highlighted = document.highlighter.line(lineIndex), tokenX = x;
@@ -186,7 +186,7 @@ class EditorView {
 			var cursorLine = range.cursor.line, cursorValue = buffer.line(cursorLine),
 				caretX = textLeft - scrollX + renderer.textWidth(cursorValue.substr(0, range.cursor.column)),
 				caretY = contentTop + cursorLine * lineHeight - scrollY;
-			renderer.rect(caretX, caretY, 2, lineHeight, 0xffffffff);
+			renderer.rect(caretX, caretY, 2, lineHeight, theme.caret);
 		}
 		drawScrollbars(contentTop, contentHeight);
 		renderer.clip(x, y, width, height);
@@ -200,15 +200,15 @@ class EditorView {
 			var thumbHeight = Std.int(contentHeight * contentHeight / totalHeight);
 			if (thumbHeight < 20) thumbHeight = 20;
 			var maxScroll = totalHeight - contentHeight, thumbY = contentTop + Std.int((contentHeight - thumbHeight) * scrollY / maxScroll);
-			renderer.rect(x + width - SCROLLBAR_SIZE, contentTop, SCROLLBAR_SIZE, contentHeight, 0x181818ff);
-			renderer.rect(x + width - SCROLLBAR_SIZE + 2, thumbY, SCROLLBAR_SIZE - 3, thumbHeight, 0x606060ff);
+			renderer.rect(x + width - SCROLLBAR_SIZE, contentTop, SCROLLBAR_SIZE, contentHeight, theme.editorBackground);
+			renderer.rect(x + width - SCROLLBAR_SIZE + 2, thumbY, SCROLLBAR_SIZE - 3, thumbHeight, theme.scrollbar);
 		}
 		if (maximumWidth > viewportWidth && viewportWidth > 0) {
 			var thumbWidth = Std.int(viewportWidth * viewportWidth / maximumWidth);
 			if (thumbWidth < 20) thumbWidth = 20;
 			var maxScroll = maximumWidth - viewportWidth, thumbX = x + GUTTER_WIDTH + Std.int((viewportWidth - thumbWidth) * scrollX / maxScroll);
-			renderer.rect(x + GUTTER_WIDTH, y + height - SCROLLBAR_SIZE, viewportWidth, SCROLLBAR_SIZE, 0x181818ff);
-			renderer.rect(thumbX, y + height - SCROLLBAR_SIZE + 2, thumbWidth, SCROLLBAR_SIZE - 3, 0x606060ff);
+			renderer.rect(x + GUTTER_WIDTH, y + height - SCROLLBAR_SIZE, viewportWidth, SCROLLBAR_SIZE, theme.editorBackground);
+			renderer.rect(thumbX, y + height - SCROLLBAR_SIZE + 2, thumbWidth, SCROLLBAR_SIZE - 3, theme.scrollbar);
 		}
 	}
 
