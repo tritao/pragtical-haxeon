@@ -34,13 +34,17 @@ class JobScheduler {
 		return false;
 	}
 
-	public function update(maxSteps:Int):Int {
+	/** Runs cooperative work within both a step ceiling and an event-loop time slice. */
+	public function update(maxSteps:Int, maxMillis:Float = 6.0):Int {
 		if (maxSteps < 0) throw "job step budget must be non-negative";
-		var performed = 0;
+		if (maxMillis < 0) throw "job time budget must be non-negative";
+		if (maxSteps == 0 || maxMillis == 0) return 0;
+		var performed = 0, deadline = Sys.time() + maxMillis / 1000.0;
 		while (performed < maxSteps && jobs.length > 0) {
 			var job = jobs.shift(), complete = job.task.step();
 			performed++;
 			if (!complete) jobs.push(job);
+			if (Sys.time() >= deadline) break;
 		}
 		return performed;
 	}

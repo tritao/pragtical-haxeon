@@ -28,7 +28,9 @@ class ReleaseBenchmarkMain {
 		Platform.startHeadless();
 		var window = Native.window_create("release-benchmark", 1280, 720), renderer = new Renderer(window, "ignored-headlessly.ttf", 15),
 			application = new Application(renderer, 1280, 720, new SettingsService()), startupMs = elapsed(started);
-		var firstStarted = Sys.time(), view = application.open(smallPath), firstDocumentMs = elapsed(firstStarted);
+		var firstStarted = Sys.time(), view = application.open(smallPath);
+		rootFrame(application, renderer);
+		var firstDocumentMs = elapsed(firstStarted);
 
 		var typing:Array<Float> = [];
 		for (_ in 0...200) {
@@ -44,6 +46,12 @@ class ReleaseBenchmarkMain {
 			application.update();
 			idle.push(elapsed(before));
 		}
+		var idleWallStarted = Sys.time(), idleCpuStarted = Sys.cpuTime();
+		while (Sys.time() - idleWallStarted < 1.0) {
+			application.update();
+			Sys.sleep(0.001);
+		}
+		var idleWall = Sys.time() - idleWallStarted, idleCpuPercent = (Sys.cpuTime() - idleCpuStarted) * 100.0 / idleWall;
 
 		var largeStarted = Sys.time(), largeView = application.open(largePath), largeOpenMs = elapsed(largeStarted);
 		var largeDocument = largeView.getDocument();
@@ -60,12 +68,14 @@ class ReleaseBenchmarkMain {
 		longView.restoreCursor(0, 1024 * 1024);
 		rootFrame(application, renderer);
 
-		var soakStarted = Sys.time();
+		var soakStarted = Sys.time(), soak:Array<Float> = [];
 		for (index in 0...50) {
+			var before = Sys.time();
 			var document = application.documents.createUntitled(), temporaryView = application.add(document);
 			temporaryView.textInput("iteration " + index);
 			document.saveAs(rootPath + "/soak-" + index + ".txt");
 			application.root.closeActiveTab(true);
+			soak.push(elapsed(before));
 		}
 		var soakMs = elapsed(soakStarted);
 		var plugin = new DynamicPlugin(new PluginManifest(arguments[1])), pluginSource = File.getContent(arguments[2]), reload:Array<Float> = [];
@@ -78,11 +88,18 @@ class ReleaseBenchmarkMain {
 		}
 		require(application.plugins.unload(plugin.id()), "benchmark plugin did not unload");
 
-		Sys.println('BENCH startup_ms=$startupMs first_document_ms=$firstDocumentMs typing_p95_ms=${percentile(typing, 95)} idle_p95_ms=${percentile(idle, 95)}');
+		Sys.println('BENCH startup_ms=$startupMs first_document_ms=$firstDocumentMs typing_p95_ms=${percentile(typing, 95)} idle_p95_ms=${percentile(idle, 95)} idle_cpu_percent=$idleCpuPercent');
 		Sys.println('BENCH large_open_ms=$largeOpenMs long_line_open_ms=$longOpenMs scroll_p95_ms=${percentile(scroll, 95)}');
-		Sys.println('BENCH soak_50_ms=$soakMs plugin_reload_20_p95_ms=${percentile(reload, 95)} typing_target_ms=50 idle_target_ms=8');
+		Sys.println('BENCH soak_50_ms=$soakMs soak_first10_p95_ms=${percentile(soak.slice(0, 10), 95)} soak_last10_p95_ms=${percentile(soak.slice(40, 50), 95)}');
+		Sys.println('BENCH plugin_reload_20_p95_ms=${percentile(reload, 95)} plugin_first5_median_ms=${percentile(reload.slice(0, 5), 50)} plugin_last5_median_ms=${percentile(reload.slice(15, 20), 50)} typing_target_ms=50 idle_target_ms=8');
 		require(percentile(typing, 95) < 50.0, "typing-to-frame p95 exceeded 50 ms");
 		require(percentile(idle, 95) < 8.0, "idle update p95 exceeded 8 ms");
+		require(percentile(scroll, 95) < 50.0, "large-document scroll p95 exceeded 50 ms");
+		require(idleCpuPercent < 5.0, "headless idle service CPU exceeded 5 percent");
+		require(percentile(soak.slice(40, 50), 50) <= percentile(soak.slice(0, 10), 50) * 2.0 + 2.0,
+			"document lifecycle soak developed progressive latency");
+		require(percentile(reload.slice(15, 20), 50) <= percentile(reload.slice(0, 5), 50) * 2.0 + 2.0,
+			"plugin reload soak developed progressive latency");
 		application.shutdown();
 		renderer.destroy();
 		Native.window_destroy(window);
@@ -106,9 +123,10 @@ class ReleaseBenchmarkMain {
 		return (Sys.time() - started) * 1000.0;
 
 	static function percentile(values:Array<Float>, percent:Int):Float {
-		values.sort(function(left, right) return left < right ? -1 : left > right ? 1 : 0);
-		var index = Std.int((values.length - 1) * percent / 100);
-		return values[index];
+		var ordered = values.copy();
+		ordered.sort(function(left, right) return left < right ? -1 : left > right ? 1 : 0);
+		var index = Std.int((ordered.length - 1) * percent / 100);
+		return ordered[index];
 	}
 
 }
