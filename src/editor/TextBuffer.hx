@@ -1,8 +1,9 @@
 package editor;
 
 class TextBuffer {
-	public var onChange:Null<(line:Int, removedLines:Int, insertedLines:Int) -> Void>;
 	final lines:Array<String>;
+	final changeListeners:Map<Int, BufferChangeListener> = [];
+	var nextListenerId:Int = 1;
 	public var cursor(default, null):BufferPosition;
 	public var anchor(default, null):BufferPosition;
 	public var stateId(default, null):Int = 0;
@@ -26,6 +27,17 @@ class TextBuffer {
 
 	public function line(index:Int):String
 		return index < 0 || index >= lines.length ? "" : lines[index];
+
+	/** Registers a listener and returns its idempotent owned subscription. */
+	public function subscribe(listener:BufferChangeListener):BufferSubscription {
+		var id = nextListenerId++;
+		changeListeners.set(id, listener);
+		return new BufferSubscription(this, id);
+	}
+
+	@:allow(editor.BufferSubscription)
+	function releaseSubscription(id:Int):Void
+		changeListeners.remove(id);
 
 	public function hasSelection():Bool
 		return !cursor.equals(anchor);
@@ -86,7 +98,7 @@ class TextBuffer {
 	public function undo():Bool {
 		var edit = undoStack.pop();
 		if (edit == null) return false;
-		replaceRaw(edit.start, advance(edit.start, edit.inserted), edit.removed);
+		replaceRaw(edit.start, advance(edit.start, edit.inserted), edit.removed, edit.stateAfter, edit.stateBefore);
 		cursor = edit.cursorBefore;
 		anchor = edit.anchorBefore;
 		stateId = edit.stateBefore;
@@ -98,7 +110,7 @@ class TextBuffer {
 	public function redo():Bool {
 		var edit = redoStack.pop();
 		if (edit == null) return false;
-		replaceRaw(edit.start, advance(edit.start, edit.removed), edit.inserted);
+		replaceRaw(edit.start, advance(edit.start, edit.removed), edit.inserted, edit.stateBefore, edit.stateAfter);
 		cursor = edit.cursorAfter;
 		anchor = edit.anchorAfter;
 		stateId = edit.stateAfter;
@@ -179,7 +191,7 @@ class TextBuffer {
 	public function positionFromOffset(offset:Int):BufferPosition {
 		var remaining = offset < 0 ? 0 : offset;
 		for (lineIndex in 0...lines.length) {
-			if (remaining <= lines[lineIndex].length) return new BufferPosition(lineIndex, remaining);
+			if (remaining <= lines[lineIndex].length) return sanitize(new BufferPosition(lineIndex, remaining));
 			remaining -= lines[lineIndex].length + 1;
 		}
 		return documentEnd();
@@ -194,23 +206,27 @@ class TextBuffer {
 		}
 		var removed = textRange(start, end), beforeCursor = cursor, beforeAnchor = anchor, beforeState = stateId;
 		if (removed == value) return false;
-		replaceRaw(start, end, value);
+		var afterState = nextStateId++;
+		replaceRaw(start, end, value, beforeState, afterState);
 		cursor = advance(start, value);
 		anchor = cursor;
 		preferredColumn = -1;
-		stateId = nextStateId++;
+		stateId = afterState;
 		undoStack.push(new BufferEdit(start, removed, value, beforeCursor, beforeAnchor, cursor, anchor, beforeState, stateId));
 		redoStack.resize(0);
 		return true;
 	}
 
-	function replaceRaw(from:BufferPosition, to:BufferPosition, value:String):Void {
+	function replaceRaw(from:BufferPosition, to:BufferPosition, value:String, stateBefore:Int, stateAfter:Int):Void {
+		var removed = textRange(from, to);
 		var replacement = splitLines(value), prefix = lines[from.line].substring(0, from.column), suffix = lines[to.line].substring(to.column);
 		replacement[0] = prefix + replacement[0];
 		replacement[replacement.length - 1] += suffix;
 		lines.splice(from.line, to.line - from.line + 1);
 		for (index in 0...replacement.length) lines.insert(from.line + index, replacement[index]);
-		if (onChange != null) onChange(from.line, to.line - from.line, replacement.length - 1);
+		var change = new BufferChange(from, removed, value, to.line - from.line, replacement.length - 1, stateBefore, stateAfter);
+		var listeners = [for (listener in changeListeners) listener];
+		for (listener in listeners) listener(change);
 	}
 
 	function advance(start:BufferPosition, value:String):BufferPosition {
@@ -222,6 +238,8 @@ class TextBuffer {
 	function sanitize(position:BufferPosition):BufferPosition {
 		var line = position.line < 0 ? 0 : position.line >= lines.length ? lines.length - 1 : position.line,
 			column = position.column < 0 ? 0 : position.column > lines[line].length ? lines[line].length : position.column;
+		if (column > 0 && column < lines[line].length && isLowSurrogate(lines[line].charCodeAt(column))
+			&& isHighSurrogate(lines[line].charCodeAt(column - 1))) column--;
 		return new BufferPosition(line, column);
 	}
 
@@ -239,3 +257,5 @@ class TextBuffer {
 	static function isLowSurrogate(code:Int):Bool
 		return code >= 0xDC00 && code <= 0xDFFF;
 }
+
+typedef BufferChangeListener = BufferChange -> Void;

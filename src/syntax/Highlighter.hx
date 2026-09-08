@@ -1,6 +1,7 @@
 package syntax;
 
 import editor.TextBuffer;
+import editor.BufferChange;
 
 class Highlighter {
 	public final buffer:TextBuffer;
@@ -21,6 +22,9 @@ class Highlighter {
 		for (index in stale) cache.remove(index);
 		for (index => highlighted in retained) cache.set(index, highlighted);
 	}
+
+	public function bufferChanged(change:BufferChange):Void
+		invalidate(change.start.line, change.removedLines, change.insertedLines);
 
 	public function line(index:Int):HighlightedLine {
 		var state = false;

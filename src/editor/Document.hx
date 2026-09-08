@@ -23,6 +23,7 @@ class Document {
 	var newline:String = "\n";
 	var hasBom:Bool = false;
 	var savedStateId:Int;
+	var highlighterSubscription:Null<BufferSubscription>;
 
 	public function new(path:Null<String>, text:String, registry:SyntaxRegistry, ?fileSystem:EditorFileSystem) {
 		id = nextId++;
@@ -58,9 +59,10 @@ class Document {
 	}
 
 	function selectSyntax():Void {
+		if (highlighterSubscription != null) highlighterSubscription.release();
 		syntax = syntaxes.find(path == null ? title : path, buffer.text.substr(0, 128));
 		highlighter = new Highlighter(buffer, syntax);
-		buffer.onChange = highlighter.invalidate;
+		highlighterSubscription = buffer.subscribe(highlighter.bufferChanged);
 	}
 
 	public static function open(path:String, registry:SyntaxRegistry, ?fileSystem:EditorFileSystem):Document {

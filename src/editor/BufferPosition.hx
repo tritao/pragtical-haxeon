@@ -1,5 +1,6 @@
 package editor;
 
+/** A zero-based line and UTF-16 code-unit column at a Unicode scalar boundary. */
 class BufferPosition {
 	public final line:Int;
 	public final column:Int;

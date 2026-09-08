@@ -44,9 +44,18 @@ class DocumentTestMain {
 		require(syntaxes.find("script", "#!/usr/bin/env lua\n").name == "Lua" && syntaxes.find("data.json").name == "JSON"
 			&& syntaxes.find("README.md").name == "Markdown", "built-in syntax selection failed");
 		var buffer = new TextBuffer("alpha\nbeta");
+		var observedChanges = 0, secondObservedChanges = 0;
+		var releaseFirst = buffer.subscribe(change -> {
+			observedChanges++;
+		});
+		var releaseSecond = buffer.subscribe(change -> {
+			secondObservedChanges++;
+		});
 		require(buffer.lineCount() == 2 && buffer.line(1) == "beta", "line indexing failed");
 		buffer.setCursor(new BufferPosition(0, 5));
 		buffer.insert("!");
+		require(observedChanges == 1 && secondObservedChanges == 1, "buffer change subscriptions did not fan out");
+		releaseFirst.release();
 		require(buffer.text == "alpha!\nbeta" && buffer.cursor.equals(new BufferPosition(0, 6)), "insertion failed");
 		buffer.move(-5, true);
 		require(buffer.selectedText() == "lpha!", "selection failed");
@@ -55,6 +64,7 @@ class DocumentTestMain {
 		buffer.deleteBackward();
 		require(buffer.text == "a\nbeta", "backspace failed");
 		buffer.deleteForward();
+		require(observedChanges == 1 && secondObservedChanges == 4, "released buffer subscription was still invoked");
 		require(buffer.text == "abeta", "forward delete failed");
 		require(buffer.undo() && buffer.text == "a\nbeta", "undo delete failed");
 		require(buffer.undo() && buffer.text == "aL\nbeta", "undo backspace failed");
@@ -77,11 +87,17 @@ class DocumentTestMain {
 		require(multiline.undo() && multiline.text == "one\ntwo\nthree" && multiline.stateId == cleanState, "range undo failed");
 		require(multiline.redo() && multiline.text == "onX\nYe\ntwo\nthree", "range redo failed");
 		var unicode = new TextBuffer("A😀B");
+		require(unicode.positionAt(0, 2).column == 1 && unicode.positionFromOffset(2).column == 1,
+			"position conversion accepted the middle of a surrogate pair");
 		unicode.setCursor(new BufferPosition(0, 1));
 		unicode.move(1);
 		require(unicode.cursor.column == 3, "cursor split a surrogate pair");
 		unicode.deleteBackward();
 		require(unicode.text == "AB" && unicode.cursor.column == 1, "backspace split a surrogate pair");
+		var combining = new TextBuffer("é");
+		combining.setCursor(new BufferPosition(0, 2));
+		combining.move(-1);
+		require(combining.cursor.column == 1, "combining-mark scalar boundary policy changed");
 		var document = new Document("unused", "clean", syntaxes);
 		document.insert(" edit");
 		require(document.dirty && document.buffer.text == " editclean", "document dirty state failed");
