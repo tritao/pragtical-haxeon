@@ -7,15 +7,11 @@ import core.Application;
 import renderer.Renderer;
 import config.ConfigurationPaths;
 import config.SettingsService;
-import session.WorkspaceSession;
-import session.SessionPersistence;
 
 class GraphicalMain {
 	static var window:Int;
 	static var renderer:Renderer;
 	static var application:Application;
-	static var sessionPersistence:SessionPersistence;
-	static var lastRecoverySave:Float;
 
 	static function main():Void {
 		if (Native.abi_version() != Platform.ABI_VERSION)
@@ -26,11 +22,7 @@ class GraphicalMain {
 		var settings = new SettingsService(ConfigurationPaths.userSettings()), defaults = new config.Settings();
 		renderer = new Renderer(window, defaults.fontPath, defaults.fontSize);
 		application = new Application(renderer, Native.window_width(window), Native.window_height(window), settings);
-		var sessionPath = ConfigurationPaths.session(), savedSession = WorkspaceSession.load(sessionPath);
-		if (savedSession != null) savedSession.restore(application, application.recovery);
-		sessionPersistence = new SessionPersistence(sessionPath);
-		sessionPersistence.begin(application);
-		lastRecoverySave = Sys.time();
+		application.session.start();
 		var documentCount = 0;
 		for (argument in arguments) {
 			if (StringTools.startsWith(argument, "--plugin="))
@@ -66,11 +58,6 @@ class GraphicalMain {
 
 	static function iterate():Int {
 		application.update();
-		sessionPersistence.update(application, Sys.time());
-		if (Sys.time() - lastRecoverySave >= 2.0) {
-			application.recovery.save(application);
-			lastRecoverySave = Sys.time();
-		}
 		renderer.begin();
 		application.root.draw();
 		renderer.present();
@@ -79,8 +66,6 @@ class GraphicalMain {
 
 	static function quit():Void {
 		application.shutdown();
-		application.recovery.save(application);
-		sessionPersistence.flush(application);
 		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy editor window");
 	}

@@ -25,12 +25,10 @@ import search.WorkspaceSearch;
 import search.WorkspaceReplacement;
 import search.ReplacementPreview;
 import search.ReplacementResult;
-import command.KeyBinding;
 import config.ConfigurationPaths;
 import config.Settings;
 import config.SettingsService;
 import recovery.RecoveryStore;
-import recovery.RecoverySnapshot;
 import feedback.ErrorLog;
 import feedback.ConfirmationService;
 import feedback.NotificationKind;
@@ -40,6 +38,7 @@ import controller.SearchController;
 import controller.FileController;
 import controller.ConfigurationController;
 import controller.PluginController;
+import controller.SessionController;
 
 class Application {
 	public final documents:DocumentManager;
@@ -58,6 +57,7 @@ class Application {
 	public final search:SearchController;
 	public final files:FileController;
 	public final configuration:ConfigurationController;
+	public final session:SessionController;
 	public final searchOptions:SearchOptions;
 	public final workspaceSearch:WorkspaceSearch;
 	public final workspaceReplacement:WorkspaceReplacement;
@@ -69,12 +69,10 @@ class Application {
 	public final confirmations:ConfirmationService;
 	public final documentMatches:Array<SearchMatch>;
 	public var documentSearchQuery(get, never):String;
-	var lastFileSystemCheck:Float = 0.0;
 	public var quitReady(get, never):Bool;
 
 	public function new(renderer:Renderer, width:Int, height:Int, ?settings:SettingsService) {
 		this.settings = settings == null ? new SettingsService() : settings;
-		recovery = new RecoveryStore(ConfigurationPaths.recovery());
 		syntaxes = new SyntaxRegistry();
 		BuiltinSyntax.install(syntaxes);
 		completions = new CompletionRegistry();
@@ -101,13 +99,14 @@ class Application {
 		workspaceReplacement = search.workspaceReplacement;
 		documentMatches = search.documentMatches;
 		configuration = new ConfigurationController(this.settings, workspace, root, context, commands, keymap, theme, search, reportError);
+		session = new SessionController(this, workspace, root, commands, reportError);
+		recovery = session.recovery;
 		files = new FileController(documents, workspace, fileOperations, root, context, commands, confirmations, recovery,
 			path -> { open(path); }, function() { newDocument(); }, function() { recovery.save(this); }, reportError, reportInformation);
 		pluginController = new PluginController(commands, keymap, context, syntaxes, completions, root.pluginPanels, workspace.jobs,
 			effectiveSettings, root, reportError, reportInformation);
 		plugins = pluginController.manager;
 		installWorkbenchCommands();
-		commands.add("recovery:open", context -> openRecoveryCommandView());
 	}
 
 	public function open(path:String):View
@@ -339,35 +338,15 @@ class Application {
 		}));
 	}
 
-	public function openRecoveryCommandView():Bool {
-		var snapshots = recovery.load(), entries:Array<CommandViewEntry> = [];
-		for (index in 0...snapshots.length)
-			entries.push(new CommandViewEntry(snapshots[index].title, "Recovered unsaved buffer", Std.string(index)));
-		for (diagnostic in recovery.diagnostics) reportError("recovery", diagnostic);
-		if (entries.length == 0) return false;
-		root.commandView.open(new CommandViewProvider("Recover: ", entries, function(query) {}, function(entry, query, backwards) {
-			if (entry != null) {
-				var selected = Std.parseInt(entry.value);
-				if (selected >= 0 && selected < snapshots.length && recovery.restore(this, snapshots[selected])) {
-					recovery.forgetSnapshot(snapshots[selected]);
-					recovery.save(this);
-				}
-			}
-			root.commandView.close();
-		}));
-		return true;
-	}
+	public function openRecoveryCommandView():Bool
+		return session.openRecoveryCommandView();
 
 	public function update():Void {
 		var now = Sys.time();
 		configuration.update();
 		search.update(now);
 		workspace.jobs.update(32);
-		if (now - lastFileSystemCheck >= 1.0) {
-			lastFileSystemCheck = now;
-			documents.checkExternalChanges();
-			workspace.refreshProjects();
-		}
+		session.update(now);
 		pluginController.update(now);
 	}
 
@@ -385,5 +364,6 @@ class Application {
 	public function shutdown():Void {
 		configuration.shutdown();
 		pluginController.shutdown();
+		session.shutdown();
 	}
 }
