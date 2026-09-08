@@ -32,9 +32,9 @@ page movement respects viewport; drag outside the viewport remains bounded.
 
 ## M2.3 — Coding edits
 
-- [ ] Implement selection indent/unindent, autoindent, duplicate/move/delete line,
+- [x] Implement selection indent/unindent, autoindent, duplicate/move/delete line,
   join lines and comment toggling using syntax metadata.
-- [ ] Preserve selection direction and trailing-newline behavior. Expose tab width
+- [x] Preserve selection direction and trailing-newline behavior. Expose tab width
   and tabs/spaces through typed defaults ready for M5 configuration.
 
 Acceptance: partial-line and multiline selections, blank lines, final line and
@@ -42,10 +42,10 @@ mixed indentation fixtures produce expected text with one undo per command.
 
 ## M2.4 — Multiple selections
 
-- [ ] Add normalized selection sets, overlap merging and stable primary selection.
-- [ ] Apply edits in a deterministic order with one transaction; define clipboard
+- [x] Add normalized selection sets, overlap merging and stable primary selection.
+- [x] Apply edits in a deterministic order with one transaction; define clipboard
   distribution, next-occurrence selection and undo selection restoration.
-- [ ] Render all carets/selections and keep commands correct for one or many.
+- [x] Render all carets/selections and keep commands correct for one or many.
 
 Acceptance: overlapping and reversed ranges do not duplicate changes; multiple
 insertions/deletions and undo/redo preserve content and selection invariants.

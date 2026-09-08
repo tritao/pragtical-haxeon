@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M2.3, coding edits.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1 and M2.2.
+- Active task: M3.1, navigation history and document switching.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4 and M2.1–M2.4.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: implement indentation, line transformations and comment toggling as
-  selection-preserving single transactions with typed indentation defaults.
-- Editor HEAD: `d61c88a`. Haxeon HEAD observed: `4bd73cf`.
+- Next action: add per-view navigation history and named switching commands, then
+  build reusable status, notification and modal feedback primitives.
+- Editor HEAD: `4987556`. Haxeon HEAD observed: `4bd73cf`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -18,7 +18,7 @@ Last updated: 2026-09-08.
 | --- | --- | --- |
 | M0 | In progress | M0.1/M0.2 complete; interactive M0.3 smoke pending |
 | M1 | Complete headlessly | Stable pathless identity, atomic persistence, Save As, unified close/quit, external conflicts and bounded recovery pass; graphical prompt smoke remains in the M0.3 manual route |
-| M2 | In progress | M2.1 foundations and M2.2 clipboard/navigation pass; coding edits and multiple selections remain |
+| M2 | Complete headlessly | Everyday editing, clipboard/navigation, coding transformations and normalized multiple selections pass; graphical keyboard/mouse smoke remains in M0.3 |
 | M3 | Partial foundation | Command view and split shell exist; navigation, reusable feedback and theme roles remain |
 | M4 | Partial foundation | Bounded polling, multi-root search, file operations and sessions exist; scheduling/scale and replacement remain |
 | M5 | Partial foundation | Layered typed settings and plugin reload exist; subscriptions and stable editor API remain |
@@ -87,6 +87,22 @@ Last updated: 2026-09-08.
   page movement, word/document ranges, click selection and timed outside-viewport
   dragging.
 - `./scripts/test.sh` and `./scripts/build-sdl.sh` both exited 0 at `d61c88a`.
+
+### M2.3–M2.4 — coding edits and multiple selections
+
+- `f16a506` added single-transaction indent/unindent, autoindent, duplicate/move/
+  delete/join line and syntax-driven comment commands. Typed `editor.tabWidth` and
+  `editor.insertSpaces` settings select spaces or tabs per project.
+- `e9d42aa` introduced normalized selection sets, stable primary selection,
+  document-order clipboard distribution, next-occurrence selection, selection-set
+  history snapshots and rendering for every caret/range.
+- `b5be0c3` extended movement, insertion/deletion, indentation, comments and line
+  transformations across multiple selections. `4987556` covers blank, partial and
+  trailing-newline indentation semantics.
+- Tests cover reversed/overlapping ranges, multiple insertions and deletions,
+  distributed copy/paste, next occurrence, undo/redo range restoration, mixed
+  indentation, blank/final/trailing lines and one-transaction command behavior.
+- `./scripts/test.sh` and `./scripts/build-sdl.sh` both exited 0 at `4987556`.
 
 ## Previously delivered roadmap foundations
 
