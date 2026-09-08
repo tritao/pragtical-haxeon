@@ -9,6 +9,15 @@ import plugin.PluginContext;
 import renderer.Renderer;
 import syntax.BuiltinSyntax;
 import jobs.JobTask;
+import completion.CompletionItem;
+import completion.CompletionProvider;
+import completion.CompletionRequest;
+
+class SampleCompletionProvider implements CompletionProvider {
+	public function new() {}
+	public function complete(request:CompletionRequest):Array<CompletionItem>
+		return StringTools.startsWith("pluginCompletion", request.prefix) ? [new CompletionItem("pluginCompletion", "Sample plugin")] : [];
+}
 
 class SampleJob implements JobTask {
 	public var cancelled(default, null):Bool = false;
@@ -43,6 +52,7 @@ class SamplePlugin implements Plugin {
 			context.api.setPanelText("status", event.document.buffer.text);
 		});
 		context.api.schedule(job);
+		context.addCompletionProvider(new SampleCompletionProvider());
 	}
 
 	public function deactivate(context:PluginContext):Void
@@ -105,11 +115,16 @@ class PluginTestMain {
 			plugin = new SamplePlugin();
 		application.newDocument();
 		require(application.plugins.load(plugin), "plugin did not activate");
-		require(plugin.activations == 1 && application.plugins.isLoaded("sample"), "plugin activation state was not recorded");
+		require(plugin.activations == 1 && application.plugins.isLoaded("sample") && application.completions.count() == 2,
+			"plugin activation state or completion contribution was not recorded");
 		require(application.syntaxes.find("file.sample").name == "Sample", "plugin syntax did not register");
 		require(!application.plugins.load(new SamplePlugin()), "duplicate plugin id was accepted");
 		require(application.keyPressed(77, 3) && plugin.performed == 1 && plugin.events == 1
 			&& application.context.requireDocument().buffer.text == "plugin", "plugin command did not perform an owned document transaction");
+		require(application.commands.perform("doc:complete-word", application.context)
+			&& application.root.commandView.results.length == 1
+			&& application.root.commandView.results[0].value == "pluginCompletion", "plugin completion provider did not contribute to word completion");
+		application.keyPressed(Platform.KEY_ESCAPE, 0);
 		var panel = application.root.pluginPanels.find("sample", "status");
 		require(panel != null && panel.text == "plugin", "plugin panel or document event contribution was not live");
 		application.openCommandView();
@@ -122,6 +137,7 @@ class PluginTestMain {
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(plugin.deactivations == 1 && !application.commands.contains("sample:run") && !application.keyPressed(77, 3),
 			"plugin registrations survived disable");
+		require(application.completions.count() == 1, "plugin completion provider survived disable");
 		var eventsAfterUnload = plugin.events;
 		application.textInput("after");
 		require(application.root.pluginPanels.find("sample", "status") == null && plugin.events == eventsAfterUnload && plugin.job.cancelled,
@@ -138,6 +154,14 @@ class PluginTestMain {
 			&& application.root.commandView.results.length == 1, "plugin reload picker did not open");
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(plugin.activations == 3, "plugin did not reload");
+		var activeView = application.context.requireView(), activeDocument = application.context.requireDocument(), activeSelection = activeView.getSelection();
+		require(activeSelection != null, "document view did not expose its selection");
+		activeDocument.buffer.replaceAllText("alpha alphabet al", activeSelection);
+		activeSelection.setCursor(activeDocument.buffer, activeDocument.buffer.endPosition());
+		require(application.commands.perform("doc:complete-word", application.context)
+			&& application.root.commandView.results.length == 2, "built-in word completion did not open through the shared registry");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		require(activeDocument.buffer.text == "alpha alphabet alpha", "completion acceptance did not replace the typed prefix");
 		var failed = false;
 		try {
 			application.plugins.load(new BrokenPlugin());

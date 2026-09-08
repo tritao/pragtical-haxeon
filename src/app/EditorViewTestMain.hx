@@ -13,6 +13,8 @@ import editor.EditorClock;
 import editor.BufferPosition;
 import editor.TextBuffer;
 import editor.VisualLineMap;
+import completion.CompletionRegistry;
+import completion.DocumentWordCompletionProvider;
 
 class FakeEditorClock implements EditorClock {
 	public var value:Float = 0.0;
@@ -32,6 +34,12 @@ class EditorViewTestMain {
 		var syntaxes = new SyntaxRegistry();
 		BuiltinSyntax.install(syntaxes);
 		var clock = new FakeEditorClock();
+		var completionDocument = new Document("words.txt", "alpha alphabet al", syntaxes), completions = new CompletionRegistry();
+		completions.add("core", new DocumentWordCompletionProvider());
+		var completion = completions.request(completionDocument, completionDocument.buffer.endPosition());
+		require(completion.replaceFrom.equals(new BufferPosition(0, 15)) && completion.items.length == 2
+			&& completion.items[0].label == "alpha" && completion.items[1].label == "alphabet",
+			"document word completion did not use the typed replacement prefix");
 		var visual = new VisualLineMap(new TextBuffer("abcdef\nxy\n123456\nlast"), 3);
 		require(visual.rowCount() == 7
 			&& visual.rowAt(new BufferPosition(0, 4)) == 1

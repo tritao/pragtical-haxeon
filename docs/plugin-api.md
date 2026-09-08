@@ -28,10 +28,16 @@ configured user keybindings take precedence over plugin and built-in bindings.
 - active-document change events;
 - cooperative scheduled jobs.
 
-Commands and syntax contributions remain methods on `PluginContext`. Every event
-subscription, job, panel, command, binding, and syntax contribution is owned by the
-context. Failed activation and unload dispose owned resources in reverse order;
-intentional document edits remain in normal undo history.
+Commands, syntax contributions and typed completion providers remain methods on
+`PluginContext`. A completion provider receives the active document, caret and
+typed word prefix, and returns label/detail/insertion items. The built-in document
+word provider uses the same registry as plugins, so later language-service
+providers supplement it without special paths in `Document` or `RootView`.
+
+Every event subscription, job, panel, command, binding, syntax and completion
+contribution is owned by the context. Failed activation and unload dispose owned
+resources in reverse order; intentional document edits remain in normal undo
+history.
 
 Dynamically compiled plugins import `pragtical.Editor`, an SDK module supplied by
 the host compiler. They call `Editor.connect(id)` during `activate`, then use the

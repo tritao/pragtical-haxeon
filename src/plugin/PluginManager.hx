@@ -6,12 +6,14 @@ import command.Keymap;
 import syntax.SyntaxRegistry;
 import config.Settings;
 import jobs.JobScheduler;
+import completion.CompletionRegistry;
 
 class PluginManager {
 	final commands:CommandRegistry;
 	final keymap:Keymap;
 	final commandContext:CommandContext;
 	final syntaxes:SyntaxRegistry;
+	final completions:CompletionRegistry;
 	final panels:PluginPanelRegistry;
 	final jobs:JobScheduler;
 	final settings:Void->Settings;
@@ -20,11 +22,12 @@ class PluginManager {
 	final reportedDiagnostics:Map<String, String> = [];
 
 	public function new(commands:CommandRegistry, keymap:Keymap, commandContext:CommandContext, syntaxes:SyntaxRegistry,
-			panels:PluginPanelRegistry, jobs:JobScheduler, settings:Void->Settings, ?reportDiagnostic:String->Void) {
+			completions:CompletionRegistry, panels:PluginPanelRegistry, jobs:JobScheduler, settings:Void->Settings, ?reportDiagnostic:String->Void) {
 		this.commands = commands;
 		this.keymap = keymap;
 		this.commandContext = commandContext;
 		this.syntaxes = syntaxes;
+		this.completions = completions;
 		this.panels = panels;
 		this.jobs = jobs;
 		this.settings = settings;
@@ -38,7 +41,7 @@ class PluginManager {
 			throw 'invalid plugin id "$id"';
 		if (indexOf(id) >= 0)
 			return false;
-		var context = new PluginContext(id, commands, keymap, commandContext, syntaxes, panels, jobs, settings);
+		var context = new PluginContext(id, commands, keymap, commandContext, syntaxes, completions, panels, jobs, settings);
 		try {
 			plugin.activate(context);
 		} catch (error:Dynamic) {
@@ -161,7 +164,7 @@ class PluginManager {
 	}
 
 	function createContext(id:String):PluginContext
-		return new PluginContext(id, commands, keymap, commandContext, syntaxes, panels, jobs, settings);
+		return new PluginContext(id, commands, keymap, commandContext, syntaxes, completions, panels, jobs, settings);
 
 	function ids(enabled:Bool):Array<String> {
 		var values:Array<String> = [];

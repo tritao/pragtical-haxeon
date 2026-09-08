@@ -38,6 +38,8 @@ import recovery.RecoverySnapshot;
 import feedback.ErrorLog;
 import feedback.ConfirmationService;
 import feedback.NotificationKind;
+import completion.CompletionRegistry;
+import completion.DocumentWordCompletionProvider;
 
 class Application {
 	public final documents:DocumentManager;
@@ -50,6 +52,7 @@ class Application {
 	public final context:CommandContext;
 	public final plugins:PluginManager;
 	public final syntaxes:SyntaxRegistry;
+	public final completions:CompletionRegistry;
 	public final theme:Theme;
 	public final searchOptions:SearchOptions;
 	public final workspaceSearch:WorkspaceSearch;
@@ -80,6 +83,8 @@ class Application {
 		recovery = new RecoveryStore(ConfigurationPaths.recovery());
 		syntaxes = new SyntaxRegistry();
 		BuiltinSyntax.install(syntaxes);
+		completions = new CompletionRegistry();
+		completions.add("core", new DocumentWordCompletionProvider());
 		theme = new Theme();
 		workspace = new Workspace(syntaxes);
 		fileOperations = new FileOperations(workspace, new TrashService(ConfigurationPaths.trash(), workspace.fileSystem));
@@ -99,7 +104,7 @@ class Application {
 		workspaceSearch = new WorkspaceSearch(workspace, workspace.jobs, workspaceSearchChanged);
 		workspaceReplacement = new WorkspaceReplacement(workspace, new ReplacementBackupStore(ConfigurationPaths.replacementBackup()));
 		installSearchCommands();
-		plugins = new PluginManager(commands, keymap, context, syntaxes, root.pluginPanels, workspace.jobs, effectiveSettings,
+		plugins = new PluginManager(commands, keymap, context, syntaxes, completions, root.pluginPanels, workspace.jobs, effectiveSettings,
 			message -> reportError("plugin", message));
 		installPluginCommands();
 		installConfigurationCommands();
@@ -177,6 +182,19 @@ class Application {
 				root.commandView.close();
 				if (entry != null) commands.perform(entry.value, context);
 			}));
+	}
+
+	public function openCompletionCommandView():Void {
+		var view = context.activeView(), document = activeDocument(), selection = activeSelection();
+		if (view == null || document == null || selection == null) return;
+		var result = completions.request(document, selection.cursor), revision = document.buffer.stateId,
+			entries = [for (item in result.items) new CommandViewEntry(item.label, item.detail, item.insertText)];
+		if (entries.length == 0) return;
+		root.commandView.open(new CommandViewProvider("Complete: ", entries, function(query) {}, function(entry, query, backwards) {
+			root.commandView.close();
+			if (entry == null || activeDocument() != document || document.buffer.stateId != revision || !selection.cursor.equals(result.replaceTo)) return;
+			if (view.replaceRange(result.replaceFrom, result.replaceTo, entry.value)) view.cursorChanged();
+		}));
 	}
 
 	public function openGoToLine():Void {
@@ -409,6 +427,7 @@ class Application {
 			openCommandView();
 		});
 		commands.add("navigation:go-to-line", context -> openGoToLine(), context -> activeDocument() != null);
+		commands.add("doc:complete-word", context -> openCompletionCommandView(), context -> activeDocument() != null);
 		commands.add("layout:focus-left", context -> root.focusPane(-1, 0));
 		commands.add("layout:focus-right", context -> root.focusPane(1, 0));
 		commands.add("layout:focus-up", context -> root.focusPane(0, -1));
@@ -460,6 +479,7 @@ class Application {
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL, ["files:open"]);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["commands:open"]);
 		keymap.addDirect(Platform.KEY_G, Platform.MOD_CTRL, ["navigation:go-to-line"]);
+		keymap.addDirect(Platform.KEY_SPACE, Platform.MOD_CTRL, ["doc:complete-word"]);
 		keymap.addDirect(Platform.KEY_LEFT, Platform.MOD_CTRL + Platform.MOD_ALT, ["layout:focus-left"]);
 		keymap.addDirect(Platform.KEY_RIGHT, Platform.MOD_CTRL + Platform.MOD_ALT, ["layout:focus-right"]);
 		keymap.addDirect(Platform.KEY_UP, Platform.MOD_CTRL + Platform.MOD_ALT, ["layout:focus-up"]);
