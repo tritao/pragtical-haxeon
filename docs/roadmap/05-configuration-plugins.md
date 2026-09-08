@@ -5,11 +5,11 @@ Application and `plugins/example/`. Add typed services where needed.
 
 ## M5.1 — Configuration
 
-- [ ] Define versioned typed settings with defaults < user < project precedence,
+- [x] Define versioned typed settings with defaults < user < project precedence,
   schema validation and visible diagnostics. Invalid reload retains last good values.
-- [ ] Expose fonts, theme, indentation, keybindings, exclusions and search limits.
+- [x] Expose fonts, theme, indentation, keybindings, exclusions and search limits.
   Apply changes through subscriptions with explicit resource cleanup.
-- [ ] Treat project settings as data; do not autoexecute arbitrary project code.
+- [x] Treat project settings as data; do not autoexecute arbitrary project code.
   Define platform user-data locations and portable-mode behavior.
 
 Acceptance: layered overrides, invalid values, live font/theme changes and reset

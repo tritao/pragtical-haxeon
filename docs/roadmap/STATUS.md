@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M5.1, live typed configuration and resource-safe application.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3 and M4.1–M4.3.
+- Active task: M5.2, stable editor API and owned extension capabilities.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3 and M5.1.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: audit M5.1's existing settings foundation, then add live font/theme
-  resource replacement, reset behavior and leak/duplicate-binding evidence.
-- Editor HEAD: `7c2c6bf`. Haxeon HEAD observed: `1512bc7`.
+- Next action: define the versioned M5.2 host API, registration ownership and an
+  example plugin that edits a document, contributes a panel and observes events.
+- Editor HEAD: `edeaaa0`. Haxeon HEAD observed: `37c062a`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -21,7 +21,7 @@ Last updated: 2026-09-08.
 | M2 | Complete headlessly | Everyday editing, clipboard/navigation, coding transformations and normalized multiple selections pass; graphical keyboard/mouse smoke remains in M0.3 |
 | M3 | Complete headlessly | Reusable command input, pane/tab/sidebar navigation, logical-point DPI routing, status, bounded feedback, error inspection and centralized UI roles pass; interactive M0.3 smoke remains |
 | M4 | Complete headlessly | Responsive index/search, safe replacement, recoverable file operations and defensive sessions pass; graphical smoke remains in M0.3 |
-| M5 | Partial foundation | Layered typed settings and plugin reload exist; subscriptions and stable editor API remain |
+| M5 | In progress | M5.1 complete; stable editor API and reload reliability remain |
 | M6 | Pending | Development workflow |
 | M7 | Pending | Packaging, performance and platform checks |
 
@@ -204,6 +204,25 @@ Last updated: 2026-09-08.
 - The 10,000-file project benchmark was rerun at the M4 exit gate: 100 updates and
   100 input ticks, with a maximum observed update of 51.621 ms on the previously
   recorded Intel Core i5-13600K / 31 GiB host.
+
+### M5.1 — configuration
+
+- Haxeon `37c062a` adds the standard `Sys.systemName()` platform boundary and a
+  runtime regression; the compiler/runtime gate passed all 201 tests.
+- `edeaaa0` makes configuration subscriptions independently disposable, converts
+  read failures into retained diagnostics, preserves last-good settings across
+  invalid bytes and detects restoration of previously accepted bytes.
+- Every semantic theme role, font, indentation, keybinding, exclusion and search
+  setting participates in defaults < user < active-project layering. Changes apply
+  live; project disposal releases its subscription, keymaps replace configured
+  bindings, and font replacement destroys the retired native handle.
+- Project files remain versioned data and unknown keys reject the complete layer.
+  Linux/BSD XDG, macOS, Windows and authoritative portable locations are defined in
+  `docs/configuration.md` and selected using the host system name.
+- Headless acceptance covers precedence, invalid rollback/recovery, visible project
+  diagnostics, project switching, default reset, subscription cleanup, live theme,
+  single keybinding installation and stale font-handle rejection. The complete
+  headless suite and SDL artifact build passed at `edeaaa0`.
 
 ## Previously delivered roadmap foundations
 
