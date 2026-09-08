@@ -87,7 +87,7 @@ class ConfigurationController {
 		search.applySettings(value);
 		root.setSidebarWidth(value.sidebarWidth);
 		keymap.setConfigured([for (binding in value.keybindings) new KeyBinding(binding.key, binding.modifiers, binding.commands)]);
-		if (!root.renderer.reloadFont(value.fontPath, value.fontSize)) {
+		if (!root.renderer.reloadFont(value.fontPath, value.fontSize, value.fontFallbackPaths)) {
 			var diagnostic = 'could not load font "' + value.fontPath + '"';
 			settings.diagnostics.push(diagnostic);
 			reportError("configuration", diagnostic);

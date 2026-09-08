@@ -12,6 +12,8 @@ class GraphicalMain {
 	static var window:Int;
 	static var renderer:Renderer;
 	static var application:Application;
+	static var smokeFrames:Int = 0;
+	static var presentedFrames:Int = 0;
 
 	static function main():Void {
 		if (Native.abi_version() != Platform.ABI_VERSION)
@@ -20,18 +22,22 @@ class GraphicalMain {
 		window = Native.window_create("Pragtical Haxeon", 960, 640);
 		Platform.require(window != 0, "create editor window");
 		var settings = new SettingsService(ConfigurationPaths.userSettings()), defaults = new config.Settings();
-		renderer = new Renderer(window, defaults.fontPath, defaults.fontSize);
+		renderer = new Renderer(window, defaults.fontPath, defaults.fontSize, defaults.fontFallbackPaths);
 		application = new Application(renderer, Native.window_width(window), Native.window_height(window), settings);
 		application.session.start();
 		var documentCount = 0;
 		for (argument in arguments) {
 			if (StringTools.startsWith(argument, "--plugin="))
 				application.loadPluginManifest(argument.substring(9));
+			else if (StringTools.startsWith(argument, "--smoke-frames="))
+				smokeFrames = Std.parseInt(argument.substring(15));
 			else if (application.openArgument(argument) != null)
 				documentCount++;
 		}
 		if (documentCount == 0 && application.workspace.projects.length == 0)
 			application.newDocument();
+		if (smokeFrames > 0)
+			application.textInput("Latin é · Ελληνικά · Кириллица · 日本語 · 😀");
 		application.openRecoveryCommandView();
 		Native.host_install(onEvent, iterate, quit);
 	}
@@ -64,6 +70,8 @@ class GraphicalMain {
 		var area = application.root.textInputArea();
 		if (area != null) Platform.require(Native.text_input_area(window, area.x, area.y, area.width, area.height, area.cursor), "place text input");
 		renderer.present();
+		presentedFrames++;
+		if (smokeFrames > 0 && presentedFrames >= smokeFrames) return 0;
 		return application.quitReady ? 0 : 1;
 	}
 

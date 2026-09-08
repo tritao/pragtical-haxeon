@@ -29,6 +29,8 @@ extern class Native {
 	static function set_clip_rect(window:Int, x:Int, y:Int, width:Int, height:Int):Bool;
 	static function draw_rect(window:Int, x:Int, y:Int, width:Int, height:Int, rgba:Int):Bool;
 	static function font_create(window:Int, path:String, size:Int):Int;
+	static function font_add_fallback(font:Int, path:String):Bool;
+	static function font_fallback_count(font:Int):Int;
 	static function font_destroy(font:Int):Bool;
 	static function font_height(font:Int):Int;
 	static function font_text_width(font:Int, text:String):Int;

@@ -4,7 +4,7 @@
 
 #include <hl.h>
 
-#define PRAGTICAL_HX_FFI_H_SIGNATURE 0x6A7CA130u
+#define PRAGTICAL_HX_FFI_H_SIGNATURE 0xC9D78E18u
 
 HL_PRIM int pragtical_hx_abi_version(void);
 HL_PRIM vbyte * pragtical_hx_clipboard_get(void);
@@ -21,8 +21,10 @@ HL_PRIM bool pragtical_hx_event_push_test(int arg0, int arg1, int arg2, int arg3
 HL_PRIM bool pragtical_hx_event_push_text_test(int arg0, int arg1, int arg2, int arg3, vbyte * arg4);
 HL_PRIM vbyte * pragtical_hx_event_text(void);
 HL_PRIM int pragtical_hx_event_window(void);
+HL_PRIM bool pragtical_hx_font_add_fallback(int arg0, vbyte * arg1);
 HL_PRIM int pragtical_hx_font_create(int arg0, vbyte * arg1, int arg2);
 HL_PRIM bool pragtical_hx_font_destroy(int arg0);
+HL_PRIM int pragtical_hx_font_fallback_count(int arg0);
 HL_PRIM int pragtical_hx_font_height(int arg0);
 HL_PRIM int pragtical_hx_font_text_width(int arg0, vbyte * arg1);
 HL_PRIM bool pragtical_hx_frame_begin(int arg0);
@@ -70,8 +72,10 @@ DEFINE_PRIM(_BOOL, event_push_test, _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_BOOL, event_push_text_test, _I32 _I32 _I32 _I32 _BYTES);
 DEFINE_PRIM(_BYTES, event_text, _NO_ARG);
 DEFINE_PRIM(_I32, event_window, _NO_ARG);
+DEFINE_PRIM(_BOOL, font_add_fallback, _I32 _BYTES);
 DEFINE_PRIM(_I32, font_create, _I32 _BYTES _I32);
 DEFINE_PRIM(_BOOL, font_destroy, _I32);
+DEFINE_PRIM(_I32, font_fallback_count, _I32);
 DEFINE_PRIM(_I32, font_height, _I32);
 DEFINE_PRIM(_I32, font_text_width, _I32 _BYTES);
 DEFINE_PRIM(_BOOL, frame_begin, _I32);

@@ -40,6 +40,8 @@ class ConfigurationTestMain {
 		var service = new SettingsService(userPath, projectPath);
 		require(service.diagnostics.length == 0, "valid settings produced diagnostics");
 		require(service.current.fontSize == 18 && service.current.sidebarWidth == 280 && !service.current.insertSpaces, "layer precedence failed");
+		require(service.current.fontFallbackPaths.length == 2 && service.current.fontFallbackPaths[1] == "fallback-two.ttf",
+			"font fallback configuration was not layered");
 		require(service.current.keybindings.length == 1 && service.current.keybindings[0].commands[0] == "doc:redo", "project keybinding did not replace user bindings");
 		var lastGood = service.current;
 		File.saveContent(projectPath, "version=1\neditor.fontSize=broken\n");
@@ -66,6 +68,8 @@ class ConfigurationTestMain {
 		Platform.startHeadless();
 		var window = Native.window_create("configuration-test", 640, 320), renderer = new Renderer(window, "ignored-headlessly.ttf", 15),
 			application = new Application(renderer, 640, 320, service), performed = 0;
+		require(Native.font_fallback_count(renderer.font) == service.current.fontFallbackPaths.length + 1,
+			"configured font fallback group was not installed");
 		application.commands.add("test:configured", function(context) {
 			performed += 1;
 		});

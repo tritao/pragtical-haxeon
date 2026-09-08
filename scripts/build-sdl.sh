@@ -86,4 +86,5 @@ find "$stage_dir" -depth -delete
 cp "$root_dir/README.md" "$root_dir/out/README.md"
 mkdir -p "$root_dir/out/data/fonts"
 cp "$pragtical_root/data/fonts/JetBrainsMono-Regular.ttf" "$root_dir/out/data/fonts/"
+cp "$pragtical_root/data/fonts/NotoSansSymbols2-Regular.ttf" "$root_dir/out/data/fonts/"
 trap - EXIT

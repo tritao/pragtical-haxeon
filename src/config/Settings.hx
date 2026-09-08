@@ -3,6 +3,12 @@ package config;
 class Settings {
 	public static inline final VERSION = 1;
 	public var fontPath:String = "data/fonts/JetBrainsMono-Regular.ttf";
+	public var fontFallbackPaths:Array<String> = [
+		"data/fonts/NotoSansSymbols2-Regular.ttf",
+		"/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+		"/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+		"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+	];
 	public var fontSize:Int = 15;
 	public var sidebarWidth:Int = 220;
 	public var tabWidth:Int = 4;
@@ -39,6 +45,7 @@ class Settings {
 	public function copy():Settings {
 		var result = new Settings();
 		result.fontPath = fontPath;
+		result.fontFallbackPaths = copyStrings(fontFallbackPaths);
 		result.fontSize = fontSize;
 		result.sidebarWidth = sidebarWidth;
 		result.tabWidth = tabWidth;

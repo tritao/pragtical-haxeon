@@ -88,7 +88,7 @@ configuration_root="$root_dir/build/configuration-test"
 configuration_project="$configuration_root/project"
 mkdir -p "$configuration_project"
 printf 'version=1\neditor.fontSize=16\nworkbench.sidebarWidth=240\nkeybinding=Ctrl+A|doc:undo\n' > "$configuration_root/user.conf"
-printf 'version=1\neditor.fontSize=18\neditor.insertSpaces=false\nworkbench.sidebarWidth=280\nkeybinding=Ctrl+A|doc:redo\n' > "$configuration_root/project.conf"
+printf 'version=1\neditor.fontSize=18\neditor.fontFallbacks=fallback-one.ttf,fallback-two.ttf\neditor.insertSpaces=false\nworkbench.sidebarWidth=280\nkeybinding=Ctrl+A|doc:redo\n' > "$configuration_root/project.conf"
 "$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/configuration-test.hl" --entry=app.ConfigurationTestMain \
 	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \

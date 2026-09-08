@@ -40,8 +40,10 @@ typedef struct phx_font_slot {
   bool occupied;
   int32_t height;
   int32_t advance;
+  int32_t size;
+  int32_t fallback_count;
 #ifdef PHX_WITH_SDL
-  RenFont *font;
+  RenFont *group[PHX_MAX_FONT_FALLBACKS];
 #endif
 } phx_font_slot;
 
@@ -343,7 +345,8 @@ void phx_platform_shutdown(void) {
 #ifdef PHX_WITH_SDL
   if (!is_headless) {
     for (uint32_t index = 0; index < PHX_MAX_FONTS; index++) {
-      if (fonts[index].font) ren_font_free(fonts[index].font);
+      for (int font = 0; font < fonts[index].fallback_count; font++)
+        if (fonts[index].group[font]) ren_font_free(fonts[index].group[font]);
     }
     for (uint32_t index = 0; index < PHX_MAX_WINDOWS; index++) {
       if (windows[index].renderer) ren_destroy(windows[index].renderer);
@@ -667,14 +670,15 @@ phx_handle phx_font_create(phx_handle window, const char *path, int32_t size) {
     slot->occupied = true;
     slot->height = size;
     slot->advance = (size * 3 + 2) / 5;
+    slot->size = size;
+    slot->fallback_count = 1;
 #ifdef PHX_WITH_SDL
     if (!is_headless) {
-      slot->font = ren_font_load(path, (float)size, FONT_ANTIALIASING_GRAYSCALE,
+      slot->group[0] = ren_font_load(path, (float)size, FONT_ANTIALIASING_GRAYSCALE,
                                  FONT_HINTING_SLIGHT, 0, true);
-      if (!slot->font) { slot->occupied = false; fail(SDL_GetError()); return 0; }
-      RenFont *group[] = {slot->font, NULL};
-      slot->height = ren_font_group_get_height(group);
-      slot->advance = (int)ren_font_group_get_width(group, "M", 1, (RenTab){0}, NULL);
+      if (!slot->group[0]) { slot->occupied = false; fail(SDL_GetError()); return 0; }
+      slot->height = ren_font_group_get_height(slot->group);
+      slot->advance = (int)ren_font_group_get_width(slot->group, "M", 1, (RenTab){0}, NULL);
     }
 #endif
     return make_handle(index, slot->generation);
@@ -683,13 +687,40 @@ phx_handle phx_font_create(phx_handle window, const char *path, int32_t size) {
   return 0;
 }
 
+bool phx_font_add_fallback(phx_handle font, const char *path) {
+  phx_font_slot *slot = resolve_font(font);
+  if (!slot) return fail("invalid or stale font handle");
+  if (!path || !path[0]) return fail("fallback font path is empty");
+  if (slot->fallback_count >= PHX_MAX_FONT_FALLBACKS)
+    return fail("font fallback group is full");
+#ifdef PHX_WITH_SDL
+  if (!is_headless) {
+    RenFont *fallback = ren_font_load(path, (float)slot->size,
+      FONT_ANTIALIASING_GRAYSCALE, FONT_HINTING_SLIGHT, 0, true);
+    if (!fallback) return fail(SDL_GetError());
+    slot->group[slot->fallback_count] = fallback;
+  }
+#endif
+  slot->fallback_count++;
+  return true;
+}
+
+int32_t phx_font_fallback_count(phx_handle font) {
+  phx_font_slot *slot = resolve_font(font);
+  if (!slot) { fail("invalid or stale font handle"); return -1; }
+  return slot->fallback_count;
+}
+
 bool phx_font_destroy(phx_handle font) {
   phx_font_slot *slot = resolve_font(font);
   if (!slot) return fail("invalid or stale font handle");
 #ifdef PHX_WITH_SDL
-  if (slot->font) ren_font_free(slot->font);
-  slot->font = NULL;
+  for (int index = 0; index < slot->fallback_count; index++) {
+    if (slot->group[index]) ren_font_free(slot->group[index]);
+    slot->group[index] = NULL;
+  }
 #endif
+	slot->fallback_count = 0;
   slot->occupied = false;
   return true;
 }
@@ -705,8 +736,7 @@ int32_t phx_font_text_width(phx_handle font, const char *text) {
   if (!slot) { fail("invalid or stale font handle"); return -1; }
 #ifdef PHX_WITH_SDL
   if (!is_headless) {
-    RenFont *group[] = {slot->font, NULL};
-    return (int)ren_font_group_get_width(group, text ? text : "",
+    return (int)ren_font_group_get_width(slot->group, text ? text : "",
       text ? strlen(text) : 0, (RenTab){0}, NULL);
   }
 #endif
@@ -721,8 +751,7 @@ bool phx_draw_text(phx_handle window, phx_handle font, int32_t x, int32_t y,
   if (!font_slot) return fail("invalid or stale font handle");
 #ifdef PHX_WITH_SDL
   if (!is_headless) {
-    RenFont *group[] = {font_slot->font, NULL};
-    rencache_draw_text(&slot->renderer->cache, group, text ? text : "",
+    rencache_draw_text(&slot->renderer->cache, font_slot->group, text ? text : "",
       text ? strlen(text) : 0, x, y, renderer_color(rgba), (RenTab){0});
   }
 #else

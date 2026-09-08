@@ -15,6 +15,8 @@ int main(void) {
 	assert(!phx_text_input_area(first, 0, 0, -1, 15, 0));
   phx_handle font = phx_font_create(first, "ignored-headlessly.ttf", 15);
   assert(font != 0);
+	assert(phx_font_add_fallback(font, "fallback-headlessly.ttf"));
+	assert(phx_font_fallback_count(font) == 2);
   assert(phx_font_height(font) == 15);
   assert(phx_font_text_width(font, "hello") > 0);
   assert(phx_frame_begin(first));

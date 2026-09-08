@@ -7,6 +7,7 @@
 
 #define PHX_MAX_WINDOWS 64
 #define PHX_MAX_FONTS 32
+#define PHX_MAX_FONT_FALLBACKS 10
 #define PHX_MAX_PROCESSES 32
 #define PHX_MAX_PROCESS_ARGS 256
 #define PHX_MAX_PROCESS_ENV 128
@@ -52,6 +53,8 @@ bool phx_set_clip_rect(phx_handle window, int32_t x, int32_t y, int32_t width,
 bool phx_draw_rect(phx_handle window, int32_t x, int32_t y, int32_t width,
                    int32_t height, int32_t rgba);
 phx_handle phx_font_create(phx_handle window, const char *path, int32_t size);
+bool phx_font_add_fallback(phx_handle font, const char *path);
+int32_t phx_font_fallback_count(phx_handle font);
 bool phx_font_destroy(phx_handle font);
 int32_t phx_font_height(phx_handle font);
 int32_t phx_font_text_width(phx_handle font, const char *text);

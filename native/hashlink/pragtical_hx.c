@@ -128,6 +128,13 @@ HL_PRIM int HL_NAME(font_create)(int window, vbyte *path, int size) {
   const char *utf8 = path ? hl_to_utf8((uchar *)path) : "";
   return phx_font_create(window, utf8, size);
 }
+HL_PRIM bool HL_NAME(font_add_fallback)(int font, vbyte *path) {
+  const char *utf8 = path ? hl_to_utf8((uchar *)path) : "";
+  return phx_font_add_fallback(font, utf8);
+}
+HL_PRIM int HL_NAME(font_fallback_count)(int font) {
+  return phx_font_fallback_count(font);
+}
 HL_PRIM bool HL_NAME(font_destroy)(int font) { return phx_font_destroy(font); }
 HL_PRIM int HL_NAME(font_height)(int font) { return phx_font_height(font); }
 HL_PRIM int HL_NAME(font_text_width)(int font, vbyte *text) {
