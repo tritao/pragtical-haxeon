@@ -5,6 +5,7 @@ class CommandViewEntry {
 	public final detail:String;
 	public final value:String;
 	public var score:Int = 0;
+	public var order:Int = 0;
 
 	public function new(label:String, detail:String, value:String) {
 		this.label = label;

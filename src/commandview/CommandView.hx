@@ -5,20 +5,23 @@ import renderer.Renderer;
 
 class CommandView {
 	public var active(default, null):Bool = false;
-	public var query(default, null):String = "";
+	public var query(get, never):String;
 	public var selected(default, null):Int = 0;
 	public final results:Array<CommandViewEntry> = [];
+	public final input:CommandInput = new CommandInput();
 	var provider:Null<CommandViewProvider>;
 
 	public function new() {}
 
+	function get_query():String return input.text;
+
 	public function open(provider:CommandViewProvider):Void {
 		this.provider = provider;
-		query = "";
+		input.reset();
 		selected = 0;
 		active = true;
-		filter();
 		provider.onQuery(query);
+		filter();
 	}
 
 	public function close(cancel:Bool = false):Void {
@@ -29,25 +32,47 @@ class CommandView {
 	}
 
 	public function textInput(value:String):Void {
-		query += value;
+		input.insert(value);
+		changed();
+	}
+
+	public function setQuery(value:String):Void {
+		input.setText(value);
 		changed();
 	}
 
 	public function keyPressed(key:Int, modifiers:Int):Bool {
 		if (!active) return false;
 		if (key == Platform.KEY_ESCAPE) close(true);
-		else if (key == Platform.KEY_BACKSPACE) {
-			if (query.length > 0) query = query.substring(0, query.length - 1);
-			changed();
-		} else if (key == Platform.KEY_UP) move(-1);
+		else if (key == Platform.KEY_BACKSPACE) { if (input.backspace()) changed(); }
+		else if (key == Platform.KEY_DELETE) { if (input.deleteForward()) changed(); }
+		else if (key == Platform.KEY_LEFT) { moveCaret(-1, modifiers); }
+		else if (key == Platform.KEY_RIGHT) { moveCaret(1, modifiers); }
+		else if (key == Platform.KEY_HOME) input.moveHome((modifiers & Platform.MOD_SHIFT) != 0);
+		else if (key == Platform.KEY_END) input.moveEnd((modifiers & Platform.MOD_SHIFT) != 0);
+		else if (key == Platform.KEY_A && (modifiers & Platform.MOD_CTRL) != 0) input.selectAll();
+		else if (key == Platform.KEY_C && (modifiers & Platform.MOD_CTRL) != 0) input.copy();
+		else if (key == Platform.KEY_X && (modifiers & Platform.MOD_CTRL) != 0) { if (input.cut()) changed(); }
+		else if (key == Platform.KEY_V && (modifiers & Platform.MOD_CTRL) != 0) { if (input.paste()) changed(); }
+		else if (key == Platform.KEY_Z && (modifiers & Platform.MOD_CTRL) != 0) { if (input.undo()) changed(); }
+		else if (key == Platform.KEY_Y && (modifiers & Platform.MOD_CTRL) != 0) { if (input.redo()) changed(); }
+		else if (key == Platform.KEY_UP && (modifiers & Platform.MOD_CTRL) != 0) { if (input.moveHistory(-1)) changed(); }
+		else if (key == Platform.KEY_DOWN && (modifiers & Platform.MOD_CTRL) != 0) { if (input.moveHistory(1)) changed(); }
+		else if (key == Platform.KEY_UP) move(-1);
 		else if (key == Platform.KEY_DOWN) move(1);
+		else if (key == Platform.KEY_TAB) complete();
 		else if (key == Platform.KEY_ENTER) accept((modifiers & Platform.MOD_SHIFT) != 0);
 		return true;
 	}
 
+	function moveCaret(direction:Int, modifiers:Int):Void {
+		var extend = (modifiers & Platform.MOD_SHIFT) != 0;
+		if ((modifiers & Platform.MOD_CTRL) != 0) input.moveWord(direction, extend); else input.move(direction, extend);
+	}
+
 	function changed():Void {
-		filter();
 		if (provider != null) provider.onQuery(query);
+		filter();
 	}
 
 	function move(delta:Int):Void {
@@ -62,7 +87,16 @@ class CommandView {
 		var current = provider;
 		if (current == null) return;
 		var entry = selected >= 0 && selected < results.length ? results[selected] : null;
+		input.remember();
 		current.onAccept(entry, query, backwards);
+	}
+
+	function complete():Void {
+		var current = provider;
+		if (current == null) return;
+		var entry = selected >= 0 && selected < results.length ? results[selected] : null;
+		input.setText(current.onComplete(query, entry));
+		changed();
 	}
 
 	public function draw(renderer:Renderer, windowWidth:Int, windowHeight:Int):Void {
@@ -77,7 +111,16 @@ class CommandView {
 		renderer.rect(0, 0, windowWidth, windowHeight, 0x00000066);
 		renderer.rect(x - 2, y - 2, width + 4, height + 4, 0x111111ff);
 		renderer.rect(x, y, width, 40, 0x252932ff);
-		renderer.text(x + 12, y + 11, provider.prompt + query, 0xffffffff);
+		var inputX = x + 12, inputY = y + 11, promptWidth = renderer.textWidth(provider.prompt),
+			selectionStart = input.selection.start().column, selectionEnd = input.selection.end().column;
+		if (selectionEnd > selectionStart) {
+			var selectionX = inputX + promptWidth + renderer.textWidth(query.substring(0, selectionStart)),
+				selectionWidth = renderer.textWidth(query.substring(selectionStart, selectionEnd));
+			renderer.rect(selectionX, y + 5, selectionWidth, 28, 0x264f78ff);
+		}
+		renderer.text(inputX, inputY, provider.prompt + query, 0xffffffff);
+		var caretX = inputX + promptWidth + renderer.textWidth(query.substring(0, input.selection.cursor.column));
+		renderer.rect(caretX, y + 7, 2, 24, 0xffffffff);
 		for (index in 0...visible) {
 			var rowY = y + 42 + index * rowHeight, entry = results[index];
 			if (index == selected) renderer.rect(x, rowY, width, rowHeight, 0x094771ff);
@@ -87,30 +130,45 @@ class CommandView {
 	}
 
 	function filter():Void {
+		var previousValue = selected >= 0 && selected < results.length ? results[selected].value : null;
 		results.resize(0);
 		if (provider == null) return;
-		for (entry in provider.entries) {
+		for (index in 0...provider.entries.length) {
+			var entry = provider.entries[index];
 			var score = fuzzyScore(entry.label, query);
 			if (score >= 0) {
 				entry.score = score;
+				entry.order = index;
 				results.push(entry);
 			}
 		}
-		results.sort(function(left, right) return left.score == right.score ? Reflect.compare(left.label, right.label) : right.score - left.score);
+		results.sort(function(left, right) {
+			if (left.score != right.score) return right.score - left.score;
+			var label = Reflect.compare(left.label.toLowerCase(), right.label.toLowerCase());
+			return label != 0 ? label : left.order - right.order;
+		});
 		selected = 0;
+		if (previousValue != null)
+			for (index in 0...results.length) if (results[index].value == previousValue) selected = index;
 	}
 
-	static function fuzzyScore(value:String, query:String):Int {
+	public static function fuzzyScore(value:String, query:String):Int {
 		if (query.length == 0) return 0;
 		var text = value.toLowerCase(), needle = query.toLowerCase(), position = 0, score = 0, previous = -2;
+		if (text == needle) return 100000;
+		if (StringTools.startsWith(text, needle)) return 50000 - text.length;
+		var slash = text.lastIndexOf("/"), base = slash < 0 ? text : text.substring(slash + 1);
+		if (base == needle) return 90000;
+		if (StringTools.startsWith(base, needle)) score += 30000;
 		for (index in 0...needle.length) {
 			var found = text.indexOf(needle.charAt(index), position);
 			if (found < 0) return -1;
-			score += found == previous + 1 ? 10 : 1;
-			if (found == 0 || text.charAt(found - 1) == "/" || text.charAt(found - 1) == ":") score += 5;
+			score += found == previous + 1 ? 20 : 2;
+			if (found == 0 || text.charAt(found - 1) == "/" || text.charAt(found - 1) == ":"
+				|| text.charAt(found - 1) == "-" || text.charAt(found - 1) == "_") score += 12;
 			previous = found;
 			position = found + 1;
 		}
-		return score;
+		return score - text.length;
 	}
 }

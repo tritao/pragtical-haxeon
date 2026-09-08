@@ -4,6 +4,9 @@ import core.Application;
 import platform.Native;
 import platform.Platform;
 import renderer.Renderer;
+import commandview.CommandView;
+import commandview.CommandViewEntry;
+import commandview.CommandViewProvider;
 
 class CommandTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -33,6 +36,44 @@ class CommandTestMain {
 		require(keymap.onKeyPressed(100, 1, context) && performed == 2, "command unbinding failed");
 		keymap.addDirect(100, 1, ["test:disabled"]);
 		require(!keymap.onKeyPressed(100, 1, context), "invalid command consumed key binding");
+		var commandView = new CommandView(), accepted = "", entries = [
+			new CommandViewEntry("src/foo.hx", "path", "path"),
+			new CommandViewEntry("food", "prefix", "prefix"),
+			new CommandViewEntry("foo", "exact", "exact")
+		];
+		commandView.open(new CommandViewProvider("> ", entries, function(query) {}, function(entry, query, backwards) {
+			accepted = query;
+		}));
+		commandView.textInput("f");
+		commandView.keyPressed(Platform.KEY_DOWN, 0);
+		var preserved = commandView.results[commandView.selected].value;
+		commandView.textInput("o");
+		require(commandView.results[commandView.selected].value == preserved, "provider refresh did not preserve the selected result");
+		commandView.textInput("o");
+		require(commandView.results.length == 3 && commandView.results[0].value == "exact",
+			"exact command input match did not outrank prefix and path matches");
+		commandView.keyPressed(Platform.KEY_LEFT, 0);
+		commandView.keyPressed(Platform.KEY_BACKSPACE, 0);
+		require(commandView.query == "fo", "command input caret editing failed");
+		commandView.keyPressed(Platform.KEY_Z, Platform.MOD_CTRL);
+		require(commandView.query == "foo", "command input undo failed");
+		commandView.keyPressed(Platform.KEY_UP, 0);
+		commandView.keyPressed(Platform.KEY_TAB, 0);
+		require(commandView.query == "foo", "command completion did not use the selected exact entry");
+		commandView.keyPressed(Platform.KEY_ENTER, 0);
+		require(accepted == "foo", "command input acceptance failed");
+		commandView.close();
+		commandView.open(new CommandViewProvider("", [], function(query) {}, function(entry, query, backwards) {}));
+		commandView.keyPressed(Platform.KEY_UP, Platform.MOD_CTRL);
+		require(commandView.query == "foo", "command input history did not restore the accepted query");
+		commandView.setQuery("A😀B");
+		commandView.keyPressed(Platform.KEY_LEFT, 0);
+		commandView.keyPressed(Platform.KEY_BACKSPACE, 0);
+		require(commandView.query == "AB", "command input split a Unicode surrogate pair");
+		commandView.setQuery("a query that cannot possibly match 😀");
+		require(commandView.results.length == 0, "long no-match command query retained stale results");
+		commandView.keyPressed(Platform.KEY_ESCAPE, 0);
+		require(!commandView.active, "command input cancellation failed");
 		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy command test window");
 		Native.shutdown();

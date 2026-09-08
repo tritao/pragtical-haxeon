@@ -133,6 +133,8 @@ class Application {
 		root.commandView.open(new CommandViewProvider("", entries, function(query) {}, function(entry, query, backwards) {
 			if (entry != null) this.open(entry.value);
 			root.commandView.close();
+		}, null, null, function(query, entry) {
+			return entry == null ? query : entry.label;
 		}));
 	}
 
@@ -142,6 +144,19 @@ class Application {
 				root.commandView.close();
 				if (entry != null) commands.perform(entry.value, context);
 			}));
+	}
+
+	public function openGoToLine():Void {
+		if (activeDocument() == null) return;
+		root.commandView.open(new CommandViewProvider("Go to Line: ", [], function(query) {}, function(entry, query, backwards) {
+			var fields = query.split(":"), line = fields.length > 0 ? Std.parseInt(fields[0]) : 0,
+				column = fields.length > 1 ? Std.parseInt(fields[1]) : 1, view = context.activeView();
+			if (view != null && line > 0 && column > 0) {
+				view.restoreCursor(line - 1, column - 1);
+				view.cursorChanged();
+			}
+			root.commandView.close();
+		}));
 	}
 
 	public function openDocumentFind():Void {
@@ -289,6 +304,7 @@ class Application {
 		commands.add("commands:open", function(context) {
 			openCommandView();
 		});
+		commands.add("navigation:go-to-line", context -> openGoToLine(), context -> activeDocument() != null);
 		commands.add("settings:reload", function(context) {
 			settings.reload(true);
 		});
@@ -324,6 +340,7 @@ class Application {
 		keymap.addDirect(Platform.KEY_D, Platform.MOD_CTRL, ["doc:select-next-occurrence"]);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL, ["files:open"]);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["commands:open"]);
+		keymap.addDirect(Platform.KEY_G, Platform.MOD_CTRL, ["navigation:go-to-line"]);
 	}
 
 	function settingsFor(document:Document):config.Settings {

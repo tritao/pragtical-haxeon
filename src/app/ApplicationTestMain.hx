@@ -67,6 +67,11 @@ class ApplicationTestMain {
 		require(multipleDocument.buffer.text == "a b c" && multipleSelection.rangeCount() == 3,
 			"multi-selection redo failed");
 		require(application.root.closeActiveTab(true), "multiple-selection test tab did not close");
+		require(application.keyPressed(Platform.KEY_G, Platform.MOD_CTRL) && application.root.commandView.active,
+			"named go-to-line command did not open command input");
+		application.textInput("2:2");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		require(clipboardView.cursorLine() == 1 && clipboardView.cursorColumn() == 1, "go-to-line/column did not restore the requested caret");
 		application.commands.perform("root:switch-to-previous-tab", application.context);
 		require(application.focus.activeView == firstView, "tab switch did not update focus");
 		application.commands.perform("doc:newline", application.context);
