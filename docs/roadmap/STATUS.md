@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M4.2, cancellable streaming search and safe project replacement.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3 and M4.1.
+- Active task: M4.3, file operations and defensive session restoration.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3 and M4.1–M4.2.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: move workspace search onto cancellable generations with bounded
-  streaming, dirty-buffer precedence, file classification and richer options.
-- Editor HEAD: `11dcc5c`. Haxeon HEAD observed: `496f811`.
+- Next action: complete recoverable file operations and versioned, defensively
+  restored workspace session state under M4.3.
+- Editor HEAD: `20b95b0`. Haxeon HEAD observed: `1512bc7`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -20,7 +20,7 @@ Last updated: 2026-09-08.
 | M1 | Complete headlessly | Stable pathless identity, atomic persistence, Save As, unified close/quit, external conflicts and bounded recovery pass; graphical prompt smoke remains in the M0.3 manual route |
 | M2 | Complete headlessly | Everyday editing, clipboard/navigation, coding transformations and normalized multiple selections pass; graphical keyboard/mouse smoke remains in M0.3 |
 | M3 | Complete headlessly | Reusable command input, pane/tab/sidebar navigation, logical-point DPI routing, status, bounded feedback, error inspection and centralized UI roles pass; interactive M0.3 smoke remains |
-| M4 | In progress | M4.1 complete; streaming search/replacement and remaining session/file-operation safety are next |
+| M4 | In progress | M4.1–M4.2 complete; remaining session/file-operation safety is next |
 | M5 | Partial foundation | Layered typed settings and plugin reload exist; subscriptions and stable editor API remain |
 | M6 | Pending | Development workflow |
 | M7 | Pending | Packaging, performance and platform checks |
@@ -161,6 +161,29 @@ Last updated: 2026-09-08.
 - The full headless suite and SDL artifact build passed at `76a301a`; the dedicated
   benchmark passed at `11dcc5c` including cancel/reopen stale-result checks.
 
+### M4.2 — search and replacement
+
+- `00340f2` moves workspace search onto debounced, generation-cancelled scheduler
+  jobs. Results stream in bounded batches with caps and preview limits; dirty open
+  buffers take precedence over disk. Binary, oversized and unreadable files become
+  retained partial-result diagnostics rather than aborting the query.
+- `c0acd51` adds case, whole-word, path and PCRE2 regular-expression searches,
+  including capture-aware replacement, invalid-pattern reporting and scalar-safe
+  progression after zero-width matches. Document replacement remains one undoable,
+  revision-checked buffer transaction.
+- `1460df1` adds an explicit project replacement preview/apply route. Every file is
+  revalidated after preview; open documents receive independent undoable edits and
+  disk files use atomic M1 publication with per-file applied/conflict/failure
+  outcomes. The complete previous contents and expected post-write contents of the
+  latest disk batch are retained at `replacement-backup.conf`; restore is explicitly
+  best-effort per file and refuses subsequently changed files, not a cross-file undo.
+- `20b95b0` proves binary, 5 MiB oversized and permission-denied inputs as distinct
+  partial failures. Rapid replacement generations, result caps, dirty precedence,
+  filters, regex captures/zero-width/invalid cases, disk conflicts, backup restore
+  conflicts and preview/apply equality are covered headlessly.
+- The complete headless suite and SDL artifact build passed after the final M4.2
+  implementation. Interactive confirmation behavior remains in the M0.3 smoke route.
+
 ## Previously delivered roadmap foundations
 
 - `028c7fa`: safe file lifecycle, recovery, project polling and restorable split workspaces.
@@ -179,6 +202,13 @@ These commits satisfy only the behaviors evidenced by their tests; they do not m
   positive and negative regressions pass with the full compiler suite.
 - Haxeon `4bd73cf` compares runtime strings by value in statement switches rather
   than relying on pointer identity; its runtime-created-string regression passes.
+- Haxeon `14eeadd` propagates assignment and refinement facts from completing block
+  expressions, fixing concise try-expression narrowing without weakening nullable
+  field access. Accepted class/interface and rejected continuing-catch cases pass.
+- Haxeon `73c7ca3` replaces substring-emulated `EReg` with HashLink's PCRE2 engine,
+  including captures, invalid-pattern exceptions and terminating zero-width global
+  replacement. Haxeon `1512bc7` captures the receiver for implicit instance-field
+  assignment in lambdas instead of emitting an invalid raw `this` local.
 - Reinspect repository ownership and run the compiler gate before further compiler edits.
 
 ## Blockers and pending manual checks

@@ -19,13 +19,13 @@ Record hardware, dataset and observed maximum update duration in STATUS.
 
 ## M4.2 — Search and replacement
 
-- [ ] Debounce queries, cancel previous generations, stream results and cap retained
+- [x] Debounce queries, cancel previous generations, stream results and cap retained
   results/preview lengths. Search dirty open buffers in preference to disk versions.
-- [ ] Skip or explicitly handle binary, unreadable and oversized files; expose
+- [x] Skip or explicitly handle binary, unreadable and oversized files; expose
   partial-result/error state. Add case, whole-word, regex and path filters.
-- [ ] Handle zero-width regex progression, capture replacement and invalid patterns.
+- [x] Handle zero-width regex progression, capture replacement and invalid patterns.
   Keep document replacements transactional and revision checked.
-- [ ] Add project replacement preview and explicit apply, revalidate disk/document
+- [x] Add project replacement preview and explicit apply, revalidate disk/document
   versions, use M1 writes and report per-file outcomes. Never promise atomic undo
   across arbitrary disk files; define recovery/backup behavior before enabling it.
 
