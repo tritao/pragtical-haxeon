@@ -6,12 +6,15 @@ import renderer.Renderer;
 import style.Theme;
 import search.SearchMatch;
 import editor.BufferPosition;
+import editor.BufferChange;
+import editor.BufferSubscription;
 
 class DocumentView extends View {
 	public final document:Document;
 	public final editor:EditorView;
 	var viewCursor:BufferPosition;
 	var viewAnchor:BufferPosition;
+	final bufferSubscription:BufferSubscription;
 
 	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int) {
 		super(document.title);
@@ -19,6 +22,7 @@ class DocumentView extends View {
 		editor = new EditorView(document, renderer, theme, width, height);
 		viewCursor = document.buffer.cursor;
 		viewAnchor = document.buffer.anchor;
+		bufferSubscription = document.buffer.subscribe(bufferChanged);
 	}
 
 	override public function isDirty():Bool
@@ -92,5 +96,11 @@ class DocumentView extends View {
 	function captureSelection():Void {
 		viewCursor = document.buffer.cursor;
 		viewAnchor = document.buffer.anchor;
+	}
+
+	function bufferChanged(change:BufferChange):Void {
+		var cursor = change.transform(viewCursor), anchor = change.transform(viewAnchor);
+		viewCursor = document.buffer.positionAt(cursor.line, cursor.column);
+		viewAnchor = document.buffer.positionAt(anchor.line, anchor.column);
 	}
 }

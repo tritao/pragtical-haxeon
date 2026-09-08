@@ -56,6 +56,12 @@ class ApplicationTestMain {
 		require(second.buffer.cursor.line == 1 && second.buffer.cursor.column == 1, "left pane did not restore its cursor");
 		application.root.activateLeaf(application.root.node.requireSecond());
 		require(second.buffer.cursor.line == 1 && second.buffer.cursor.column == 2, "right pane did not retain an independent cursor");
+		rightView.restoreCursor(0, 0);
+		application.commands.perform("doc:newline", application.context);
+		application.root.activateLeaf(application.root.node.requireFirst());
+		require(leftView.cursorLine() == 2 && leftView.cursorColumn() == 1,
+			"edit in one pane did not transform the other pane's cursor");
+		application.root.activateLeaf(application.root.node.requireSecond());
 		var divider = application.root.node.requireFirst().x + application.root.node.requireFirst().width;
 		application.root.mouseDown(Platform.MOUSE_LEFT, divider + 1, 100);
 		application.root.mouseMove(520, 100);
