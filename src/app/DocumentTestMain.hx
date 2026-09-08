@@ -4,6 +4,7 @@ import editor.TextBuffer;
 import editor.Document;
 import editor.BufferPosition;
 import editor.BufferSelection;
+import editor.BufferReplacement;
 import syntax.HighlightToken;
 import syntax.BuiltinSyntax;
 import syntax.SyntaxRegistry;
@@ -99,6 +100,34 @@ class DocumentTestMain {
 		combiningSelection.setCursor(combining, new BufferPosition(0, 2));
 		combiningSelection.move(combining, -1);
 		require(combiningSelection.cursor.column == 1, "combining-mark scalar boundary policy changed");
+		var typing = new TextBuffer(), typingSelection = new BufferSelection();
+		typing.insert(typingSelection, "a", true);
+		typing.insert(typingSelection, "b", true);
+		typing.insert(typingSelection, "c", true);
+		require(typing.undo(typingSelection) && typing.text == "", "adjacent typing was not grouped into one undo");
+		require(typing.redo(typingSelection) && typing.text == "abc", "typing-group redo failed");
+		typing.undo(typingSelection);
+		typing.insert(typingSelection, "x", true);
+		require(!typing.redo(typingSelection), "new edit did not invalidate redo history");
+		typing.insert(typingSelection, "y", true);
+		typingSelection.move(typing, -1);
+		typingSelection.move(typing, 1);
+		typing.insert(typingSelection, "z", true);
+		require(typing.undo(typingSelection) && typing.text == "xy", "cursor movement did not end the typing group");
+		var transactional = new TextBuffer("abcdef"), transactionSelection = new BufferSelection(new BufferPosition(0, 3));
+		require(transactional.applyReplacements(transactionSelection, [
+			new BufferReplacement(new BufferPosition(0, 4), new BufferPosition(0, 5), "Y"),
+			new BufferReplacement(new BufferPosition(0, 1), new BufferPosition(0, 2), "X")
+		]) && transactional.text == "aXcdYf", "multi-replacement transaction failed");
+		require(transactional.undo(transactionSelection) && transactional.text == "abcdef"
+			&& transactionSelection.cursor.column == 3, "transaction undo did not restore text and initiating selection");
+		require(transactional.redo(transactionSelection) && transactional.text == "aXcdYf", "transaction redo failed");
+		var transactionState = transactional.stateId;
+		require(!transactional.applyReplacements(transactionSelection, [
+			new BufferReplacement(new BufferPosition(0, 1), new BufferPosition(0, 4), "bad"),
+			new BufferReplacement(new BufferPosition(0, 3), new BufferPosition(0, 5), "overlap")
+		]) && transactional.text == "aXcdYf" && transactional.stateId == transactionState,
+			"overlapping transaction was partially applied");
 		var document = new Document("unused", "clean", syntaxes), documentSelection = new BufferSelection();
 		document.insert(documentSelection, " edit");
 		require(document.dirty && document.buffer.text == " editclean", "document dirty state failed");

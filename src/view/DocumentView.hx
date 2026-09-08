@@ -58,7 +58,7 @@ class DocumentView extends View {
 		editor.setBounds(x, y, width, height);
 
 	override public function textInput(text:String):Void {
-		document.buffer.insert(editor.selection, text);
+		document.buffer.insert(editor.selection, text, text.indexOf("\n") < 0);
 		editor.cursorChanged();
 	}
 

@@ -21,12 +21,14 @@ class BufferSelection {
 		return cursor.before(anchor) ? anchor : cursor;
 
 	public function setCursor(buffer:TextBuffer, position:BufferPosition, extend:Bool = false):Void {
+		buffer.breakHistoryGroup();
 		cursor = buffer.positionAt(position.line, position.column);
 		if (!extend) anchor = cursor;
 		preferredColumn = -1;
 	}
 
-	public function restore(buffer:TextBuffer, cursor:BufferPosition, anchor:BufferPosition):Void {
+	public function restore(buffer:TextBuffer, cursor:BufferPosition, anchor:BufferPosition, breakHistoryGroup:Bool = true):Void {
+		if (breakHistoryGroup) buffer.breakHistoryGroup();
 		this.cursor = buffer.positionAt(cursor.line, cursor.column);
 		this.anchor = buffer.positionAt(anchor.line, anchor.column);
 		preferredColumn = -1;
@@ -60,8 +62,8 @@ class BufferSelection {
 	public function selectedText(buffer:TextBuffer):String
 		return hasSelection() ? buffer.textRange(start(), end()) : "";
 
-	public function collapse(buffer:TextBuffer, position:BufferPosition):Void
-		restore(buffer, position, position);
+	public function collapse(buffer:TextBuffer, position:BufferPosition, breakHistoryGroup:Bool = true):Void
+		restore(buffer, position, position, breakHistoryGroup);
 
 	public function transform(buffer:TextBuffer, change:BufferChange):Void {
 		var transformedCursor = change.transform(cursor), transformedAnchor = change.transform(anchor);

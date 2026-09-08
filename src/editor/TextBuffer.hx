@@ -6,8 +6,11 @@ class TextBuffer {
 	var nextListenerId:Int = 1;
 	public var stateId(default, null):Int = 0;
 	var nextStateId:Int = 1;
-	final undoStack:Array<BufferEdit> = [];
-	final redoStack:Array<BufferEdit> = [];
+	final undoStack:Array<BufferTransaction> = [];
+	final redoStack:Array<BufferTransaction> = [];
+	var historyGroupOpen:Bool = false;
+	final transactionEdits:Array<BufferEdit> = [];
+	var inTransaction:Bool = false;
 	public var text(get, never):String;
 
 	public function new(?text:String) {
@@ -34,9 +37,9 @@ class TextBuffer {
 	function releaseSubscription(id:Int):Void
 		changeListeners.remove(id);
 
-	public function insert(selection:BufferSelection, value:String):Bool {
+	public function insert(selection:BufferSelection, value:String, typing:Bool = false):Bool {
 		if (value.length == 0 && !selection.hasSelection()) return false;
-		return replace(selection, selection.start(), selection.end(), value);
+		return replace(selection, selection.start(), selection.end(), value, typing ? "typing" : "");
 	}
 
 	public function replaceRange(selection:BufferSelection, from:BufferPosition, to:BufferPosition, value:String):Bool
@@ -45,6 +48,45 @@ class TextBuffer {
 	public function replaceAllText(value:String, ?selection:BufferSelection):Bool {
 		var owner = selection == null ? new BufferSelection() : selection;
 		return replace(owner, new BufferPosition(0, 0), endPosition(), value);
+	}
+
+	/** Applies non-overlapping replacements from the end of the document as one undo unit. */
+	public function applyReplacements(selection:BufferSelection, replacements:Array<BufferReplacement>):Bool {
+		if (inTransaction || replacements.length == 0) return false;
+		var ordered:Array<BufferReplacement> = [];
+		for (replacement in replacements) {
+			var from = positionAt(replacement.from.line, replacement.from.column), to = positionAt(replacement.to.line, replacement.to.column);
+			if (to.before(from)) {
+				var swap = from;
+				from = to;
+				to = swap;
+			}
+			ordered.push(new BufferReplacement(from, to, replacement.text));
+		}
+		ordered.sort(function(left, right) {
+			var leftStart = positionAt(left.from.line, left.from.column), rightStart = positionAt(right.from.line, right.from.column);
+			if (leftStart.line != rightStart.line) return rightStart.line - leftStart.line;
+			return rightStart.column - leftStart.column;
+		});
+		for (index in 0...ordered.length - 1) {
+			var higherStart = positionAt(ordered[index].from.line, ordered[index].from.column),
+				lowerEnd = positionAt(ordered[index + 1].to.line, ordered[index + 1].to.column);
+			if (higherStart.before(lowerEnd)) return false;
+		}
+		breakHistoryGroup();
+		transactionEdits.resize(0);
+		inTransaction = true;
+		for (replacement in ordered)
+			replace(selection, replacement.from, replacement.to, replacement.text);
+		inTransaction = false;
+		var completed = transactionEdits.copy();
+		transactionEdits.resize(0);
+		if (completed.length == 0) return false;
+		var transaction = new BufferTransaction(completed[0], "");
+		for (index in 1...completed.length) transaction.edits.push(completed[index]);
+		undoStack.push(transaction);
+		redoStack.resize(0);
+		return true;
 	}
 
 	public function deleteBackward(selection:BufferSelection):Bool {
@@ -60,24 +102,37 @@ class TextBuffer {
 	}
 
 	public function undo(selection:BufferSelection):Bool {
-		var edit = undoStack.pop();
-		if (edit == null) return false;
-		replaceRaw(edit.start, advance(edit.start, edit.inserted), edit.removed, edit.stateAfter, edit.stateBefore);
-		selection.restore(this, edit.cursorBefore, edit.anchorBefore);
-		stateId = edit.stateBefore;
-		redoStack.push(edit);
+		if (undoStack.length == 0) return false;
+		var transaction = undoStack.pop();
+		if (transaction == null) return false;
+		var index = transaction.edits.length;
+		while (index > 0) {
+			index--;
+			var edit = transaction.edits[index];
+			replaceRaw(edit.start, advance(edit.start, edit.inserted), edit.removed, edit.stateAfter, edit.stateBefore);
+		}
+		selection.restore(this, transaction.cursorBefore, transaction.anchorBefore, false);
+		stateId = transaction.stateBefore;
+		redoStack.push(transaction);
+		historyGroupOpen = false;
 		return true;
 	}
 
 	public function redo(selection:BufferSelection):Bool {
-		var edit = redoStack.pop();
-		if (edit == null) return false;
-		replaceRaw(edit.start, advance(edit.start, edit.removed), edit.inserted, edit.stateBefore, edit.stateAfter);
-		selection.restore(this, edit.cursorAfter, edit.anchorAfter);
-		stateId = edit.stateAfter;
-		undoStack.push(edit);
+		if (redoStack.length == 0) return false;
+		var transaction = redoStack.pop();
+		if (transaction == null) return false;
+		for (edit in transaction.edits)
+			replaceRaw(edit.start, advance(edit.start, edit.removed), edit.inserted, edit.stateBefore, edit.stateAfter);
+		selection.restore(this, transaction.cursorAfter, transaction.anchorAfter, false);
+		stateId = transaction.stateAfter;
+		undoStack.push(transaction);
+		historyGroupOpen = false;
 		return true;
 	}
+
+	public function breakHistoryGroup():Void
+		historyGroupOpen = false;
 
 	public function positionAt(line:Int, column:Int):BufferPosition
 		return sanitize(new BufferPosition(line, column));
@@ -141,7 +196,7 @@ class TextBuffer {
 		return endPosition();
 	}
 
-	function replace(selection:BufferSelection, from:BufferPosition, to:BufferPosition, value:String):Bool {
+	function replace(selection:BufferSelection, from:BufferPosition, to:BufferPosition, value:String, group:String = ""):Bool {
 		var start = sanitize(from), end = sanitize(to);
 		if (end.before(start)) {
 			var swap = start;
@@ -152,10 +207,17 @@ class TextBuffer {
 		if (removed == value) return false;
 		var afterState = nextStateId++;
 		replaceRaw(start, end, value, beforeState, afterState);
-		selection.collapse(this, advance(start, value));
+		selection.collapse(this, advance(start, value), false);
 		stateId = afterState;
-		undoStack.push(new BufferEdit(start, removed, value, beforeCursor, beforeAnchor, selection.cursor, selection.anchor, beforeState, stateId));
-		redoStack.resize(0);
+		var edit = new BufferEdit(start, removed, value, beforeCursor, beforeAnchor, selection.cursor, selection.anchor, beforeState, stateId);
+		if (inTransaction) transactionEdits.push(edit);
+		else {
+			var previous = undoStack.length == 0 ? null : undoStack[undoStack.length - 1];
+			if (historyGroupOpen && previous != null && previous.canAppend(edit, group)) previous.edits.push(edit);
+			else undoStack.push(new BufferTransaction(edit, group));
+		}
+		historyGroupOpen = group.length > 0;
+		if (!inTransaction) redoStack.resize(0);
 		return true;
 	}
 
