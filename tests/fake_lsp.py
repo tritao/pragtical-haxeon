@@ -27,12 +27,48 @@ def send(message):
 
 
 held = None
+documents = {}
 while True:
     message = read_message()
     if message is None:
         break
     method = message.get("method")
-    if method == "hold":
+    if method == "initialize":
+        send({"jsonrpc": "2.0", "id": message["id"], "result": {"capabilities": {
+            "positionEncoding": "utf-16", "textDocumentSync": {"openClose": True, "change": 2},
+            "hoverProvider": True, "completionProvider": {}, "definitionProvider": True}}})
+    elif method == "initialized":
+        pass
+    elif method == "textDocument/didOpen":
+        item = message["params"]["textDocument"]
+        documents[item["uri"]] = item
+        send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {
+            "uri": item["uri"], "version": item["version"], "diagnostics": []}})
+    elif method == "textDocument/didChange":
+        item = message["params"]["textDocument"]
+        send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {
+            "uri": item["uri"], "version": item["version"] - 1, "diagnostics": [{"severity": 1,
+                "message": "stale", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 1}}}]}})
+        send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {
+            "uri": item["uri"], "version": item["version"], "diagnostics": [{"severity": 2,
+                "message": "current 😀", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 2}}}]}})
+        if message["params"]["contentChanges"][0]["text"] == "CRASH":
+            sys.exit(7)
+    elif method == "textDocument/didClose":
+        documents.pop(message["params"]["textDocument"]["uri"], None)
+    elif method == "textDocument/hover":
+        send({"jsonrpc": "2.0", "id": message["id"], "result": {"contents": {"kind": "markdown", "value": "hover 😀"}}})
+    elif method == "textDocument/completion":
+        send({"jsonrpc": "2.0", "id": message["id"], "result": {"items": [{"label": "completed", "detail": "fake", "insertText": "completion"}]}})
+    elif method == "textDocument/definition":
+        position = message["params"]["position"]
+        send({"jsonrpc": "2.0", "id": message["id"], "result": {"uri": message["params"]["textDocument"]["uri"],
+            "range": {"start": position, "end": position}}})
+    elif method == "shutdown":
+        send({"jsonrpc": "2.0", "id": message["id"], "result": None})
+    elif method == "exit":
+        break
+    elif method == "hold":
         held = message
     elif method == "fast":
         send({"jsonrpc": "2.0", "id": message["id"], "result": "Olá 😀"})
