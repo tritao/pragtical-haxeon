@@ -5,23 +5,29 @@ import command.CommandRegistry;
 import command.Keymap;
 import syntax.SyntaxDefinition;
 import syntax.SyntaxRegistry;
+import config.Settings;
+import jobs.JobScheduler;
 
 class PluginContext {
 	public final id:String;
 	public final editor:CommandContext;
+	public final api:EditorApi;
 	final commands:CommandRegistry;
 	final keymap:Keymap;
 	final syntaxes:SyntaxRegistry;
 	final commandNames:Array<String> = [];
 	final bindings:Array<PluginBinding> = [];
+	final owned:Array<Void->Void> = [];
 	var active:Bool = true;
 
-	public function new(id:String, commands:CommandRegistry, keymap:Keymap, editor:CommandContext, syntaxes:SyntaxRegistry) {
+	public function new(id:String, commands:CommandRegistry, keymap:Keymap, editor:CommandContext, syntaxes:SyntaxRegistry,
+			panels:PluginPanelRegistry, jobs:JobScheduler, settings:Void->Settings) {
 		this.id = id;
 		this.editor = editor;
 		this.commands = commands;
 		this.keymap = keymap;
 		this.syntaxes = syntaxes;
+		api = new EditorApi(id, editor, panels, jobs, settings, own);
 	}
 
 	public function addSyntax(definition:SyntaxDefinition):Void {
@@ -51,6 +57,12 @@ class PluginContext {
 
 	public function dispose():Void {
 		if (!active) return;
+		active = false;
+		var resourceIndex = owned.length;
+		while (resourceIndex > 0) {
+			resourceIndex--;
+			owned[resourceIndex]();
+		}
 		var index = bindings.length;
 		while (index > 0) {
 			index--;
@@ -62,7 +74,11 @@ class PluginContext {
 			commands.remove(name);
 		}
 		syntaxes.removeOwner(id);
-		active = false;
+	}
+
+	public function own(dispose:Void->Void):Void {
+		requireActive();
+		owned.push(dispose);
 	}
 
 	function requireActive():Void {

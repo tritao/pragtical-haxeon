@@ -4,19 +4,28 @@ import command.CommandContext;
 import command.CommandRegistry;
 import command.Keymap;
 import syntax.SyntaxRegistry;
+import config.Settings;
+import jobs.JobScheduler;
 
 class PluginManager {
 	final commands:CommandRegistry;
 	final keymap:Keymap;
 	final commandContext:CommandContext;
 	final syntaxes:SyntaxRegistry;
+	final panels:PluginPanelRegistry;
+	final jobs:JobScheduler;
+	final settings:Void->Settings;
 	final entries:Array<PluginEntry> = [];
 
-	public function new(commands:CommandRegistry, keymap:Keymap, commandContext:CommandContext, syntaxes:SyntaxRegistry) {
+	public function new(commands:CommandRegistry, keymap:Keymap, commandContext:CommandContext, syntaxes:SyntaxRegistry,
+			panels:PluginPanelRegistry, jobs:JobScheduler, settings:Void->Settings) {
 		this.commands = commands;
 		this.keymap = keymap;
 		this.commandContext = commandContext;
 		this.syntaxes = syntaxes;
+		this.panels = panels;
+		this.jobs = jobs;
+		this.settings = settings;
 	}
 
 	public function load(plugin:Plugin):Bool {
@@ -25,7 +34,7 @@ class PluginManager {
 			throw 'invalid plugin id "$id"';
 		if (indexOf(id) >= 0)
 			return false;
-		var context = new PluginContext(id, commands, keymap, commandContext, syntaxes);
+		var context = new PluginContext(id, commands, keymap, commandContext, syntaxes, panels, jobs, settings);
 		try {
 			plugin.activate(context);
 		} catch (error:Dynamic) {

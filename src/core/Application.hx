@@ -99,7 +99,7 @@ class Application {
 		workspaceSearch = new WorkspaceSearch(workspace, workspace.jobs, workspaceSearchChanged);
 		workspaceReplacement = new WorkspaceReplacement(workspace, new ReplacementBackupStore(ConfigurationPaths.replacementBackup()));
 		installSearchCommands();
-		plugins = new PluginManager(commands, keymap, context, syntaxes);
+		plugins = new PluginManager(commands, keymap, context, syntaxes, root.pluginPanels, workspace.jobs, effectiveSettings);
 		installConfigurationCommands();
 		installFileCommands();
 		commands.add("recovery:open", context -> openRecoveryCommandView());

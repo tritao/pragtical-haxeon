@@ -16,6 +16,7 @@ import feedback.NotificationCenter;
 import feedback.NotificationKind;
 import config.Settings;
 import platform.Native;
+import plugin.PluginPanelRegistry;
 
 class RootView {
 	public static inline final TAB_WIDTH = 180;
@@ -33,6 +34,7 @@ class RootView {
 	public var searchVisible(default, null):Bool = false;
 	public final notifications:NotificationCenter;
 	public final status:StatusView;
+	public final pluginPanels:PluginPanelRegistry;
 	public var sidebarVisible(default, null):Bool = true;
 	public var displayScaleMilli(default, null):Int;
 	public var closeRequest:Void->Void;
@@ -54,6 +56,7 @@ class RootView {
 		commandView = new CommandView();
 		notifications = new NotificationCenter();
 		status = new StatusView(renderer, theme, settings == null ? new Settings() : settings);
+		pluginPanels = new PluginPanelRegistry();
 		closeRequest = function() {};
 		this.width = width;
 		this.height = height;
@@ -292,6 +295,7 @@ class RootView {
 	public function draw():Void {
 		if (sidebarVisible) {
 			if (searchVisible) searchSidebar.draw(renderer, theme, height); else sidebar.draw(renderer, theme, height);
+			drawPluginPanels();
 		}
 		renderer.clip(0, 0, width, height);
 		drawNode(node);
@@ -310,6 +314,17 @@ class RootView {
 			renderer.text(8, notificationY + 5, notification.message, theme.caret);
 		}
 		status.draw(focus.activeView, width, height);
+	}
+
+	function drawPluginPanels():Void {
+		var panels = pluginPanels.panels(), y = height - StatusView.HEIGHT - panels.length * 44;
+		for (panel in panels) {
+			renderer.clip(0, y, sidebar.width, 44);
+			renderer.rect(0, y, sidebar.width, 44, theme.surfaceElevated);
+			renderer.text(10, y + 3, panel.title, theme.foregroundMuted);
+			renderer.text(10, y + 22, panel.text, theme.editorForeground);
+			y += 44;
+		}
 	}
 
 	public function showSearchResults(query:String, results:Array<SearchMatch>):Void {
