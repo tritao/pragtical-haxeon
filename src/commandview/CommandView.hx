@@ -101,7 +101,8 @@ class CommandView {
 	}
 
 	public function draw(renderer:Renderer, theme:Theme, windowWidth:Int, windowHeight:Int):Void {
-		if (!active || provider == null) return;
+		var current = provider;
+		if (!active || current == null) return;
 		var width = windowWidth - 80;
 		if (width > 640) width = 640;
 		if (width < 200) width = 200;
@@ -112,14 +113,14 @@ class CommandView {
 		renderer.rect(0, 0, windowWidth, windowHeight, theme.overlay);
 		renderer.rect(x - 2, y - 2, width + 4, height + 4, theme.border);
 		renderer.rect(x, y, width, 40, theme.surfaceElevated);
-		var inputX = x + 12, inputY = y + 11, promptWidth = renderer.textWidth(provider.prompt),
+		var inputX = x + 12, inputY = y + 11, promptWidth = renderer.textWidth(current.prompt),
 			selectionStart = input.selection.start().column, selectionEnd = input.selection.end().column;
 		if (selectionEnd > selectionStart) {
 			var selectionX = inputX + promptWidth + renderer.textWidth(query.substring(0, selectionStart)),
 				selectionWidth = renderer.textWidth(query.substring(selectionStart, selectionEnd));
 			renderer.rect(selectionX, y + 5, selectionWidth, 28, theme.selection);
 		}
-		renderer.text(inputX, inputY, provider.prompt + query, theme.caret);
+		renderer.text(inputX, inputY, current.prompt + query, theme.caret);
 		var caretX = inputX + promptWidth + renderer.textWidth(query.substring(0, input.selection.cursor.column));
 		renderer.rect(caretX, y + 7, 2, 24, theme.caret);
 		for (index in 0...visible) {

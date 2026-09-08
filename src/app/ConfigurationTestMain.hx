@@ -97,20 +97,22 @@ class ConfigurationTestMain {
 			"opening a project did not apply its layered settings");
 		File.saveContent(workspaceSettingsPath, "version=1\neditor.fontSize=23\ntheme.accent=765432\nfiles.exclude=.git,generated\n");
 		var activeProject = application.workspace.activeProject;
-		if (activeProject == null || activeProject.settings == null) throw "active project has no settings service";
-		activeProject.settings.reload();
+		if (activeProject == null) throw "active project has no settings service";
+		var projectSettings = activeProject.settings;
+		if (projectSettings == null) throw "active project has no settings service";
+		projectSettings.reload();
 		application.update();
 		require(renderer.fontSize == 23 && application.theme.accent == 765432,
 			"live project setting changes were not applied through the active layer");
-		var projectLastGood = activeProject.settings.current, errorsBeforeInvalidProject = application.errors.entries.length;
+		var projectLastGood = projectSettings.current, errorsBeforeInvalidProject = application.errors.entries.length;
 		File.saveContent(workspaceSettingsPath, "version=1\nrun=untrusted-project-code\n");
-		require(!activeProject.settings.reload() && activeProject.settings.current == projectLastGood,
+		require(!projectSettings.reload() && projectSettings.current == projectLastGood,
 			"project configuration was not treated as validated data");
 		application.update();
 		require(application.errors.entries.length > errorsBeforeInvalidProject,
 			"project configuration diagnostics were not visible in the editor");
 		File.saveContent(workspaceSettingsPath, "version=1\neditor.fontSize=23\ntheme.accent=765432\nfiles.exclude=.git,generated\n");
-		require(activeProject.settings.reload(), "valid project configuration did not recover after a diagnostic");
+		require(projectSettings.reload(), "valid project configuration did not recover after a diagnostic");
 		application.open(arguments[3]);
 		application.update();
 		require(renderer.fontSize == 16, "leaving the project did not restore user-layer settings");
