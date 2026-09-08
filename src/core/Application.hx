@@ -39,6 +39,7 @@ import feedback.NotificationKind;
 import completion.CompletionRegistry;
 import completion.DocumentWordCompletionProvider;
 import controller.SearchController;
+import controller.FileController;
 
 class Application {
 	public final documents:DocumentManager;
@@ -54,6 +55,7 @@ class Application {
 	public final completions:CompletionRegistry;
 	public final theme:Theme;
 	public final search:SearchController;
+	public final files:FileController;
 	public final searchOptions:SearchOptions;
 	public final workspaceSearch:WorkspaceSearch;
 	public final workspaceReplacement:WorkspaceReplacement;
@@ -69,11 +71,7 @@ class Application {
 	var appliedSettings:Null<Settings>;
 	var lastFileSystemCheck:Float = 0.0;
 	var lastConfigurationDiagnostics:String = "";
-	public var quitReady(default, null):Bool = false;
-	var closeDocuments:Array<Document> = [];
-	var closeIndex:Int = 0;
-	var closeAction:Null<Void->Bool>;
-	var closePending:Bool = false;
+	public var quitReady(get, never):Bool;
 
 	public function new(renderer:Renderer, width:Int, height:Int, ?settings:SettingsService) {
 		this.settings = settings == null ? new SettingsService() : settings;
@@ -103,11 +101,12 @@ class Application {
 		workspaceSearch = search.workspaceSearch;
 		workspaceReplacement = search.workspaceReplacement;
 		documentMatches = search.documentMatches;
+		files = new FileController(documents, workspace, fileOperations, root, context, commands, confirmations, recovery,
+			path -> { open(path); }, function() { newDocument(); }, function() { recovery.save(this); }, reportError, reportInformation);
 		plugins = new PluginManager(commands, keymap, context, syntaxes, completions, root.pluginPanels, workspace.jobs, effectiveSettings,
 			message -> reportError("plugin", message));
 		installPluginCommands();
 		installConfigurationCommands();
-		installFileCommands();
 		commands.add("recovery:open", context -> openRecoveryCommandView());
 		releaseSettings = this.settings.subscribe(applySettings);
 	}
@@ -361,190 +360,32 @@ class Application {
 		return value;
 	}
 
-	function installFileCommands():Void {
-		commands.add("doc:save", function(context) {
-			var document = context.requireDocument();
-			if (!document.hasBackingPath()) {
-				openSaveAs(document);
-				return;
-			}
-			if (!document.save()) {
-				reportError("file", 'Save blocked for "' + document.path + '": disk changed or write failed');
-				if (document.externalState != editor.ExternalState.Current) confirmOverwrite(document);
-			}
-			else recovery.forget(document);
-		}, context -> activeDocument() != null);
-		commands.add("file:new", context -> openCreateFile());
-		commands.add("doc:new", context -> newDocument());
-		commands.add("doc:save-as", context -> openSaveAs(context.requireDocument()), context -> activeDocument() != null);
-		commands.add("root:close", context -> requestCloseActiveTab(), context -> context.activeView() != null);
-		commands.add("root:close-pane", context -> requestCloseActivePane());
-		commands.add("folder:new", context -> openCreateFolder());
-		commands.add("file:rename", context -> openRenameFile(), context -> selectedFileOperationPath() != null);
-		commands.add("file:delete", context -> openDeleteFile(), context -> selectedFileOperationPath() != null);
-	}
-
 	public function requestCloseActiveTab():Bool
-		return beginClose(root.documentsLostByClosingActiveTab(), function() return root.closeActiveTab(true));
+		return files.requestCloseActiveTab();
 
-	public function requestCloseActivePane():Bool {
-		if (root.activeLeaf == root.node) return false;
-		return beginClose(root.documentsLostByClosingActivePane(), function() return root.closeActivePane(true));
-	}
+	public function requestCloseActivePane():Bool
+		return files.requestCloseActivePane();
 
-	public function requestQuit():Bool {
-		if (quitReady) return true;
-		var dirty:Array<Document> = [];
-		for (document in documents.documents) if (document.dirty && dirty.indexOf(document) < 0) dirty.push(document);
-		return beginClose(dirty, function() {
-			quitReady = true;
-			return true;
-		});
-	}
+	public function requestQuit():Bool
+		return files.requestQuit();
 
-	function beginClose(candidates:Array<Document>, action:Void->Bool):Bool {
-		if (closePending) return false;
-		closeDocuments.resize(0);
-		for (document in candidates) if (document.dirty && closeDocuments.indexOf(document) < 0) closeDocuments.push(document);
-		closeIndex = 0;
-		closeAction = action;
-		closePending = true;
-		continueClose();
-		return true;
-	}
+	function get_quitReady():Bool
+		return files.quitReady;
 
-	function continueClose():Void {
-		if (!closePending) return;
-		if (closeIndex >= closeDocuments.length) {
-			var action = closeAction;
-			closePending = false;
-			closeAction = null;
-			root.commandView.close();
-			if (action != null) action();
-			return;
-		}
-		var document = closeDocuments[closeIndex];
-		confirmations.choose('Save changes to "' + document.title + '"? Type save, discard, or cancel: ', ["save", "discard", "cancel"],
-			function(answer) {
-				if (answer == "cancel") cancelClose();
-				else if (answer == "discard") {
-						recovery.forget(document);
-						closeIndex++;
-						continueClose();
-				} else if (answer == "save") {
-						if (document.hasBackingPath()) {
-							if (!document.save()) {
-								reportError("file", 'Could not save "' + document.title + '"; close cancelled');
-								cancelClose();
-							} else {
-								recovery.forget(document);
-								closeIndex++;
-								continueClose();
-							}
-						} else openSaveAs(document, function() {
-							closeIndex++;
-							continueClose();
-						});
-				}
-			}, cancelClose);
-	}
+	public function openSaveAs(document:Document, ?onSuccess:Void->Void):Void
+		files.openSaveAs(document, onSuccess);
 
-	function cancelClose():Void {
-		closePending = false;
-		closeDocuments.resize(0);
-		closeAction = null;
-		root.commandView.close();
-	}
+	public function openCreateFile():Void
+		files.openCreateFile();
 
-	public function openSaveAs(document:Document, ?onSuccess:Void->Void):Void {
-		root.commandView.open(new CommandViewProvider("Save As: ", [], function(query) {}, function(entry, destination, backwards) {
-			if (documents.saveAs(document, destination)) {
-				root.documentRenamed(document);
-				recovery.forget(document);
-				root.commandView.close();
-				if (onSuccess != null) onSuccess();
-			} else if (workspace.fileSystem.exists(destination)) {
-				root.commandView.open(new CommandViewProvider('Type overwrite to replace "$destination": ', [], function(query) {},
-					function(entry, answer, backwards) {
-						if (answer == "overwrite" && documents.saveAs(document, destination, true)) {
-							root.documentRenamed(document);
-							recovery.forget(document);
-							root.commandView.close();
-							if (onSuccess != null) onSuccess();
-						}
-					}));
-			} else {
-				reportError("file", 'Could not save as "$destination"');
-				root.commandView.close();
-			}
-		}));
-	}
+	public function openCreateFolder():Void
+		files.openCreateFolder();
 
-	public function openCreateFile():Void {
-		root.commandView.open(new CommandViewProvider("New File: ", [], function(query) {}, function(entry, path, backwards) {
-			var result = fileOperations.createFile(path);
-			if (result.success) {
-				workspace.refreshProjects();
-				if (result.destination != null) open(result.destination);
-			} else reportError("file", 'Could not create file "$path": ' + result.detail);
-			root.commandView.close();
-		}));
-	}
+	public function openRenameFile():Void
+		files.openRenameFile();
 
-	function confirmOverwrite(document:Document):Void {
-		confirmations.choose("Disk changed. Type overwrite to save, or Escape to cancel: ", ["overwrite"], function(answer) {
-			if (document.save(true)) {
-				recovery.forget(document);
-				reportInformation("Saved " + document.path);
-			} else reportError("file", "Could not save " + document.path);
-			root.commandView.close();
-		});
-	}
-
-	public function openCreateFolder():Void {
-		root.commandView.open(new CommandViewProvider("New Folder: ", [], function(query) {}, function(entry, path, backwards) {
-			var result = fileOperations.createFolder(path);
-			if (!result.success) reportError("file", 'Could not create folder "$path": ' + result.detail);
-			workspace.refreshProjects();
-			root.commandView.close();
-		}));
-	}
-
-	public function openRenameFile():Void {
-		var source = selectedFileOperationPath();
-		if (source == null) return;
-		root.commandView.open(new CommandViewProvider("Rename/Move: ", [], function(query) {}, function(entry, destination, backwards) {
-			var result = fileOperations.move(source, destination);
-			if (!result.success) reportError("file", 'Could not rename "$source": ' + result.detail); else
-				for (document in result.documents) root.documentRenamed(document);
-			workspace.refreshProjects();
-			root.commandView.close();
-		}));
-	}
-
-	public function openDeleteFile():Void {
-		var path = selectedFileOperationPath();
-		if (path == null) return;
-		confirmations.choose('Type delete to remove "' + path + '": ', ["delete"], function(answer) {
-			var result = fileOperations.remove(path);
-			if (result.success) {
-				for (document in result.documents) root.documentRenamed(document);
-				recovery.save(this);
-				reportInformation('Moved "$path" to ' + result.destination);
-				workspace.refreshProjects();
-			} else reportError("file", 'Could not safely delete "$path": ' + result.detail);
-			root.commandView.close();
-		});
-	}
-
-	function selectedFileOperationPath():Null<String> {
-		if (!root.searchVisible) {
-			var node = root.sidebar.activeNode();
-			if (node != null) return node.path;
-		}
-		var document = activeDocument();
-		return document == null || !document.hasBackingPath() ? null : document.requirePath();
-	}
+	public function openDeleteFile():Void
+		files.openDeleteFile();
 
 	public function openSettingsCommandView():Void {
 		var value = effectiveSettings(), entries = [
