@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M4.1, cancellable scheduling and a shared incremental project index.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4 and M3.1–M3.3.
+- Active task: M4.2, cancellable streaming search and safe project replacement.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3 and M4.1.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: introduce the bounded job scheduler and move project enumeration to
-  a shared, generation-checked index consumed by the tree, picker and search.
-- Editor HEAD: `73517b6`. Haxeon HEAD observed: `496f811`.
+- Next action: move workspace search onto cancellable generations with bounded
+  streaming, dirty-buffer precedence, file classification and richer options.
+- Editor HEAD: `11dcc5c`. Haxeon HEAD observed: `496f811`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -20,7 +20,7 @@ Last updated: 2026-09-08.
 | M1 | Complete headlessly | Stable pathless identity, atomic persistence, Save As, unified close/quit, external conflicts and bounded recovery pass; graphical prompt smoke remains in the M0.3 manual route |
 | M2 | Complete headlessly | Everyday editing, clipboard/navigation, coding transformations and normalized multiple selections pass; graphical keyboard/mouse smoke remains in M0.3 |
 | M3 | Complete headlessly | Reusable command input, pane/tab/sidebar navigation, logical-point DPI routing, status, bounded feedback, error inspection and centralized UI roles pass; interactive M0.3 smoke remains |
-| M4 | Partial foundation | Bounded polling, multi-root search, file operations and sessions exist; scheduling/scale and replacement remain |
+| M4 | In progress | M4.1 complete; streaming search/replacement and remaining session/file-operation safety are next |
 | M5 | Partial foundation | Layered typed settings and plugin reload exist; subscriptions and stable editor API remain |
 | M6 | Pending | Development workflow |
 | M7 | Pending | Packaging, performance and platform checks |
@@ -143,6 +143,23 @@ Last updated: 2026-09-08.
 - `73517b6` covers bounded retention, plugin diagnostics, status transitions,
   Escape cancellation/re-entry and the inspectable log. `./scripts/test.sh` and
   `./scripts/build-sdl.sh` both exited 0 at that editor HEAD.
+
+### M4.1 — scheduling and project index
+
+- `970aee6` introduces a cooperative round-robin scheduler with stable job IDs,
+  replacement generations, stale-handle rejection, cancellation and an exact
+  per-update step budget. `76a301a` moves project enumeration and bounded polling
+  onto those jobs and gives the tree, file picker and search one indexed file set.
+- Scans publish the initial tree incrementally and publish later reconciliations
+  only from the current generation. Exclusions apply before descent; canonical
+  directory identities prevent the benchmark's symlink cycle from recurring.
+  Removing a project cancels its scan and retired state rejects later publication.
+- `11dcc5c` adds `scripts/benchmark-project-index.sh`. On 2026-09-08, a 10,000-file
+  fixture (100 directories × 100 files plus a root symlink cycle) completed in
+  100 one-directory updates, with 100 simulated input-service ticks and a maximum
+  observed update of 40.499 ms on an Intel Core i5-13600K with 31 GiB RAM.
+- The full headless suite and SDL artifact build passed at `76a301a`; the dedicated
+  benchmark passed at `11dcc5c` including cancel/reopen stale-result checks.
 
 ## Previously delivered roadmap foundations
 

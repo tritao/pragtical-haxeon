@@ -5,12 +5,12 @@ sidebars, Application update loop and platform services as needed.
 
 ## M4.1 — Scheduling and project index
 
-- [ ] Introduce cancellable jobs with stable IDs, generations and bounded work per
+- [x] Introduce cancellable jobs with stable IDs, generations and bounded work per
   update. Keep editor mutation on its owning thread. Start cooperatively where
   adequate; blocking I/O needs a worker/native service when measurements require it.
-- [ ] Share an index between tree, file picker and search. Incrementally enumerate
+- [x] Share an index between tree, file picker and search. Incrementally enumerate
   directories; publish batches; enforce exclusion rules and symlink-cycle safety.
-- [ ] Add change watching or a bounded polling fallback, refresh and reconciliation.
+- [x] Add change watching or a bounded polling fallback, refresh and reconciliation.
   Retire jobs when projects close; ignore stale completion events.
 
 Acceptance: a disposable 10,000-file tree indexes while input events are serviced;
