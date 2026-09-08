@@ -53,6 +53,7 @@ class LanguageServiceClient {
 		var session = new JsonRpcTransport(process);
 		transport = session;
 		session.notification = receiveNotification;
+		session.serverRequest = receiveServerRequest;
 		session.failed = message -> scheduleRestart(Sys.time(), message);
 		status = "initializing";
 		session.request("initialize", {
@@ -121,16 +122,42 @@ class LanguageServiceClient {
 
 	public function applyWorkspaceEdits(document:Document, expectedRevision:Int, edits:Array<Dynamic>, selection:BufferSelection):Bool {
 		if (document.buffer.stateId != expectedRevision) return false;
+		var replacements = parseWorkspaceEdits(document, edits);
+		return replacements != null && document.buffer.applyReplacements(selection, replacements);
+	}
+
+	function parseWorkspaceEdits(document:Document, edits:Array<Dynamic>):Null<Array<BufferReplacement>> {
 		var replacements:Array<BufferReplacement> = [];
 		for (edit in edits) {
 			var range:Dynamic = Reflect.field(edit, "range"), text:Dynamic = Reflect.field(edit, "newText");
-			if (range == null || text == null) return false;
+			if (range == null || text == null) return null;
 			var from = LspPositionCodec.decode(document.buffer, Reflect.field(range, "start")),
 				to = LspPositionCodec.decode(document.buffer, Reflect.field(range, "end"));
-			if (from == null || to == null || to.before(from)) return false;
+			if (from == null || to == null || to.before(from)) return null;
 			replacements.push(new BufferReplacement(from, to, Std.string(text)));
 		}
-		return document.buffer.applyReplacements(selection, replacements);
+		return replacements;
+	}
+
+	function receiveServerRequest(method:String, params:Dynamic):JsonRpcResponse {
+		if (method != "workspace/applyEdit") return new JsonRpcResponse(null, "Method not found");
+		var edit:Dynamic = params == null ? null : Reflect.field(params, "edit"), changes:Dynamic = edit == null ? null : Reflect.field(edit, "documentChanges");
+		if (!Std.isOfType(changes, Array)) return new JsonRpcResponse({applied: false, failureReason: "documentChanges is required"});
+		var plans:Array<{document:Document, revision:Int, replacements:Array<BufferReplacement>}> = [];
+		for (change in cast(changes, Array<Dynamic>)) {
+			var textDocument:Dynamic = Reflect.field(change, "textDocument"), rawEdits:Dynamic = Reflect.field(change, "edits"), rawUri:Dynamic = textDocument == null ? null : Reflect.field(textDocument, "uri");
+			if (rawUri == null || !Std.isOfType(rawEdits, Array)) return new JsonRpcResponse({applied: false, failureReason: "invalid text document edit"});
+			var state = stateForUri(Std.string(rawUri)), version:Dynamic = Reflect.field(textDocument, "version");
+			if (state == null || version != null && Std.parseInt(Std.string(version)) != state.version)
+				return new JsonRpcResponse({applied: false, failureReason: "document version conflict"});
+			var replacements = parseWorkspaceEdits(state.document, cast rawEdits);
+			if (replacements == null) return new JsonRpcResponse({applied: false, failureReason: "workspace edit validation failed"});
+			plans.push({document: state.document, revision: state.document.buffer.stateId, replacements: replacements});
+		}
+		for (plan in plans)
+			if (plan.document.buffer.stateId != plan.revision || !plan.document.buffer.applyReplacements(new BufferSelection(), plan.replacements))
+				return new JsonRpcResponse({applied: false, failureReason: "workspace edit validation failed"});
+		return new JsonRpcResponse({applied: true});
 	}
 
 	public function diagnosticsFor(document:Document):Array<LanguageDiagnostic> {

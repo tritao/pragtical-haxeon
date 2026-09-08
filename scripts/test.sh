@@ -65,6 +65,16 @@ mkdir -p "$language_project"
 )
 
 "$root_dir/scripts/haxeon-compile.sh" \
+	--output="$root_dir/out/language-controller-test.hl" --entry=app.LanguageControllerTestMain \
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
+(
+	cd "$root_dir/out"
+	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+		"$haxeon_root/vendor/hashlink/hl" language-controller-test.hl "$root_dir/tests/fake_lsp.py" "$language_project"
+)
+
+"$root_dir/scripts/haxeon-compile.sh" \
 	--output="$root_dir/out/build-task-smoke.hl" --entry=app.BuildTaskSmokeMain \
 	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
 	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"

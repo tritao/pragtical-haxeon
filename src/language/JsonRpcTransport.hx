@@ -16,6 +16,9 @@ class JsonRpcTransport {
 	public final frameLimit:Int;
 	public final queueLimit:Int;
 	public var notification:(String, Dynamic)->Void = function(method, params) {};
+	public var serverRequest:(String, Dynamic)->JsonRpcResponse = function(method, params) {
+		return new JsonRpcResponse(null, "Method not found");
+	};
 	public var failed:String->Void = function(message) {};
 	public var failure(default, null):Null<String>;
 	public var stderr(default, null):String = "";
@@ -167,7 +170,11 @@ class JsonRpcTransport {
 		var method:Null<String> = methodValue == null ? null : cast(methodValue, String);
 		if (method != null) {
 			if (rawId == null) notification(method, Reflect.field(message, "params"));
-			else enqueue({jsonrpc: "2.0", id: rawId, error: {code: -32601, message: "Method not found"}});
+			else {
+				var response = serverRequest(method, Reflect.field(message, "params"));
+				if (response.error == null) enqueue({jsonrpc: "2.0", id: rawId, result: response.result});
+				else enqueue({jsonrpc: "2.0", id: rawId, error: {code: -32602, message: response.error}});
+			}
 			return;
 		}
 		if (rawId == null) return;

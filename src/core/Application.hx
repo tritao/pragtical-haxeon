@@ -39,6 +39,7 @@ import controller.SessionController;
 import controller.WorkbenchController;
 import process.ProcessManager;
 import controller.BuildController;
+import controller.LanguageController;
 
 class Application {
 	public final documents:DocumentManager;
@@ -61,6 +62,7 @@ class Application {
 	public final workbench:WorkbenchController;
 	public final processes:ProcessManager;
 	public final build:BuildController;
+	public final language:LanguageController;
 	public final searchOptions:SearchOptions;
 	public final workspaceSearch:WorkspaceSearch;
 	public final workspaceReplacement:WorkspaceReplacement;
@@ -113,6 +115,9 @@ class Application {
 		workbench = new WorkbenchController(workspace, root, commands, keymap, context, completions, errors, search,
 			path -> { open(path); });
 		build = new BuildController(workspace, root, context, commands, processes, path -> open(path), reportError);
+		var haxeonRoot = Sys.getEnv("HAXEON_ROOT");
+		if (haxeonRoot == null || haxeonRoot.length == 0) haxeonRoot = "../realtime-haxe";
+		language = new LanguageController(workspace, root, context, commands, processes, haxeonRoot + "/scripts/haxeon-lsp", reportError);
 	}
 
 	public function open(path:String):View
@@ -233,6 +238,7 @@ class Application {
 		session.update(now);
 		pluginController.update(now);
 		build.update();
+		language.update(now);
 	}
 
 	function effectiveSettings():Settings
@@ -250,6 +256,7 @@ class Application {
 		configuration.shutdown();
 		pluginController.shutdown();
 		build.shutdown();
+		language.shutdown();
 		processes.shutdown();
 		session.shutdown();
 	}
