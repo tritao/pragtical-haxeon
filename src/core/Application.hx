@@ -21,12 +21,10 @@ import sys.FileSystem;
 import commandview.CommandViewEntry;
 import commandview.CommandViewProvider;
 import platform.Platform;
-import search.DocumentSearch;
 import search.SearchMatch;
 import search.SearchOptions;
 import search.WorkspaceSearch;
 import search.WorkspaceReplacement;
-import search.ReplacementBackupStore;
 import search.ReplacementPreview;
 import search.ReplacementResult;
 import command.KeyBinding;
@@ -40,6 +38,7 @@ import feedback.ConfirmationService;
 import feedback.NotificationKind;
 import completion.CompletionRegistry;
 import completion.DocumentWordCompletionProvider;
+import controller.SearchController;
 
 class Application {
 	public final documents:DocumentManager;
@@ -54,20 +53,18 @@ class Application {
 	public final syntaxes:SyntaxRegistry;
 	public final completions:CompletionRegistry;
 	public final theme:Theme;
+	public final search:SearchController;
 	public final searchOptions:SearchOptions;
 	public final workspaceSearch:WorkspaceSearch;
 	public final workspaceReplacement:WorkspaceReplacement;
-	public var replacementPreview(default, null):Null<ReplacementPreview>;
-	public var replacementResult(default, null):Null<ReplacementResult>;
+	public var replacementPreview(get, never):Null<ReplacementPreview>;
+	public var replacementResult(get, never):Null<ReplacementResult>;
 	public final settings:SettingsService;
 	public final recovery:RecoveryStore;
 	public final errors:ErrorLog;
 	public final confirmations:ConfirmationService;
-	public final documentMatches:Array<SearchMatch> = [];
-	public var documentSearchQuery(default, null):String = "";
-	var documentMatchIndex:Int = -1;
-	var documentSearchDocument:Null<Document>;
-	var documentSearchRevision:Int = -1;
+	public final documentMatches:Array<SearchMatch>;
+	public var documentSearchQuery(get, never):String;
 	var releaseSettings:Void->Void;
 	var appliedSettings:Null<Settings>;
 	var lastFileSystemCheck:Float = 0.0;
@@ -100,10 +97,12 @@ class Application {
 		keymap = new Keymap(commands);
 		context = new CommandContext(root, focus, documents);
 		EditorCommands.install(commands, keymap);
-		searchOptions = new SearchOptions();
-		workspaceSearch = new WorkspaceSearch(workspace, workspace.jobs, workspaceSearchChanged);
-		workspaceReplacement = new WorkspaceReplacement(workspace, new ReplacementBackupStore(ConfigurationPaths.replacementBackup()));
-		installSearchCommands();
+		search = new SearchController(workspace, root, context, commands, keymap, confirmations, effectiveSettings, reportError,
+			reportInformation, ConfigurationPaths.replacementBackup());
+		searchOptions = search.options;
+		workspaceSearch = search.workspaceSearch;
+		workspaceReplacement = search.workspaceReplacement;
+		documentMatches = search.documentMatches;
 		plugins = new PluginManager(commands, keymap, context, syntaxes, completions, root.pluginPanels, workspace.jobs, effectiveSettings,
 			message -> reportError("plugin", message));
 		installPluginCommands();
@@ -149,7 +148,7 @@ class Application {
 		var handled = keymap.onKeyPressed(key, modifiers, context);
 		if (handled)
 			root.cursorChanged();
-		if (handled && documentSearchQuery.length > 0) ensureDocumentSearchFresh();
+		if (handled) search.editorStateChanged();
 		return handled;
 	}
 
@@ -157,7 +156,7 @@ class Application {
 		if (root.commandView.active) root.commandView.textInput(text);
 		else {
 			root.textInput(text);
-			if (documentSearchQuery.length > 0) ensureDocumentSearchFresh();
+			search.editorStateChanged();
 		}
 	}
 
@@ -211,148 +210,33 @@ class Application {
 	}
 
 	public function openDocumentFind():Void {
-		if (context.activeView() == null || context.activeView().getDocument() == null) return;
-		root.commandView.open(new CommandViewProvider("Find: ", [], refreshDocumentSearch, function(entry, query, backwards) {
-			navigateDocumentMatch(backwards ? -1 : 1);
-		}, function() {
-			root.setDocumentSearchMatches([]);
-		}, navigateDocumentMatch));
+		search.openDocumentFind();
 	}
 
 	public function openWorkspaceFind():Void {
-		root.commandView.open(new CommandViewProvider("Search: ", [], function(query) {
-			workspaceSearch.request(query, searchOptions, effectiveSettings().searchMaxResults);
-		}, function(entry, query, backwards) {
-			if (backwards) root.searchMove(-1);
-			root.searchActivate();
-			root.commandView.close();
-		}, function() {
-			workspaceSearch.cancel();
-		}, function(delta) {
-			root.searchMove(delta);
-		}));
+		search.openWorkspaceFind();
 	}
 
-	function workspaceSearchChanged():Void {
-		root.showSearchResults(workspaceSearch.query, workspaceSearch.results);
-		root.searchSidebar.setStatus(workspaceSearch.complete, workspaceSearch.capped, workspaceSearch.errors.length);
-	}
+	public function previewWorkspaceReplacement(replacement:String):Bool
+		return search.previewWorkspaceReplacement(replacement);
 
-	public function previewWorkspaceReplacement(replacement:String):Bool {
-		try {
-			replacementPreview = workspaceReplacement.preview(workspaceSearch, replacement);
-			return true;
-		} catch (error:Dynamic) {
-			reportError("search", 'Could not preview replacement: ' + Std.string(error));
-			return false;
-		}
-	}
+	public function applyWorkspaceReplacement():Bool
+		return search.applyWorkspaceReplacement();
 
-	public function applyWorkspaceReplacement():Bool {
-		var preview = replacementPreview;
-		if (preview == null) return false;
-		try {
-			var result = workspaceReplacement.apply(preview);
-			replacementResult = result;
-			replacementPreview = null;
-			reportInformation('Replaced ${result.appliedMatches} matches in ${result.appliedFiles} files; '
-				+ '${result.conflicts} conflicts, ${result.failures} failures');
-			return result.failures == 0 && result.conflicts == 0;
-		} catch (error:Dynamic) {
-			reportError("search", 'Could not apply replacement: ' + Std.string(error));
-			return false;
-		}
-	}
+	public function replaceCurrent(replacement:String):Bool
+		return search.replaceCurrent(replacement);
 
-	function openWorkspaceReplace():Void {
-		root.commandView.open(new CommandViewProvider("Replace in Projects: ", [], function(query) {}, function(entry, replacement, backwards) {
-			if (!previewWorkspaceReplacement(replacement)) return;
-			var preview = replacementPreview;
-			if (preview == null) return;
-			confirmations.choose('Preview: ${preview.matchCount} matches in ${preview.files.length} files. Type apply to continue: ', ["apply"],
-				function(answer) {
-					applyWorkspaceReplacement();
-					root.commandView.close();
-				}, function() {
-					replacementPreview = null;
-				});
-		}));
-	}
+	public function replaceAll(replacement:String):Int
+		return search.replaceAll(replacement);
 
-	function restoreLastWorkspaceReplacement():Void {
-		confirmations.choose("Restore the latest disk replacement backup file by file? Type restore: ", ["restore"], function(answer) {
-			var result = workspaceReplacement.restoreLastBackup();
-			replacementResult = result;
-			reportInformation('Restored ${result.appliedFiles} files; ${result.conflicts} conflicts, ${result.failures} failures');
-			root.commandView.close();
-		});
-	}
+	function get_replacementPreview():Null<ReplacementPreview>
+		return search.replacementPreview;
 
-	public function replaceCurrent(replacement:String):Bool {
-		var document = activeDocument(), match = currentDocumentMatch(), selection = activeSelection();
-		if (document == null || match == null || selection == null) return false;
-		if (!DocumentSearch.replaceCurrent(document, selection, match, replacement)) return false;
-		refreshDocumentSearch(documentSearchQuery);
-		return true;
-	}
+	function get_replacementResult():Null<ReplacementResult>
+		return search.replacementResult;
 
-	public function replaceAll(replacement:String):Int {
-		var document = activeDocument(), selection = activeSelection();
-		if (document == null || selection == null) return 0;
-		var count = DocumentSearch.replaceAll(document, selection, documentSearchQuery, replacement, searchOptions);
-		refreshDocumentSearch(documentSearchQuery);
-		return count;
-	}
-
-	function openReplace(all:Bool):Void {
-		if (documentSearchQuery.length == 0) {
-			openDocumentFind();
-			return;
-		}
-		root.commandView.open(new CommandViewProvider(all ? "Replace All: " : "Replace: ", [], function(query) {}, function(entry, replacement, backwards) {
-			if (all) replaceAll(replacement); else replaceCurrent(replacement);
-			root.commandView.close();
-		}));
-	}
-
-	function refreshDocumentSearch(query:String):Void {
-		documentSearchQuery = query;
-		documentMatches.resize(0);
-		var document = activeDocument();
-		documentSearchDocument = document;
-		documentSearchRevision = document == null ? -1 : document.buffer.stateId;
-		if (document != null)
-			try {
-				for (match in DocumentSearch.find(document, query, searchOptions)) documentMatches.push(match);
-			} catch (error:Dynamic) {
-				reportError("search", 'Invalid search pattern: ' + Std.string(error));
-			}
-		documentMatchIndex = documentMatches.length == 0 ? -1 : 0;
-		root.setDocumentSearchMatches(documentMatches);
-		if (documentMatchIndex >= 0) selectDocumentMatch();
-	}
-
-	function navigateDocumentMatch(delta:Int):Void {
-		ensureDocumentSearchFresh();
-		if (documentMatches.length == 0) return;
-		documentMatchIndex += delta;
-		if (documentMatchIndex < 0) documentMatchIndex = documentMatches.length - 1;
-		if (documentMatchIndex >= documentMatches.length) documentMatchIndex = 0;
-		selectDocumentMatch();
-	}
-
-	function selectDocumentMatch():Void {
-		var document = activeDocument(), match = currentDocumentMatch(), selection = activeSelection();
-		if (document != null && match != null && selection != null) {
-			if (DocumentSearch.select(document, selection, match)) root.cursorChanged();
-		}
-	}
-
-	function ensureDocumentSearchFresh():Void {
-		var document = activeDocument();
-		if (document != documentSearchDocument || document != null && document.buffer.stateId != documentSearchRevision)
-			refreshDocumentSearch(documentSearchQuery);
-	}
+	function get_documentSearchQuery():String
+		return search.documentSearchQuery;
 
 	function activeDocument():Null<Document> {
 		var view = context.activeView();
@@ -360,63 +244,8 @@ class Application {
 	}
 
 	function activeSelection():Null<editor.BufferSelection> {
-		var current = context.activeView();
-		return current == null ? null : current.getSelection();
-	}
-
-	function currentDocumentMatch():Null<SearchMatch>
-		return documentMatchIndex < 0 || documentMatchIndex >= documentMatches.length ? null : documentMatches[documentMatchIndex];
-
-	function installSearchCommands():Void {
-		var hasDocument = (context:CommandContext) -> context.activeView() != null && context.activeView().getDocument() != null;
-		commands.add("find:open", function(context) {
-			openDocumentFind();
-		}, hasDocument);
-		commands.add("find:next", function(context) {
-			navigateDocumentMatch(1);
-		}, hasDocument);
-		commands.add("find:previous", function(context) {
-			navigateDocumentMatch(-1);
-		}, hasDocument);
-		commands.add("find:replace", function(context) {
-			openReplace(false);
-		}, hasDocument);
-		commands.add("find:replace-all", function(context) {
-			openReplace(true);
-		}, hasDocument);
-		commands.add("find:toggle-case-sensitive", function(context) {
-			searchOptions.caseSensitive = !searchOptions.caseSensitive;
-			refreshDocumentSearch(documentSearchQuery);
-		}, hasDocument);
-		commands.add("find:toggle-whole-word", function(context) {
-			searchOptions.wholeWord = !searchOptions.wholeWord;
-			refreshDocumentSearch(documentSearchQuery);
-		}, hasDocument);
-		commands.add("find:toggle-regular-expression", function(context) {
-			searchOptions.regularExpression = !searchOptions.regularExpression;
-			refreshDocumentSearch(documentSearchQuery);
-		}, hasDocument);
-		commands.add("workspace:search", function(context) {
-			openWorkspaceFind();
-		});
-		commands.add("workspace:search-next", function(context) {
-			root.searchMove(1);
-		});
-		commands.add("workspace:search-previous", function(context) {
-			root.searchMove(-1);
-		});
-		commands.add("workspace:replace", function(context) {
-			openWorkspaceReplace();
-		}, context -> workspaceSearch.complete && !workspaceSearch.capped && workspaceSearch.results.length > 0);
-		commands.add("workspace:restore-last-replacement", function(context) {
-			restoreLastWorkspaceReplacement();
-		});
-		commands.add("project:show-sidebar", function(context) {
-			root.showProjectSidebar();
-		});
-		keymap.addDirect(Platform.KEY_F, Platform.MOD_CTRL, ["find:open"]);
-		keymap.addDirect(Platform.KEY_F, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["workspace:search"]);
-		keymap.addDirect(Platform.KEY_H, Platform.MOD_CTRL, ["find:replace"]);
+		var view = context.activeView();
+		return view == null ? null : view.getSelection();
 	}
 
 	function installConfigurationCommands():Void {
@@ -806,8 +635,7 @@ class Application {
 		theme.error = value.error;
 		theme.scrollbar = value.scrollbar;
 		root.status.applySettings(value);
-		searchOptions.caseSensitive = value.searchCaseSensitive;
-		searchOptions.wholeWord = value.searchWholeWord;
+		search.applySettings(value);
 		root.setSidebarWidth(value.sidebarWidth);
 		keymap.setConfigured([for (binding in value.keybindings) new KeyBinding(binding.key, binding.modifiers, binding.commands)]);
 		if (!root.renderer.reloadFont(value.fontPath, value.fontSize)) {
@@ -828,7 +656,7 @@ class Application {
 	public function update():Void {
 		var now = Sys.time();
 		settings.reload();
-		workspaceSearch.update(now);
+		search.update(now);
 		workspace.jobs.update(32);
 		if (now - lastFileSystemCheck >= 1.0) {
 			lastFileSystemCheck = now;
