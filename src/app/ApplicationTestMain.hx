@@ -34,6 +34,10 @@ class ApplicationTestMain {
 		for (index in 0...220) application.errors.record("test", "error " + index);
 		require(application.errors.entries.length == 200 && application.errors.entries[0].message == "error 20",
 			"error-log retention was not bounded");
+		var missingPluginLoaded = application.loadPluginManifest("/missing/plugin.conf"), pluginNotification = application.root.notifications.current();
+		require(!missingPluginLoaded && application.errors.entries[199].source == "plugin"
+			&& pluginNotification != null && pluginNotification.kind == feedback.NotificationKind.Error,
+			"plugin failure did not reach the error log and notification center");
 		application.openErrorLog();
 		require(application.root.commandView.active && application.root.commandView.results.length == 200,
 			"error log was not inspectable through command input");
@@ -50,6 +54,9 @@ class ApplicationTestMain {
 		require(application.focus.activeView == secondView, "new tab did not receive focus");
 		application.commands.perform("doc:newline", application.context);
 		require(second.buffer.text == "\ntwo" && first.buffer.text == "one", "command did not target active document");
+		require(application.root.status.text(secondView).indexOf("* second") >= 0
+			&& application.root.status.text(secondView).indexOf("Ln 2") >= 0,
+			"status did not update dirty state and caret position");
 		var clipboardView = application.root.tabs.activeView;
 		if (clipboardView == null) throw "clipboard test has no active view";
 		require(Native.clipboard_set("Olá\r\n😀"), "headless clipboard write failed");
@@ -98,6 +105,11 @@ class ApplicationTestMain {
 		require(first.buffer.text == "\none", "command context captured the wrong document");
 		application.root.mouseDown(Platform.MOUSE_LEFT, application.root.activeLeaf.x + view.RootView.TAB_WIDTH - 5, 10);
 		require(application.root.commandView.active, "tab close control bypassed the dirty-document coordinator");
+		application.keyPressed(Platform.KEY_ESCAPE, 0);
+		require(!application.root.commandView.active && application.documents.documents.indexOf(first) >= 0,
+			"Escape did not cancel the close transaction");
+		application.root.mouseDown(Platform.MOUSE_LEFT, application.root.activeLeaf.x + view.RootView.TAB_WIDTH - 5, 10);
+		require(application.root.commandView.active, "close coordinator remained pending after Escape cancellation");
 		application.textInput("cancel");
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(application.documents.documents.indexOf(first) >= 0, "cancelled document close released the document");
