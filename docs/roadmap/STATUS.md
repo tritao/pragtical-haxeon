@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M5.3, reliable dynamic-plugin reload and editor controls.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3 and M5.1–M5.2.
+- Active task: M6.1, syntax presentation, visual-line mapping and basic completion.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3 and M5.1–M5.3.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: move dynamic-plugin refresh onto debounced change detection and make
-  compatible and structural publication transactional across failure paths.
-- Editor HEAD: `fe5216f`. Haxeon HEAD observed: `bf4166f`.
+- Next action: expand reference-backed multiline syntax definitions, then add
+  bracket matching and an explicit wrapped/folded visual-line map.
+- Editor HEAD: `c36783a`. Haxeon HEAD observed: `d3ab07b`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -21,7 +21,7 @@ Last updated: 2026-09-08.
 | M2 | Complete headlessly | Everyday editing, clipboard/navigation, coding transformations and normalized multiple selections pass; graphical keyboard/mouse smoke remains in M0.3 |
 | M3 | Complete headlessly | Reusable command input, pane/tab/sidebar navigation, logical-point DPI routing, status, bounded feedback, error inspection and centralized UI roles pass; interactive M0.3 smoke remains |
 | M4 | Complete headlessly | Responsive index/search, safe replacement, recoverable file operations and defensive sessions pass; graphical smoke remains in M0.3 |
-| M5 | In progress | M5.1–M5.2 complete; reload reliability remains |
+| M5 | Complete headlessly | Live layered configuration, owned APIs, debounced background compilation, transactional reload and editor lifecycle controls pass |
 | M6 | Pending | Development workflow |
 | M7 | Pending | Packaging, performance and platform checks |
 
@@ -244,6 +244,30 @@ Last updated: 2026-09-08.
   API ownership, conflict order and compatibility are documented in
   `docs/plugin-api.md`.
 - The complete headless suite and SDL artifact build passed at `fe5216f`.
+
+### M5.3 — reload reliability
+
+- Haxeon `c4e57eb` adds portable lightweight filesystem metadata and `d3ab07b`
+  exposes HashLink thread creation through a typed stdlib boundary; the complete
+  compiler/runtime gate passed all 202 functional tests after each final change.
+- `21dd513` makes structural reload a context ownership transaction and restores
+  the previous runtime, state and registrations if replacement activation fails.
+  `5d27a1b` observes metadata on a 250 ms cadence, debounces for 300 ms, audits
+  coarse timestamps periodically and deduplicates retained diagnostics.
+- `d455d5d` provides command-palette enable, disable, reload and diagnostic views.
+  Disabled definitions remain available while every owned command, binding, panel,
+  syntax, event and job is disposed before reactivation.
+- `434f2b4` serializes dynamic compilation on a worker while publishing only from
+  editor updates. `c36783a` also moves source reads and coarse-timestamp audits off
+  the event loop and rejects obsolete or unloading in-flight publications.
+- `bd752bd` specifies runtime `stateVersion()` compatibility: structural domains
+  receive saved state only for equal versions, while compatible body patches retain
+  their live runtime and host resources. `docs/plugin-development.md` documents the
+  runnable example, local discovery, controls, failure behavior and current SDK gap.
+- Acceptance coverage repeatedly performs compatible and structural reloads,
+  injects compile, activation and source-removal failures, changes state versions,
+  unloads during compilation and asserts no duplicate or stale callbacks. The full
+  headless suite and SDL artifact build pass; interactive behavior remains in M0.3.
 
 ## Previously delivered roadmap foundations
 

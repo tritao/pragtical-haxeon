@@ -30,13 +30,13 @@ and observes an event; unload removes all effects except intentional text edits.
 
 ## M5.3 — Reload reliability
 
-- [ ] Replace source rereads each frame with M4 change detection/debouncing.
-- [ ] Compile changes without unbounded UI stalls; stage publication at safe points.
-- [ ] Retain last working plugin on compile failure. Define rollback or safe
+- [x] Replace source rereads each frame with M4 change detection/debouncing.
+- [x] Compile changes without unbounded UI stalls; stage publication at safe points.
+- [x] Retain last working plugin on compile failure. Define rollback or safe
   deactivation on activation failure; never leave half-registered behavior.
-- [ ] Specify versioned state transfer for incompatible reloads and retirement of
+- [x] Specify versioned state transfer for incompatible reloads and retirement of
   old callbacks. Preserve document/native resources across compatible body patches.
-- [ ] Expose enable/disable/reload and diagnostics in the editor.
+- [x] Expose enable/disable/reload and diagnostics in the editor.
 
 Acceptance: repeatedly patch and structurally reload the example; inject compile,
 activation and removal failures; assert no duplicate commands or stale callbacks.
