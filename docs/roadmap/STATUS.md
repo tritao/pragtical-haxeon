@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M5.2, stable editor API and owned extension capabilities.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3 and M5.1.
+- Active task: M5.3, reliable dynamic-plugin reload and editor controls.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3 and M5.1–M5.2.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: define the versioned M5.2 host API, registration ownership and an
-  example plugin that edits a document, contributes a panel and observes events.
-- Editor HEAD: `edeaaa0`. Haxeon HEAD observed: `37c062a`.
+- Next action: move dynamic-plugin refresh onto debounced change detection and make
+  compatible and structural publication transactional across failure paths.
+- Editor HEAD: `fe5216f`. Haxeon HEAD observed: `bf4166f`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -21,7 +21,7 @@ Last updated: 2026-09-08.
 | M2 | Complete headlessly | Everyday editing, clipboard/navigation, coding transformations and normalized multiple selections pass; graphical keyboard/mouse smoke remains in M0.3 |
 | M3 | Complete headlessly | Reusable command input, pane/tab/sidebar navigation, logical-point DPI routing, status, bounded feedback, error inspection and centralized UI roles pass; interactive M0.3 smoke remains |
 | M4 | Complete headlessly | Responsive index/search, safe replacement, recoverable file operations and defensive sessions pass; graphical smoke remains in M0.3 |
-| M5 | In progress | M5.1 complete; stable editor API and reload reliability remain |
+| M5 | In progress | M5.1–M5.2 complete; reload reliability remains |
 | M6 | Pending | Development workflow |
 | M7 | Pending | Packaging, performance and platform checks |
 
@@ -223,6 +223,27 @@ Last updated: 2026-09-08.
   diagnostics, project switching, default reset, subscription cleanup, live theme,
   single keybinding installation and stale font-handle rejection. The complete
   headless suite and SDL artifact build passed at `edeaaa0`.
+
+### M5.2 — stable editor API
+
+- `2c1f57e` introduces versioned typed capabilities for transactional document and
+  selection edits, configuration snapshots, owned panels, document events and
+  cooperative jobs. Plugin contexts release callbacks, jobs, panels, bindings,
+  commands and syntax contributions in reverse ownership order.
+- Haxeon `c4310fa` supports calls through arbitrary expression values, which keeps
+  reverse-order disposer invocation idiomatic. `bf4166f` fixes lexical static-field
+  resolution in switch cases rather than requiring editor-side pattern workarounds;
+  the compiler/runtime gate passed all 202 functional tests.
+- `fe5216f` supplies dynamically compiled plugins with the versioned
+  `pragtical.Editor` SDK and opaque, plugin-owned host tokens. The example performs
+  undoable document edits, contributes and updates a panel, observes document
+  events and retains those capabilities through a compatible body patch.
+- Manifests declare independent manifest and API versions; incompatible versions
+  produce visible diagnostics. Tests prove unload retires the panel, event callback,
+  job, command and syntax registrations while preserving intentional text edits.
+  API ownership, conflict order and compatibility are documented in
+  `docs/plugin-api.md`.
+- The complete headless suite and SDL artifact build passed at `fe5216f`.
 
 ## Previously delivered roadmap foundations
 

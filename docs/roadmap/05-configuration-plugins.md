@@ -17,13 +17,13 @@ to defaults work without leaked resources or duplicate bindings.
 
 ## M5.2 — Stable editor API
 
-- [ ] Define typed capabilities for documents/transactions, selection, commands,
+- [x] Define typed capabilities for documents/transactions, selection, commands,
   views/panels, events, scheduling, configuration and syntax contributions.
-- [ ] Ensure dynamically compiled plugins can actually invoke host capabilities;
+- [x] Ensure dynamically compiled plugins can actually invoke host capabilities;
   current manifest-exported void commands alone are not a full editor API.
-- [ ] Own registrations by plugin identity and dispose all subscriptions, commands,
+- [x] Own registrations by plugin identity and dispose all subscriptions, commands,
   jobs and views on unload. Specify ordering and conflict handling.
-- [ ] Version manifests/API compatibility and report missing/incompatible plugins.
+- [x] Version manifests/API compatibility and report missing/incompatible plugins.
 
 Acceptance: an example plugin performs a real document edit, contributes a panel
 and observes an event; unload removes all effects except intentional text edits.
