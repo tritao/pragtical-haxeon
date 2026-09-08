@@ -1,5 +1,6 @@
 package workspace;
 
+import haxe.io.Bytes;
 import sys.FileSystem;
 import sys.io.File;
 
@@ -35,6 +36,9 @@ class FileSystemService implements EditorFileSystem {
 
 	public function read(path:String):String
 		return File.getContent(path);
+
+	public function readBytes(path:String):Bytes
+		return File.getBytes(path);
 
 	public function writeAtomic(path:String, content:String):Bool {
 		try {

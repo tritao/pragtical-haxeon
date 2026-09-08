@@ -1,24 +1,83 @@
 package search;
 
-import sys.io.File;
+import jobs.JobHandle;
+import jobs.JobScheduler;
 import workspace.Workspace;
 
 class WorkspaceSearch {
-	public static function find(workspace:Workspace, query:String, options:SearchOptions, maxResults:Int = 10000):Array<SearchMatch> {
-		var result:Array<SearchMatch> = [];
-		for (project in workspace.projects)
-			for (node in project.files()) {
-				var text:Null<String> = null;
-				for (document in workspace.documents.documents)
-					if (document.path == node.path) text = document.buffer.text;
-				if (text == null)
-					try text = File.getContent(node.path) catch (error:Dynamic) {}
-				if (text != null)
-					for (match in DocumentSearch.findText(node.path, text, query, options)) {
-						result.push(match);
-						if (result.length >= maxResults) return result;
-					}
-			}
-		return result;
+	public static inline final DEBOUNCE_SECONDS = 0.075;
+	public final results:Array<SearchMatch> = [];
+	public final errors:Array<String> = [];
+	public var generation(default, null):Int = 0;
+	public var complete(default, null):Bool = true;
+	public var capped(default, null):Bool = false;
+	public var query(default, null):String = "";
+	final workspace:Workspace;
+	final scheduler:JobScheduler;
+	final onChange:Void->Void;
+	var handle:Null<JobHandle>;
+	var pendingOptions:SearchOptions;
+	var pendingMaximum:Int = 10000;
+	var requestedAt:Float = 0.0;
+	var pending:Bool = false;
+
+	public function new(workspace:Workspace, scheduler:JobScheduler, onChange:Void->Void) {
+		this.workspace = workspace;
+		this.scheduler = scheduler;
+		this.onChange = onChange;
+		pendingOptions = new SearchOptions();
+	}
+
+	public function request(query:String, options:SearchOptions, maximum:Int):Void {
+		generation++;
+		this.query = query;
+		pendingOptions = options.copy();
+		pendingMaximum = maximum;
+		requestedAt = Sys.time();
+		pending = true;
+		complete = false;
+		capped = false;
+		results.resize(0);
+		errors.resize(0);
+		if (handle != null) scheduler.cancel(handle);
+		handle = null;
+		onChange();
+	}
+
+	public function update(now:Float):Void {
+		if (pending && now - requestedAt >= DEBOUNCE_SECONDS) startPending();
+	}
+
+	public function flush():Void {
+		if (pending) startPending();
+	}
+
+	function startPending():Void {
+		pending = false;
+		if (query.length == 0) {
+			complete = true;
+			onChange();
+			return;
+		}
+		var task = new WorkspaceSearchJob(this, generation, workspace, query, pendingOptions, pendingMaximum);
+		handle = scheduler.schedule(task);
+	}
+
+	public function publish(sourceGeneration:Int, matches:Array<SearchMatch>, ?error:String, isComplete:Bool = false,
+			isCapped:Bool = false):Void {
+		if (sourceGeneration != generation) return;
+		for (match in matches) results.push(match);
+		if (error != null) errors.push(error);
+		if (isComplete) complete = true;
+		if (isCapped) capped = true;
+		onChange();
+	}
+
+	public function cancel():Void {
+		generation++;
+		pending = false;
+		if (handle != null) scheduler.cancel(handle);
+		handle = null;
+		complete = true;
 	}
 }

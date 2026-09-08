@@ -45,6 +45,7 @@ class Application {
 	public final syntaxes:SyntaxRegistry;
 	public final theme:Theme;
 	public final searchOptions:SearchOptions;
+	public final workspaceSearch:WorkspaceSearch;
 	public final settings:SettingsService;
 	public final recovery:RecoveryStore;
 	public final errors:ErrorLog;
@@ -82,6 +83,7 @@ class Application {
 		context = new CommandContext(root, focus, documents);
 		EditorCommands.install(commands, keymap);
 		searchOptions = new SearchOptions();
+		workspaceSearch = new WorkspaceSearch(workspace, workspace.jobs, workspaceSearchChanged);
 		installSearchCommands();
 		plugins = new PluginManager(commands, keymap, context, syntaxes);
 		installConfigurationCommands();
@@ -185,14 +187,21 @@ class Application {
 
 	public function openWorkspaceFind():Void {
 		root.commandView.open(new CommandViewProvider("Search: ", [], function(query) {
-			root.showSearchResults(query, WorkspaceSearch.find(workspace, query, searchOptions, settings.current.searchMaxResults));
+			workspaceSearch.request(query, searchOptions, settings.current.searchMaxResults);
 		}, function(entry, query, backwards) {
 			if (backwards) root.searchMove(-1);
 			root.searchActivate();
 			root.commandView.close();
-		}, null, function(delta) {
+		}, function() {
+			workspaceSearch.cancel();
+		}, function(delta) {
 			root.searchMove(delta);
 		}));
+	}
+
+	function workspaceSearchChanged():Void {
+		root.showSearchResults(workspaceSearch.query, workspaceSearch.results);
+		root.searchSidebar.setStatus(workspaceSearch.complete, workspaceSearch.capped, workspaceSearch.errors.length);
 	}
 
 	public function replaceCurrent(replacement:String):Bool {
@@ -644,6 +653,8 @@ class Application {
 
 	public function update():Void {
 		settings.reload();
+		workspaceSearch.update(Sys.time());
+		workspace.jobs.update(32);
 		if (Sys.time() - lastFileSystemCheck >= 1.0) {
 			lastFileSystemCheck = Sys.time();
 			documents.checkExternalChanges();

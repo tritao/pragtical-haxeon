@@ -11,9 +11,18 @@ class SearchSidebar {
 	public final results:Array<SearchMatch> = [];
 	public var selected(default, null):Int = 0;
 	public var query(default, null):String = "";
+	public var complete(default, null):Bool = true;
+	public var capped(default, null):Bool = false;
+	public var errorCount(default, null):Int = 0;
 
 	public function new(width:Int = Sidebar.WIDTH) {
 		this.width = width;
+	}
+
+	public function setStatus(complete:Bool, capped:Bool, errorCount:Int):Void {
+		this.complete = complete;
+		this.capped = capped;
+		this.errorCount = errorCount;
 	}
 
 	public function setResults(query:String, values:Array<SearchMatch>):Void {
@@ -43,7 +52,8 @@ class SearchSidebar {
 	public function draw(renderer:Renderer, theme:Theme, height:Int):Void {
 		renderer.clip(0, 0, width, height);
 		renderer.rect(0, 0, width, height, theme.surface);
-		renderer.text(16, 13, 'SEARCH (${results.length})', theme.foregroundMuted);
+		var state = !complete ? " searching" : capped ? " capped" : errorCount > 0 ? ' $errorCount errors' : "";
+		renderer.text(16, 13, 'SEARCH (${results.length})$state', errorCount > 0 ? theme.warning : theme.foregroundMuted);
 		var maxRows = Std.int((height - HEADER_HEIGHT) / ROW_HEIGHT);
 		if (maxRows > results.length) maxRows = results.length;
 		for (index in 0...maxRows) {

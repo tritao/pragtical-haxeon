@@ -43,17 +43,18 @@ class WorkspaceTestMain {
 			&& !scheduler.cancel(firstHandle), "job generation did not reject a stale handle");
 		require(scheduler.update(1) == 1 && replacementJob.steps == 1 && scheduler.activeCount() == 0,
 			"replacement job did not complete and retire");
-		require(application.workspace.activeProject == project && visible.length == 3, "project root did not scan or ignored entries leaked");
-		require(visible[0] == project.tree && visible[1].name == "alpha.txt" && visible[2].name == "src", "project tree ordering failed");
+		require(application.workspace.activeProject == project && visible.length == 4, "project root did not scan or ignored entries leaked");
+		require(visible[0] == project.tree && visible[1].name == "alpha.txt" && visible[2].name == "binary.dat" && visible[3].name == "src",
+			"project tree ordering failed");
 		project.restoreExpanded([arguments[0] + "/src"]);
 		application.workspace.refreshProjects(32);
-		require(project.visibleNodes().length == 4 && project.visibleNodes()[3].name == "Main.hx", "directory expansion failed");
+		require(project.visibleNodes().length == 5 && project.visibleNodes()[4].name == "Main.hx", "directory expansion failed");
 		application.commands.perform("project:sidebar-next", application.context);
 		application.commands.perform("project:sidebar-open", application.context);
 		require(application.documents.documents.length == 1 && application.documents.documents[0].path == visible[1].path,
 			"sidebar command did not open selected file");
-		application.root.mouseDown(Platform.MOUSE_LEFT, 20, view.Sidebar.HEADER_HEIGHT + view.Sidebar.ROW_HEIGHT * 2 + 1);
-		require(!visible[2].expanded && application.root.sidebar.selected == 2, "sidebar mouse did not select and collapse directory");
+		application.root.mouseDown(Platform.MOUSE_LEFT, 20, view.Sidebar.HEADER_HEIGHT + view.Sidebar.ROW_HEIGHT * 3 + 1);
+		require(!visible[3].expanded && application.root.sidebar.selected == 3, "sidebar mouse did not select and collapse directory");
 		require(application.keyPressed(Platform.KEY_P, Platform.MOD_CTRL) && application.root.commandView.active, "Ctrl+P did not open file command view");
 		application.textInput("main");
 		require(application.root.commandView.results.length == 1 && application.root.commandView.results[0].label == "src/Main.hx",
@@ -87,18 +88,44 @@ class WorkspaceTestMain {
 		application.root.tabs.switchBy(1);
 		require(application.keyPressed(Platform.KEY_F, Platform.MOD_CTRL + Platform.MOD_SHIFT), "Ctrl+Shift+F did not open workspace search");
 		application.textInput("needle");
+		application.workspaceSearch.flush();
+		application.workspace.jobs.update(32);
 		require(application.root.searchVisible && application.root.searchSidebar.results.length == 2,
-			"workspace search did not include unsaved and multi-project matches");
+			"workspace search did not include unsaved and multi-project matches: results="
+			+ [for (match in application.workspaceSearch.results) match.path].join(",") + ", errors="
+			+ application.workspaceSearch.errors.join(",") + ", complete=" + application.workspaceSearch.complete
+			+ ", jobs=" + application.workspace.jobs.activeCount());
+		require(application.workspaceSearch.complete && application.workspaceSearch.errors.length == 1
+			&& application.workspaceSearch.results[0].document != null,
+			"workspace search did not prefer dirty buffers or report skipped binary input");
+		var staleGeneration = application.workspaceSearch.generation;
+		application.workspaceSearch.request("never-present", application.searchOptions, 100);
+		application.workspaceSearch.flush();
+		application.workspace.jobs.update(1);
+		application.workspaceSearch.request("needle", application.searchOptions, 1);
+		application.workspaceSearch.flush();
+		application.workspace.jobs.update(32);
+		require(application.workspaceSearch.generation > staleGeneration && application.workspaceSearch.results.length == 1
+			&& application.workspaceSearch.capped, "replacement search published stale results or ignored its cap");
+		application.searchOptions.pathFilter = "second.txt";
+		application.workspaceSearch.request("needle", application.searchOptions, 100);
+		application.workspaceSearch.flush();
+		application.workspace.jobs.update(32);
+		require(application.workspaceSearch.results.length == 1
+			&& StringTools.endsWith(application.workspaceSearch.results[0].path, "/second.txt"), "workspace path filtering failed");
+		application.searchOptions.pathFilter = "";
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(application.root.searchSidebar.active() != null, "workspace result activation failed");
 		application.keyPressed(Platform.KEY_ESCAPE, 0);
 		application.commands.perform("project:show-sidebar", application.context);
 		require(!application.root.searchVisible, "workspace search could not return to the project sidebar");
+		application.commands.perform("project:sidebar-next", application.context);
 		require(application.keyPressed(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT), "Ctrl+Shift+P did not open command palette");
 		application.textInput("sidebarprevious");
 		require(application.root.commandView.results.length == 1, "command view fuzzy filtering failed");
 		application.keyPressed(Platform.KEY_ENTER, 0);
-		require(application.root.sidebar.selected == 1, "command palette did not dispatch selected command");
+		require(application.root.sidebar.selected == 0,
+			"command palette did not dispatch selected command: selected=" + application.root.sidebar.selected);
 		application.openFileCommandView();
 		application.keyPressed(Platform.KEY_ESCAPE, 0);
 		require(!application.root.commandView.active, "Escape did not cancel command view");
@@ -106,7 +133,7 @@ class WorkspaceTestMain {
 		for (index in 0...16) application.workspace.refreshProjects(1);
 		require(application.workspace.fileSystem.createFile(createdPath), "file creation failed");
 		for (index in 0...16) application.workspace.refreshProjects(1);
-		require(project.files().length == 3,
+		require(project.files().length == 4,
 			"incremental polling missed created file: generation=" + project.indexGeneration() + ", indexing=" + project.indexing()
 			+ ", jobs=" + application.workspace.jobs.activeCount() + ", files=" + [for (file in project.files()) file.path].join(","));
 		var movedDocument = application.documents.open(createdPath);
@@ -117,7 +144,7 @@ class WorkspaceTestMain {
 		require(movedDocument.save() && application.workspace.fileSystem.deleteFile(movedPath), "save/delete lifecycle failed");
 		application.documents.close(movedDocument, true);
 		for (index in 0...16) application.workspace.refreshProjects(1);
-		require(project.files().length == 2, "incremental polling retained deleted file");
+		require(project.files().length == 3, "incremental polling retained deleted file");
 		project.restoreExpanded([arguments[0] + "/src"]);
 		application.root.splitActive(LayoutKind.Horizontal);
 		application.open(arguments[1] + "/second.txt");
@@ -126,7 +153,7 @@ class WorkspaceTestMain {
 		require(application.root.sessionLines().join("\n") == session.layout.join("\n"), "layout tab order, active pane, cursor or scroll changed on restore");
 		require(application.workspace.projects.length == 2 && !application.root.node.isLeaf()
 			&& application.root.activeLeaf.tabs.activeView != null, "multi-root split session did not restore");
-		require(project.visibleNodes().length == 4, "expanded project folders did not restore");
+		require(project.visibleNodes().length == 5, "expanded project folders did not restore");
 		require(application.workspace.removeProject(secondProject) && application.workspace.projects.length == 1,
 			"closing a project did not retire its indexed state");
 		renderer.begin();
