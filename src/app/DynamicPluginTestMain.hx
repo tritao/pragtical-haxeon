@@ -49,6 +49,29 @@ class DynamicPluginTestMain {
 		var eventsAfterPatchedCommand = plugin.callInt("eventCount");
 		require(application.context.requireDocument().buffer.text == "dynamicdynamic" && eventsAfterPatchedCommand == eventsBeforeCommand + 2,
 			"patched dynamic plugin lost host API access or duplicated its event subscription");
+
+		var compatibleSource = File.getContent(arguments[1]);
+		File.saveContent(arguments[1], StringTools.replace(compatibleSource, "public static var events = 0;",
+			"public static var events = 0;\n\tpublic static var structural = 7;"));
+		require(plugin.refresh(), 'structural source edit did not publish: ${plugin.lastError}');
+		var eventsBeforeStructuralCommand = plugin.callInt("eventCount");
+		require(application.commands.perform("example:increment", application.context)
+			&& plugin.callInt("current") == 5
+			&& plugin.callInt("eventCount") == eventsBeforeStructuralCommand + 1
+			&& application.root.pluginPanels.find("example", "status") != null,
+			"structural reload lost state, registrations, or installed duplicate callbacks");
+
+		var structuralSource = File.getContent(arguments[1]);
+		File.saveContent(arguments[1], StringTools.replace(structuralSource, "function activate():Void {",
+			"function activate():Void {\n\tthrow \"injected activation failure\";"));
+		require(!plugin.refresh() && plugin.lastError != null, "activation failure published a structural module");
+		var eventsBeforeRollbackCommand = plugin.callInt("eventCount");
+		require(application.commands.perform("example:increment", application.context)
+			&& plugin.callInt("current") == 7
+			&& plugin.callInt("eventCount") == eventsBeforeRollbackCommand + 1,
+			"activation failure did not restore the last working module and registrations");
+		File.saveContent(arguments[1], structuralSource);
+		require(plugin.refresh(), 'plugin did not recover after activation failure: ${plugin.lastError}');
 		require(application.plugins.unload("example"), "dynamic plugin did not unload");
 		var textAfterUnload = application.context.requireDocument().buffer.text;
 		application.textInput("after");

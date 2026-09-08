@@ -129,29 +129,42 @@ class DynamicPlugin implements Plugin {
 
 	function reload(build:compiler.CompileResult):Void {
 		var previous = requireModule(),
+			previousIds = functionIds,
+			previousRevision = revision,
 			state = Runtime.callString(previous, functionId("saveState")),
 			replacement = Runtime.load(HlWriter.encode(build.module), build.runtimeIdentity),
 			nextIds = build.functionIds;
-		try {
-			Runtime.callVoid(previous, functionId("deactivate"));
-			if (context == null) throw 'plugin "${manifest.id}" has no active host context';
-			DynamicHostRouter.begin(context, this);
-			try {
-				Runtime.callVoid(replacement, requiredId(nextIds, "activate"));
-			} catch (error:Dynamic) {
-				DynamicHostRouter.end();
-				throw error;
-			}
-			DynamicHostRouter.end();
-			Runtime.callStringArg(replacement, requiredId(nextIds, "restoreState"), state);
-		} catch (error:Dynamic) {
+		if (context == null) {
 			Runtime.dispose(replacement);
-			Runtime.callVoid(previous, functionId("activate"));
+			compiler.rejectPublication(build.revision);
+			throw 'plugin "${manifest.id}" has no active host context';
+		}
+		var activeContext:PluginContext = context;
+		try {
+			deactivate(activeContext);
+			activeContext.dispose();
+			activeContext.reset();
+			module = replacement;
+			functionIds = nextIds;
+			revision = build.revision;
+			Runtime.callStringArg(replacement, requiredId(nextIds, "restoreState"), state);
+			activate(activeContext);
+		} catch (error:Dynamic) {
+			activeContext.dispose();
+			activeContext.reset();
+			module = previous;
+			functionIds = previousIds;
+			revision = previousRevision;
+			Runtime.dispose(replacement);
+			compiler.rejectPublication(build.revision);
+			try {
+				activate(activeContext);
+			} catch (rollbackError:Dynamic) {
+				activeContext.dispose();
+				throw 'plugin reload failed (${Std.string(error)}) and rollback activation failed (${Std.string(rollbackError)})';
+			}
 			throw error;
 		}
-		module = replacement;
-		functionIds = nextIds;
-		revision = build.revision;
 		compiler.acknowledgePublication(build.revision);
 		Runtime.dispose(previous);
 	}

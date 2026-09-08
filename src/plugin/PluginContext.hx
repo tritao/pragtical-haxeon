@@ -76,6 +76,15 @@ class PluginContext {
 		syntaxes.removeOwner(id);
 	}
 
+	/** Starts a fresh ownership transaction while preserving this context identity. */
+	public function reset():Void {
+		if (active) throw 'plugin "$id" context is still active';
+		commandNames.splice(0, commandNames.length);
+		bindings.splice(0, bindings.length);
+		owned.splice(0, owned.length);
+		active = true;
+	}
+
 	public function own(dispose:Void->Void):Void {
 		requireActive();
 		owned.push(dispose);
