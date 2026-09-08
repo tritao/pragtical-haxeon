@@ -6,6 +6,7 @@ import editor.Document;
 
 class LayoutNode {
 	public static inline final DIVIDER_SIZE = 4;
+	public static inline final MIN_SIZE = 120;
 	public var kind(default, null):LayoutKind;
 	public var tabs(default, null):TabGroup;
 	public var first(default, null):Null<LayoutNode>;
@@ -42,6 +43,14 @@ class LayoutNode {
 		if (available < 0) available = 0;
 		var firstSize = Std.int(available * divider / 1000), secondSize = available - firstSize,
 			left = requireFirst(), right = requireSecond();
+		if (available >= MIN_SIZE * 2) {
+			if (firstSize < MIN_SIZE) firstSize = MIN_SIZE;
+			if (firstSize > available - MIN_SIZE) firstSize = available - MIN_SIZE;
+			secondSize = available - firstSize;
+		} else {
+			firstSize = Std.int(available / 2);
+			secondSize = available - firstSize;
+		}
 		if (kind == LayoutKind.Horizontal) {
 			left.setBounds(x, y, firstSize, height);
 			right.setBounds(x + firstSize + DIVIDER_SIZE, y, secondSize, height);
@@ -111,9 +120,13 @@ class LayoutNode {
 		var total = kind == LayoutKind.Horizontal ? width - DIVIDER_SIZE : height - DIVIDER_SIZE,
 			position = kind == LayoutKind.Horizontal ? px - x : py - y;
 		if (total <= 0) return;
+		if (total >= MIN_SIZE * 2) {
+			if (position < MIN_SIZE) position = MIN_SIZE;
+			if (position > total - MIN_SIZE) position = total - MIN_SIZE;
+		}
 		divider = Std.int(position * 1000 / total);
-		if (divider < 150) divider = 150;
-		if (divider > 850) divider = 850;
+		if (divider < 0) divider = 0;
+		if (divider > 1000) divider = 1000;
 		setBounds(x, y, width, height);
 	}
 

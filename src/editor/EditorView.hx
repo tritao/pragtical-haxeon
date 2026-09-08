@@ -9,6 +9,7 @@ class EditorView {
 	public static inline final HEADER_HEIGHT = 42;
 	public static inline final GUTTER_WIDTH = 52;
 	public static inline final PADDING = 12;
+	public static inline final SCROLLBAR_SIZE = 8;
 
 	public final document:Document;
 	public final renderer:Renderer;
@@ -26,6 +27,8 @@ class EditorView {
 	var dragMouseX:Int = 0;
 	var dragMouseY:Int = 0;
 	var lastDragScroll:Float = -1.0;
+	var draggingVerticalScrollbar:Bool = false;
+	var draggingHorizontalScrollbar:Bool = false;
 
 	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int, ?selection:BufferSelection, ?clock:EditorClock) {
 		this.document = document;
@@ -81,8 +84,18 @@ class EditorView {
 	}
 
 	public function mouseDown(button:Int, x:Int, y:Int, clicks:Int = 1):Void {
-		if (button != 1 || !insideText(x, y))
+		if (button != 1) return;
+		if (x >= this.x + width - SCROLLBAR_SIZE && y >= this.y + HEADER_HEIGHT + PADDING && y < this.y + height - SCROLLBAR_SIZE) {
+			draggingVerticalScrollbar = true;
+			updateVerticalScrollbar(y);
 			return;
+		}
+		if (y >= this.y + height - SCROLLBAR_SIZE && x >= this.x + GUTTER_WIDTH && x < this.x + width - SCROLLBAR_SIZE) {
+			draggingHorizontalScrollbar = true;
+			updateHorizontalScrollbar(x);
+			return;
+		}
+		if (!insideText(x, y)) return;
 		var position = positionFromPoint(x, y), buffer = document.buffer;
 		if (clicks >= 3) {
 			var from = new BufferPosition(position.line, 0), to = position.line + 1 < buffer.lineCount()
@@ -99,6 +112,8 @@ class EditorView {
 	}
 
 	public function mouseMove(x:Int, y:Int):Void {
+		if (draggingVerticalScrollbar) { updateVerticalScrollbar(y); return; }
+		if (draggingHorizontalScrollbar) { updateHorizontalScrollbar(x); return; }
 		if (!mouseSelecting)
 			return;
 		dragMouseX = x;
@@ -109,14 +124,17 @@ class EditorView {
 	}
 
 	public function mouseUp(button:Int):Void {
-		if (button == 1)
+		if (button == 1) {
 			mouseSelecting = false;
+			draggingVerticalScrollbar = false;
+			draggingHorizontalScrollbar = false;
+		}
 	}
 
 	public function draw(path:String):Void {
 		updateDragAutoscroll();
 		var buffer = document.buffer, lineHeight = renderer.lineHeight, contentTop = y + HEADER_HEIGHT + PADDING,
-			contentHeight = height - HEADER_HEIGHT - PADDING, textOffset = GUTTER_WIDTH;
+			contentHeight = height - HEADER_HEIGHT - PADDING - SCROLLBAR_SIZE, textOffset = GUTTER_WIDTH;
 		if (contentHeight < 1) contentHeight = 1;
 		if (textOffset >= width) textOffset = width - 1;
 		if (textOffset < 0) textOffset = 0;
@@ -135,7 +153,7 @@ class EditorView {
 			renderer.text(x + 8, y, Std.string(lineIndex + 1), 0x666666ff);
 		}
 
-		renderer.clip(textLeft, contentTop, width - textOffset, contentHeight);
+		renderer.clip(textLeft, contentTop, width - textOffset - SCROLLBAR_SIZE, contentHeight);
 		for (lineIndex in firstLine...lastLine) {
 			var value = buffer.line(lineIndex),
 				y = contentTop + lineIndex * lineHeight - scrollY, x = textLeft - scrollX;
@@ -170,7 +188,28 @@ class EditorView {
 				caretY = contentTop + cursorLine * lineHeight - scrollY;
 			renderer.rect(caretX, caretY, 2, lineHeight, 0xffffffff);
 		}
+		drawScrollbars(contentTop, contentHeight);
 		renderer.clip(x, y, width, height);
+	}
+
+	function drawScrollbars(contentTop:Int, contentHeight:Int):Void {
+		var totalHeight = document.buffer.lineCount() * renderer.lineHeight,
+			viewportWidth = width - GUTTER_WIDTH - SCROLLBAR_SIZE, maximumWidth = maximumLineWidth();
+		renderer.clip(x, y, width, height);
+		if (totalHeight > contentHeight && contentHeight > 0) {
+			var thumbHeight = Std.int(contentHeight * contentHeight / totalHeight);
+			if (thumbHeight < 20) thumbHeight = 20;
+			var maxScroll = totalHeight - contentHeight, thumbY = contentTop + Std.int((contentHeight - thumbHeight) * scrollY / maxScroll);
+			renderer.rect(x + width - SCROLLBAR_SIZE, contentTop, SCROLLBAR_SIZE, contentHeight, 0x181818ff);
+			renderer.rect(x + width - SCROLLBAR_SIZE + 2, thumbY, SCROLLBAR_SIZE - 3, thumbHeight, 0x606060ff);
+		}
+		if (maximumWidth > viewportWidth && viewportWidth > 0) {
+			var thumbWidth = Std.int(viewportWidth * viewportWidth / maximumWidth);
+			if (thumbWidth < 20) thumbWidth = 20;
+			var maxScroll = maximumWidth - viewportWidth, thumbX = x + GUTTER_WIDTH + Std.int((viewportWidth - thumbWidth) * scrollX / maxScroll);
+			renderer.rect(x + GUTTER_WIDTH, y + height - SCROLLBAR_SIZE, viewportWidth, SCROLLBAR_SIZE, 0x181818ff);
+			renderer.rect(thumbX, y + height - SCROLLBAR_SIZE + 2, thumbWidth, SCROLLBAR_SIZE - 3, 0x606060ff);
+		}
 	}
 
 	function updateDragAutoscroll():Void {
@@ -189,8 +228,8 @@ class EditorView {
 	}
 
 	function ensureCaretVisible():Void {
-		var buffer = document.buffer, lineHeight = renderer.lineHeight, viewportHeight = height - HEADER_HEIGHT - PADDING,
-			viewportWidth = width - GUTTER_WIDTH, caretY = selection.cursor.line * lineHeight,
+		var buffer = document.buffer, lineHeight = renderer.lineHeight, viewportHeight = height - HEADER_HEIGHT - PADDING - SCROLLBAR_SIZE,
+			viewportWidth = width - GUTTER_WIDTH - SCROLLBAR_SIZE, caretY = selection.cursor.line * lineHeight,
 			caretX = renderer.textWidth(buffer.line(selection.cursor.line).substr(0, selection.cursor.column)),
 			context = lineHeight;
 		if (caretY - context < scrollY)
@@ -205,7 +244,7 @@ class EditorView {
 	}
 
 	function clampScroll():Void {
-		var maxY = document.buffer.lineCount() * renderer.lineHeight - (height - HEADER_HEIGHT - PADDING);
+		var maxY = document.buffer.lineCount() * renderer.lineHeight - (height - HEADER_HEIGHT - PADDING - SCROLLBAR_SIZE);
 		if (maxY < 0)
 			maxY = 0;
 		if (scrollY < 0)
@@ -214,11 +253,43 @@ class EditorView {
 			scrollY = maxY;
 		if (scrollX < 0)
 			scrollX = 0;
+		var maxX = maximumLineWidth() - (width - GUTTER_WIDTH - SCROLLBAR_SIZE);
+		if (maxX < 0) maxX = 0;
+		if (scrollX > maxX) scrollX = maxX;
+	}
+
+	function maximumLineWidth():Int {
+		var result = 0;
+		for (line in 0...document.buffer.lineCount()) {
+			var width = renderer.textWidth(document.buffer.line(line));
+			if (width > result) result = width;
+		}
+		return result;
+	}
+
+	function updateVerticalScrollbar(pointerY:Int):Void {
+		var viewport = height - HEADER_HEIGHT - PADDING - SCROLLBAR_SIZE, maximum = document.buffer.lineCount() * renderer.lineHeight - viewport;
+		if (maximum <= 0 || viewport <= 0) { scrollY = 0; return; }
+		var position = pointerY - y - HEADER_HEIGHT - PADDING;
+		if (position < 0) position = 0;
+		if (position > viewport) position = viewport;
+		scrollY = Std.int(position * maximum / viewport);
+		clampScroll();
+	}
+
+	function updateHorizontalScrollbar(pointerX:Int):Void {
+		var viewport = width - GUTTER_WIDTH - SCROLLBAR_SIZE, maximum = maximumLineWidth() - viewport;
+		if (maximum <= 0 || viewport <= 0) { scrollX = 0; return; }
+		var position = pointerX - x - GUTTER_WIDTH;
+		if (position < 0) position = 0;
+		if (position > viewport) position = viewport;
+		scrollX = Std.int(position * maximum / viewport);
+		clampScroll();
 	}
 
 	function insideText(x:Int, y:Int):Bool
-		return x >= this.x + GUTTER_WIDTH && x < this.x + width
-			&& y >= this.y + HEADER_HEIGHT + PADDING && y < this.y + height;
+		return x >= this.x + GUTTER_WIDTH && x < this.x + width - SCROLLBAR_SIZE
+			&& y >= this.y + HEADER_HEIGHT + PADDING && y < this.y + height - SCROLLBAR_SIZE;
 
 	function positionFromPoint(x:Int, y:Int):BufferPosition {
 		var buffer = document.buffer, lineIndex = Std.int((y - this.y - HEADER_HEIGHT - PADDING + scrollY) / renderer.lineHeight);

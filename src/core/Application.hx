@@ -68,6 +68,9 @@ class Application {
 		documents = workspace.documents;
 		focus = new FocusManager();
 		root = new RootView(renderer, theme, focus, workspace, width, height);
+		root.closeRequest = function() {
+			requestCloseActiveTab();
+		};
 		commands = new CommandRegistry();
 		keymap = new Keymap(commands);
 		context = new CommandContext(root, focus, documents);
@@ -305,6 +308,17 @@ class Application {
 			openCommandView();
 		});
 		commands.add("navigation:go-to-line", context -> openGoToLine(), context -> activeDocument() != null);
+		commands.add("layout:focus-left", context -> root.focusPane(-1, 0));
+		commands.add("layout:focus-right", context -> root.focusPane(1, 0));
+		commands.add("layout:focus-up", context -> root.focusPane(0, -1));
+		commands.add("layout:focus-down", context -> root.focusPane(0, 1));
+		commands.add("layout:move-tab-left", context -> root.moveActiveTab(-1, 0));
+		commands.add("layout:move-tab-right", context -> root.moveActiveTab(1, 0));
+		commands.add("layout:move-tab-up", context -> root.moveActiveTab(0, -1));
+		commands.add("layout:move-tab-down", context -> root.moveActiveTab(0, 1));
+		commands.add("layout:reorder-tab-left", context -> root.reorderActiveTab(-1));
+		commands.add("layout:reorder-tab-right", context -> root.reorderActiveTab(1));
+		commands.add("workbench:toggle-sidebar", context -> root.toggleSidebar());
 		commands.add("settings:reload", function(context) {
 			settings.reload(true);
 		});
@@ -341,6 +355,17 @@ class Application {
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL, ["files:open"]);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["commands:open"]);
 		keymap.addDirect(Platform.KEY_G, Platform.MOD_CTRL, ["navigation:go-to-line"]);
+		keymap.addDirect(Platform.KEY_LEFT, Platform.MOD_CTRL + Platform.MOD_ALT, ["layout:focus-left"]);
+		keymap.addDirect(Platform.KEY_RIGHT, Platform.MOD_CTRL + Platform.MOD_ALT, ["layout:focus-right"]);
+		keymap.addDirect(Platform.KEY_UP, Platform.MOD_CTRL + Platform.MOD_ALT, ["layout:focus-up"]);
+		keymap.addDirect(Platform.KEY_DOWN, Platform.MOD_CTRL + Platform.MOD_ALT, ["layout:focus-down"]);
+		keymap.addDirect(Platform.KEY_LEFT, Platform.MOD_CTRL + Platform.MOD_SHIFT + Platform.MOD_ALT, ["layout:move-tab-left"]);
+		keymap.addDirect(Platform.KEY_RIGHT, Platform.MOD_CTRL + Platform.MOD_SHIFT + Platform.MOD_ALT, ["layout:move-tab-right"]);
+		keymap.addDirect(Platform.KEY_UP, Platform.MOD_CTRL + Platform.MOD_SHIFT + Platform.MOD_ALT, ["layout:move-tab-up"]);
+		keymap.addDirect(Platform.KEY_DOWN, Platform.MOD_CTRL + Platform.MOD_SHIFT + Platform.MOD_ALT, ["layout:move-tab-down"]);
+		keymap.addDirect(Platform.KEY_PAGE_UP, Platform.MOD_CTRL, ["layout:reorder-tab-left"]);
+		keymap.addDirect(Platform.KEY_PAGE_DOWN, Platform.MOD_CTRL, ["layout:reorder-tab-right"]);
+		keymap.addDirect(Platform.KEY_B, Platform.MOD_CTRL, ["workbench:toggle-sidebar"]);
 	}
 
 	function settingsFor(document:Document):config.Settings {

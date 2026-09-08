@@ -28,9 +28,12 @@ class RootView {
 	public final commandView:CommandView;
 	public var searchVisible(default, null):Bool = false;
 	public var notification:String = "";
+	public var sidebarVisible(default, null):Bool = true;
+	public var closeRequest:Void->Void;
 	var width:Int;
 	var height:Int;
 	var draggingDivider:Null<LayoutNode>;
+	var draggingSidebar:Bool = false;
 
 	public function new(renderer:Renderer, theme:Theme, focus:FocusManager, workspace:Workspace, width:Int, height:Int) {
 		this.renderer = renderer;
@@ -41,6 +44,7 @@ class RootView {
 		sidebar = new Sidebar(workspace);
 		searchSidebar = new SearchSidebar();
 		commandView = new CommandView();
+		closeRequest = function() {};
 		this.width = width;
 		this.height = height;
 		node = new LayoutNode(focus, documents);
@@ -56,6 +60,35 @@ class RootView {
 		activeLeaf = leaf;
 		focus.activate(leaf.tabs.activeView);
 	}
+
+	public function focusPane(horizontal:Int, vertical:Int):Bool {
+		var target = neighboringLeaf(activeLeaf, horizontal, vertical);
+		if (target == null) return false;
+		activateLeaf(target);
+		return true;
+	}
+
+	public function moveActiveTab(horizontal:Int, vertical:Int):Bool {
+		var source = activeLeaf, target = neighboringLeaf(source, horizontal, vertical), moving = source.tabs.activeView;
+		if (target == null || moving == null) return false;
+		var document = moving.getDocument();
+		if (document != null) {
+			for (view in target.tabs.views)
+				if (view.getDocument() == document) {
+					source.tabs.close(moving, true);
+					activateLeaf(target);
+					target.tabs.setActive(view);
+					return true;
+				}
+		}
+		if (!source.tabs.detach(moving)) return false;
+		activateLeaf(target);
+		target.tabs.add(moving);
+		moving.setBounds(target.x, target.y, target.width, target.height);
+		return true;
+	}
+
+	public function reorderActiveTab(delta:Int):Bool return tabs.reorderActive(delta);
 
 	public function openDocument(document:Document):View {
 		if (document.hasBackingPath()) sidebar.selectPath(document.requirePath());
@@ -140,19 +173,29 @@ class RootView {
 	public function resize(width:Int, height:Int):Void {
 		this.width = width;
 		this.height = height;
-		setNodeBounds();
+		if (sidebarVisible) setSidebarWidth(sidebar.width); else setNodeBounds();
 	}
 
 	public function setSidebarWidth(width:Int):Void {
+		var maximum = this.width - LayoutNode.MIN_SIZE;
+		if (maximum < 0) maximum = 0;
+		if (width < 120) width = 120;
+		if (width > maximum) width = maximum;
 		sidebar.width = width;
 		searchSidebar.width = width;
 		setNodeBounds();
 	}
 
+	public function toggleSidebar():Bool {
+		sidebarVisible = !sidebarVisible;
+		setNodeBounds();
+		return true;
+	}
+
 	function setNodeBounds():Void {
-		var contentWidth = width - sidebar.width;
+		var sidebarWidth = sidebarVisible ? sidebar.width : 0, contentWidth = width - sidebarWidth;
 		if (contentWidth < 0) contentWidth = 0;
-		node.setBounds(sidebar.width, 0, contentWidth, height);
+		node.setBounds(sidebarWidth, 0, contentWidth, height);
 	}
 
 	public function textInput(text:String):Void {
@@ -164,11 +207,17 @@ class RootView {
 	}
 
 	public function wheel(vertical:Int, horizontal:Int):Void {
+		if (commandView.active) return;
 		if (tabs.activeView != null) tabs.activeView.wheel(vertical, horizontal);
 	}
 
 	public function mouseDown(button:Int, x:Int, y:Int, clicks:Int = 1):Void {
-		if (button == 1 && x < sidebar.width) {
+		if (commandView.active) return;
+		if (button == 1 && sidebarVisible && x >= sidebar.width - 3 && x <= sidebar.width + 3) {
+			draggingSidebar = true;
+			return;
+		}
+		if (button == 1 && sidebarVisible && x < sidebar.width) {
 			if (searchVisible) {
 				var match = searchSidebar.mouseDown(x, y);
 				if (match != null) openSearchMatch(match);
@@ -189,14 +238,21 @@ class RootView {
 		if (leaf == null) return;
 		activateLeaf(leaf);
 		if (button == 1 && y < leaf.y + EditorView.HEADER_HEIGHT) {
-			var index = Std.int((x - leaf.x) / TAB_WIDTH);
-			if (index >= 0 && index < tabs.views.length) tabs.setActive(tabs.views[index]);
+			var start = visibleTabStart(leaf), index = start + Std.int((x - leaf.x) / TAB_WIDTH), localX = (x - leaf.x) % TAB_WIDTH;
+			if (index >= 0 && index < tabs.views.length) {
+				tabs.setActive(tabs.views[index]);
+				if (localX >= TAB_WIDTH - 22) closeRequest();
+			}
 			return;
 		}
 		if (tabs.activeView != null) tabs.activeView.mouseDown(button, x, y, clicks);
 	}
 
 	public function mouseMove(x:Int, y:Int):Void {
+		if (draggingSidebar) {
+			setSidebarWidth(x);
+			return;
+		}
 		if (draggingDivider != null) {
 			draggingDivider.moveDivider(x, y);
 			return;
@@ -205,12 +261,17 @@ class RootView {
 	}
 
 	public function mouseUp(button:Int):Void {
-		if (button == 1) draggingDivider = null;
+		if (button == 1) {
+			draggingDivider = null;
+			draggingSidebar = false;
+		}
 		if (tabs.activeView != null) tabs.activeView.mouseUp(button);
 	}
 
 	public function draw():Void {
-		if (searchVisible) searchSidebar.draw(renderer, height); else sidebar.draw(renderer, height);
+		if (sidebarVisible) {
+			if (searchVisible) searchSidebar.draw(renderer, height); else sidebar.draw(renderer, height);
+		}
 		renderer.clip(0, 0, width, height);
 		drawNode(node);
 		renderer.clip(0, 0, width, height);
@@ -311,14 +372,51 @@ class RootView {
 			return;
 		}
 		leaf.tabs.activeView.draw();
-		var x = leaf.x;
-		for (view in leaf.tabs.views) {
+		var x = leaf.x, start = visibleTabStart(leaf), capacity = visibleTabCapacity(leaf), end = start + capacity;
+		if (end > leaf.tabs.views.length) end = leaf.tabs.views.length;
+		for (index in start...end) {
+			var view = leaf.tabs.views[index];
 			var active = view == leaf.tabs.activeView;
 			renderer.rect(x, leaf.y, TAB_WIDTH, EditorView.HEADER_HEIGHT, active ? 0x303030ff : 0x222222ff);
 			renderer.text(x + 12, leaf.y + 13, (view.isDirty() ? "* " : "") + view.title, active ? 0xffffffff : 0xaaaaaaff);
+			renderer.text(x + TAB_WIDTH - 18, leaf.y + 13, "x", active ? 0xffffffff : 0x777777ff);
 			x += TAB_WIDTH;
 		}
 		if (leaf == activeLeaf) renderer.rect(leaf.x, leaf.y, leaf.width, 2, theme.accent);
+	}
+
+	function visibleTabCapacity(leaf:LayoutNode):Int {
+		var result = Std.int(leaf.width / TAB_WIDTH);
+		return result < 1 ? 1 : result;
+	}
+
+	function visibleTabStart(leaf:LayoutNode):Int {
+		var active = leaf.tabs.activeView == null ? 0 : leaf.tabs.indexOf(leaf.tabs.activeView), capacity = visibleTabCapacity(leaf), start = active - capacity + 1;
+		if (start < 0) start = 0;
+		return start;
+	}
+
+	function neighboringLeaf(source:LayoutNode, horizontal:Int, vertical:Int):Null<LayoutNode> {
+		var leaves:Array<LayoutNode> = [];
+		collectLeaves(node, leaves);
+		var sourceX = source.x + Std.int(source.width / 2), sourceY = source.y + Std.int(source.height / 2), best:Null<LayoutNode> = null,
+			bestScore = 0x7fffffff;
+		for (candidate in leaves) if (candidate != source) {
+			var candidateX = candidate.x + Std.int(candidate.width / 2), candidateY = candidate.y + Std.int(candidate.height / 2),
+				dx = candidateX - sourceX, dy = candidateY - sourceY;
+			if (horizontal < 0 && dx >= 0 || horizontal > 0 && dx <= 0 || vertical < 0 && dy >= 0 || vertical > 0 && dy <= 0) continue;
+			var primary = horizontal == 0 ? (dy < 0 ? -dy : dy) : (dx < 0 ? -dx : dx),
+				secondary = horizontal == 0 ? (dx < 0 ? -dx : dx) : (dy < 0 ? -dy : dy), score = primary * 10000 + secondary;
+			if (score < bestScore) { bestScore = score; best = candidate; }
+		}
+		return best;
+	}
+
+	function collectLeaves(current:LayoutNode, result:Array<LayoutNode>):Void {
+		if (current.isLeaf()) result.push(current); else {
+			collectLeaves(current.requireFirst(), result);
+			collectLeaves(current.requireSecond(), result);
+		}
 	}
 
 	function leafForView(current:LayoutNode, view:View):Null<LayoutNode> {

@@ -46,6 +46,11 @@ class EditorViewTestMain {
 		require(view.selection.cursor.line > 2, "page movement did not use the viewport height");
 		view.wheel(-100, 0);
 		require(view.scrollY > 0, "mouse wheel did not scroll document");
+		view.restoreScroll(0, 0);
+		view.mouseDown(Platform.MOUSE_LEFT, 639, 100);
+		view.mouseMove(639, 150);
+		view.mouseUp(Platform.MOUSE_LEFT);
+		require(view.scrollY > 0, "vertical scrollbar drag did not scroll the document");
 		view.mouseDown(Platform.MOUSE_LEFT, EditorView.GUTTER_WIDTH + 2,
 			EditorView.HEADER_HEIGHT + EditorView.PADDING + 2);
 		view.mouseMove(EditorView.GUTTER_WIDTH + 40,

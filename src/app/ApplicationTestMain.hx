@@ -26,6 +26,8 @@ class ApplicationTestMain {
 		application.documents.close(untitledOne, true);
 		application.documents.close(untitledTwo, true);
 		require(application.documents.documents.length == 2 && application.root.tabs.views.length == 2, "documents did not open as tabs");
+		require(application.root.reorderActiveTab(-1) && application.root.tabs.views[0] == secondView
+			&& application.root.reorderActiveTab(1) && application.root.tabs.views[1] == secondView, "tab reordering failed");
 		require(application.add(second) == secondView && application.root.tabs.views.length == 2, "document tab was not reused");
 		require(application.focus.activeView == secondView, "new tab did not receive focus");
 		application.commands.perform("doc:newline", application.context);
@@ -76,10 +78,12 @@ class ApplicationTestMain {
 		require(application.focus.activeView == firstView, "tab switch did not update focus");
 		application.commands.perform("doc:newline", application.context);
 		require(first.buffer.text == "\none", "command context captured the wrong document");
-		require(application.requestCloseActiveTab() && application.root.commandView.active, "dirty document close did not request a decision");
+		application.root.mouseDown(Platform.MOUSE_LEFT, application.root.activeLeaf.x + view.RootView.TAB_WIDTH - 5, 10);
+		require(application.root.commandView.active, "tab close control bypassed the dirty-document coordinator");
 		application.textInput("cancel");
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(application.documents.documents.indexOf(first) >= 0, "cancelled document close released the document");
+		require(first.buffer.text == "\none", "prompt input mutated the inactive document");
 		require(!application.root.commandView.active, "cancelled document close left its prompt active");
 		require(application.requestCloseActiveTab(), "document close could not restart after cancellation");
 		application.textInput("discard");
@@ -93,6 +97,14 @@ class ApplicationTestMain {
 			"split duplicated document ownership");
 		var leftView = application.root.node.requireFirst().tabs.activeView, rightView = application.root.node.requireSecond().tabs.activeView;
 		if (leftView == null || rightView == null) throw "split views are missing";
+		require(application.root.focusPane(-1, 0) && application.root.activeLeaf == application.root.node.requireFirst()
+			&& application.root.focusPane(1, 0) && application.root.activeLeaf == application.root.node.requireSecond(),
+			"directional pane focus failed");
+		var movable = application.newDocument();
+		require(application.root.moveActiveTab(-1, 0) && application.root.activeLeaf == application.root.node.requireFirst()
+			&& application.root.tabs.activeView == movable, "moving a tab to the left pane failed");
+		require(application.root.moveActiveTab(1, 0) && application.root.activeLeaf == application.root.node.requireSecond()
+			&& application.root.closeActiveTab(true), "moving a tab back or closing it failed");
 		leftView.restoreCursor(1, 1);
 		rightView.restoreCursor(1, 2);
 		application.root.activateLeaf(application.root.node.requireFirst());
@@ -110,6 +122,17 @@ class ApplicationTestMain {
 		application.root.mouseMove(520, 100);
 		application.root.mouseUp(Platform.MOUSE_LEFT);
 		require(application.root.node.divider > 600, "divider drag did not resize panes");
+		application.root.mouseDown(Platform.MOUSE_LEFT, application.root.sidebar.width, 100);
+		application.root.mouseMove(260, 100);
+		application.root.mouseUp(Platform.MOUSE_LEFT);
+		require(application.root.sidebar.width == 260, "sidebar drag resize failed");
+		require(application.root.toggleSidebar() && !application.root.sidebarVisible && application.root.node.x == 0,
+			"sidebar toggle did not release editor space");
+		application.root.resize(200, 180);
+		require(application.root.node.width == 200, "narrow hidden-sidebar layout became inoperable");
+		application.root.resize(640, 320);
+		application.root.toggleSidebar();
+		application.root.setSidebarWidth(220);
 		application.commands.perform("root:split-up", application.context);
 		require(!application.root.node.requireSecond().isLeaf()
 			&& application.root.node.requireSecond().kind == LayoutKind.Vertical, "nested vertical split was not created");

@@ -57,6 +57,26 @@ class TabGroup {
 	public function closeActive(force:Bool = false):Bool
 		return activeView != null && close(activeView, force);
 
+	public function detach(view:View):Bool {
+		var index = indexOf(view);
+		if (index < 0) return false;
+		views.remove(view);
+		if (activeView == view) {
+			activeView = views.length == 0 ? null : views[index >= views.length ? views.length - 1 : index];
+			focus.activate(activeView);
+		}
+		return true;
+	}
+
+	public function reorderActive(delta:Int):Bool {
+		if (activeView == null || views.length < 2) return false;
+		var from = indexOf(activeView), to = from + delta;
+		if (to < 0 || to >= views.length) return false;
+		views.splice(from, 1);
+		views.insert(to, activeView);
+		return true;
+	}
+
 	public function indexOf(view:View):Int {
 		for (index in 0...views.length)
 			if (views[index] == view)
