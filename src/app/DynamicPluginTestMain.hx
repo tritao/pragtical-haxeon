@@ -103,7 +103,12 @@ class DynamicPluginTestMain {
 		var errorsBeforeRemoval = application.errors.entries.length;
 		application.plugins.update(20.0);
 		application.plugins.update(20.31);
-		application.plugins.update(20.7);
+		var removalWait = 0;
+		while (plugin.busy() && removalWait < 2000) {
+			Sys.sleep(0.001);
+			application.plugins.update(20.32 + removalWait * 0.001);
+			removalWait++;
+		}
 		require(plugin.lastError != null
 			&& application.plugins.diagnostics().length == 1
 			&& application.errors.entries.length == errorsBeforeRemoval + 1,
@@ -115,6 +120,12 @@ class DynamicPluginTestMain {
 		File.saveContent(arguments[1], structuralSource);
 		application.plugins.update(21.0);
 		application.plugins.update(21.31);
+		var restoreWait = 0;
+		while (plugin.busy() && restoreWait < 2000) {
+			Sys.sleep(0.001);
+			application.plugins.update(21.32 + restoreWait * 0.001);
+			restoreWait++;
+		}
 		require(plugin.lastError == null && application.plugins.diagnostics().length == 0,
 			"restoring unchanged working source did not clear its diagnostic");
 		File.saveContent(arguments[1], structuralSource + "\n");

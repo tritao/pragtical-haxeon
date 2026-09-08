@@ -97,14 +97,15 @@ class DynamicPlugin implements Plugin {
 				observedChange = true;
 			}
 		}
+		var audit = false;
 		if (now >= nextContentAuditAt) {
 			nextContentAuditAt = now + CONTENT_AUDIT_SECONDS;
-			if (sourceContentsChanged()) observedChange = true;
+			audit = true;
 		}
 		if (observedChange) {
 			changedAt = now;
 			observationGeneration++;
-		}
+		} else if (audit) changedAt = now;
 		if (changedAt < 0.0 || now - changedAt < DEBOUNCE_SECONDS) return published;
 		changedAt = -1.0;
 		requestRefresh();
@@ -113,21 +114,16 @@ class DynamicPlugin implements Plugin {
 
 	public function requestRefresh():Bool {
 		if (compiling || disposed) return false;
-		try {
-			if (!updateCompilerSources()) {
-				lastError = null;
-				return false;
-			}
-		} catch (error:Dynamic) {
-			lastError = Std.string(error);
-			return false;
-		}
 		var generation = observationGeneration;
 		compiling = true;
 		Thread.create(function() {
 			var build:Null<compiler.CompileResult> = null, error:Null<String> = null;
 			compilerMutex.acquire();
-			try build = compilePlugin() catch (failure:Dynamic) error = Std.string(failure);
+			try {
+				if (updateCompilerSources()) build = compilePlugin();
+			} catch (failure:Dynamic) {
+				error = Std.string(failure);
+			}
 			compilerMutex.release();
 			completionMutex.acquire();
 			if (disposed) {
@@ -187,6 +183,10 @@ class DynamicPlugin implements Plugin {
 			lastError = finished.error;
 			return false;
 		}
+		if (finished.build == null) {
+			lastError = null;
+			return false;
+		}
 		return publish(finished.build);
 	}
 
@@ -213,16 +213,6 @@ class DynamicPlugin implements Plugin {
 			lastError = Std.string(error);
 			return false;
 		}
-	}
-
-	function sourceContentsChanged():Bool {
-		try {
-			for (index in 0...manifest.sources.length)
-				if (File.getContent(manifest.sources[index]) != contents[index]) return true;
-		} catch (error:Dynamic) {
-			return true;
-		}
-		return false;
 	}
 
 	static function sourceStamp(path:String):String {
