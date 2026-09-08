@@ -37,11 +37,21 @@ class FileSystemService implements EditorFileSystem {
 		return File.getContent(path);
 
 	public function writeAtomic(path:String, content:String):Bool {
-		return sys.io.AtomicFile.write(path, content);
+		try {
+			sys.io.AtomicFile.write(path, content);
+			return true;
+		} catch (error:Dynamic) {
+			return false;
+		}
 	}
 
 	public function createFile(path:String):Bool {
-		return sys.io.AtomicFile.create(path, "");
+		try {
+			sys.io.AtomicFile.create(path, "");
+			return true;
+		} catch (error:Dynamic) {
+			return false;
+		}
 	}
 
 	public function createFolder(path:String):Bool {

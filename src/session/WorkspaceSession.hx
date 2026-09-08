@@ -84,7 +84,12 @@ class WorkspaceSession {
 
 	public function save(path:String):Bool {
 		if (path.length == 0 || !ensureParent(path)) return false;
-		return sys.io.AtomicFile.write(path, encode());
+		try {
+			sys.io.AtomicFile.write(path, encode());
+			return true;
+		} catch (error:Dynamic) {
+			return false;
+		}
 	}
 
 	static function clean(value:String):String {

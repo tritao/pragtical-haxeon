@@ -10,6 +10,8 @@ import search.DocumentSearch;
 import search.SearchOptions;
 import editor.ExternalState;
 import sys.io.File;
+import haxe.io.Bytes;
+import sys.FileSystem;
 import workspace.FileSystemService;
 import workspace.EditorFileSystem;
 
@@ -130,9 +132,24 @@ class DocumentTestMain {
 			formatted.buffer.setCursor(formatted.buffer.positionAt(lastLine, formatted.buffer.line(lastLine).length));
 			formatted.insert("third\n");
 			require(formatted.save() && File.getContent(arguments[0]) == "﻿first\r\nsecond\r\nthird\r\n", "BOM/CRLF format was not preserved");
-			require(!sys.io.AtomicFile.write(arguments[0] + "/missing/file.txt", "bad"), "invalid atomic destination was accepted");
-			require(!sys.io.AtomicFile.create(arguments[0], "overwrite") && File.getContent(arguments[0]) == "﻿first\r\nsecond\r\nthird\r\n",
+			var invalidWriteFailed = false;
+			try sys.io.AtomicFile.write(arguments[0] + "/missing/file.txt", "bad") catch (error:Dynamic) invalidWriteFailed = true;
+			require(invalidWriteFailed, "invalid atomic destination was accepted");
+			var exclusiveCreateFailed = false;
+			try sys.io.AtomicFile.create(arguments[0], "overwrite") catch (error:Dynamic) exclusiveCreateFailed = true;
+			require(exclusiveCreateFailed && File.getContent(arguments[0]) == "﻿first\r\nsecond\r\nthird\r\n",
 				"exclusive file creation overwrote an existing file");
+			var binaryPath = arguments[0] + ".binary";
+			if (FileSystem.exists(binaryPath)) FileSystem.deleteFile(binaryPath);
+			var binary = Bytes.alloc(3);
+			binary.set(0, 65);
+			binary.set(1, 0);
+			binary.set(2, 66);
+			sys.io.AtomicFile.createBytes(binaryPath, binary);
+			var loaded = File.getBytes(binaryPath);
+			require(loaded.length == 3 && loaded.get(0) == 65 && loaded.get(1) == 0 && loaded.get(2) == 66,
+				"atomic byte publication did not preserve embedded NUL data");
+			FileSystem.deleteFile(binaryPath);
 		}
 		Sys.println("PASS: Haxeon text buffer editing, selections, and history");
 		return 0;
