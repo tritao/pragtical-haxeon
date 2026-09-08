@@ -2,7 +2,6 @@ package jobs;
 
 class JobScheduler {
 	var nextId:Int = 1;
-	var cursor:Int = 0;
 	final generations:Map<Int, Int> = [];
 	final jobs:Array<ScheduledJob> = [];
 
@@ -29,8 +28,6 @@ class JobScheduler {
 			if (job.handle.id == handle.id && job.handle.generation == handle.generation) {
 				job.task.cancel();
 				jobs.splice(index, 1);
-				if (cursor > index) cursor--;
-				if (cursor >= jobs.length) cursor = 0;
 				return true;
 			}
 		}
@@ -41,10 +38,9 @@ class JobScheduler {
 		if (maxSteps < 0) throw "job step budget must be non-negative";
 		var performed = 0;
 		while (performed < maxSteps && jobs.length > 0) {
-			if (cursor >= jobs.length) cursor = 0;
-			var job = jobs[cursor], complete = job.task.step();
+			var job = jobs.shift(), complete = job.task.step();
 			performed++;
-			if (complete) jobs.splice(cursor, 1); else cursor++;
+			if (!complete) jobs.push(job);
 		}
 		return performed;
 	}

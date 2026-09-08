@@ -8,6 +8,7 @@ import session.WorkspaceSession;
 import view.LayoutKind;
 import editor.BufferSelection;
 import jobs.JobTask;
+import jobs.JobScheduler;
 
 private class CountingJob implements JobTask {
 	public var steps:Int = 0;
@@ -34,17 +35,18 @@ class WorkspaceTestMain {
 		var window = Native.window_create("workspace-test", 640, 320), renderer = new Renderer(window, "ignored-headlessly.ttf", 15),
 			application = new Application(renderer, 640, 320), project = application.workspace.addProject(arguments[0], [".cache"]),
 			visible = project.visibleNodes();
-		var firstJob = new CountingJob(3), firstHandle = application.workspace.jobs.schedule(firstJob);
-		require(application.workspace.jobs.update(2) == 2 && firstJob.steps == 2 && application.workspace.jobs.activeCount() == 1,
+		var scheduler = new JobScheduler(), firstJob = new CountingJob(3), firstHandle = scheduler.schedule(firstJob);
+		require(scheduler.update(2) == 2 && firstJob.steps == 2 && scheduler.activeCount() == 1,
 			"job scheduler exceeded its bounded update or retired work early");
-		var replacementJob = new CountingJob(1), replacementHandle = application.workspace.jobs.replace(firstHandle, replacementJob);
+		var replacementJob = new CountingJob(1), replacementHandle = scheduler.replace(firstHandle, replacementJob);
 		require(firstJob.cancelled && replacementHandle.id == firstHandle.id && replacementHandle.generation == firstHandle.generation + 1
-			&& !application.workspace.jobs.cancel(firstHandle), "job generation did not reject a stale handle");
-		require(application.workspace.jobs.update(1) == 1 && replacementJob.steps == 1 && application.workspace.jobs.activeCount() == 0,
+			&& !scheduler.cancel(firstHandle), "job generation did not reject a stale handle");
+		require(scheduler.update(1) == 1 && replacementJob.steps == 1 && scheduler.activeCount() == 0,
 			"replacement job did not complete and retire");
 		require(application.workspace.activeProject == project && visible.length == 3, "project root did not scan or ignored entries leaked");
 		require(visible[0] == project.tree && visible[1].name == "alpha.txt" && visible[2].name == "src", "project tree ordering failed");
 		project.restoreExpanded([arguments[0] + "/src"]);
+		application.workspace.refreshProjects(32);
 		require(project.visibleNodes().length == 4 && project.visibleNodes()[3].name == "Main.hx", "directory expansion failed");
 		application.commands.perform("project:sidebar-next", application.context);
 		application.commands.perform("project:sidebar-open", application.context);
@@ -58,7 +60,7 @@ class WorkspaceTestMain {
 			"file command view fuzzy filtering failed");
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(application.documents.documents.length == 2 && !application.root.commandView.active, "file command view did not accept selection");
-		application.workspace.addProject(arguments[1]);
+		var secondProject = application.workspace.addProject(arguments[1]);
 		application.root.tabs.activeView.textInput("needle ");
 		require(application.keyPressed(Platform.KEY_F, Platform.MOD_CTRL), "Ctrl+F did not open document find");
 		application.textInput("needle");
@@ -101,10 +103,12 @@ class WorkspaceTestMain {
 		application.keyPressed(Platform.KEY_ESCAPE, 0);
 		require(!application.root.commandView.active, "Escape did not cancel command view");
 		var createdPath = arguments[0] + "/created.txt", movedPath = arguments[0] + "/moved.txt";
-		for (index in 0...4) project.pollChanges(1);
+		for (index in 0...16) application.workspace.refreshProjects(1);
 		require(application.workspace.fileSystem.createFile(createdPath), "file creation failed");
-		for (index in 0...4) project.pollChanges(1);
-		require(project.files().length == 3, "incremental polling missed created file");
+		for (index in 0...16) application.workspace.refreshProjects(1);
+		require(project.files().length == 3,
+			"incremental polling missed created file: generation=" + project.indexGeneration() + ", indexing=" + project.indexing()
+			+ ", jobs=" + application.workspace.jobs.activeCount() + ", files=" + [for (file in project.files()) file.path].join(","));
 		var movedDocument = application.documents.open(createdPath);
 		movedDocument.insert(new BufferSelection(), "moved safely");
 		require(application.documents.rename(movedDocument, movedPath) && movedDocument.path == movedPath,
@@ -112,7 +116,7 @@ class WorkspaceTestMain {
 		require(!application.documents.rename(movedDocument, arguments[0] + "/alpha.txt"), "rename overwrote a collision");
 		require(movedDocument.save() && application.workspace.fileSystem.deleteFile(movedPath), "save/delete lifecycle failed");
 		application.documents.close(movedDocument, true);
-		for (index in 0...4) project.pollChanges(1);
+		for (index in 0...16) application.workspace.refreshProjects(1);
 		require(project.files().length == 2, "incremental polling retained deleted file");
 		project.restoreExpanded([arguments[0] + "/src"]);
 		application.root.splitActive(LayoutKind.Horizontal);
@@ -123,6 +127,8 @@ class WorkspaceTestMain {
 		require(application.workspace.projects.length == 2 && !application.root.node.isLeaf()
 			&& application.root.activeLeaf.tabs.activeView != null, "multi-root split session did not restore");
 		require(project.visibleNodes().length == 4, "expanded project folders did not restore");
+		require(application.workspace.removeProject(secondProject) && application.workspace.projects.length == 1,
+			"closing a project did not retire its indexed state");
 		renderer.begin();
 		application.root.draw();
 		renderer.present();

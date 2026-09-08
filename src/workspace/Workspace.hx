@@ -26,10 +26,17 @@ class Workspace {
 				activeProject = project;
 				return project;
 			}
-		var project = new Project(normalized, fileSystem, ignoredNames);
+		var project = new Project(normalized, fileSystem, jobs, ignoredNames);
 		projects.push(project);
 		activeProject = project;
 		return project;
+	}
+
+	public function removeProject(project:Project):Bool {
+		if (!projects.remove(project)) return false;
+		project.cancelIndex();
+		if (activeProject == project) activeProject = projects.length == 0 ? null : projects[projects.length - 1];
+		return true;
 	}
 
 	public function refreshProjects(directoryBudget:Int = 32):Bool {
