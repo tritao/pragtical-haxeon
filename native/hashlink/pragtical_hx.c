@@ -149,37 +149,4 @@ HL_PRIM vbyte *HL_NAME(plugin_api_call)(int operation, vbyte *token, vbyte *a,
 	return ((vbyte *(*)(int, vbyte *, vbyte *, vbyte *, vbyte *))plugin_api_dispatch->fun)(operation, token, a, b, c);
 }
 
-DEFINE_PRIM(_I32, abi_version, _NO_ARG);
-DEFINE_PRIM(_BOOL, init, _BOOL);
-DEFINE_PRIM(_VOID, shutdown, _NO_ARG);
-DEFINE_PRIM(_BYTES, last_error, _NO_ARG);
-DEFINE_PRIM(_I32, window_create, _BYTES _I32 _I32);
-DEFINE_PRIM(_BOOL, window_destroy, _I32);
-DEFINE_PRIM(_BOOL, window_valid, _I32);
-DEFINE_PRIM(_I32, window_width, _I32);
-DEFINE_PRIM(_I32, window_height, _I32);
-DEFINE_PRIM(_I32, window_display_scale_milli, _I32);
-DEFINE_PRIM(_BOOL, event_poll, _NO_ARG);
-DEFINE_PRIM(_I32, event_kind, _NO_ARG);
-DEFINE_PRIM(_I32, event_window, _NO_ARG);
-DEFINE_PRIM(_I32, event_a, _NO_ARG);
-DEFINE_PRIM(_I32, event_b, _NO_ARG);
-DEFINE_PRIM(_I32, event_c, _NO_ARG);
-DEFINE_PRIM(_I32, event_d, _NO_ARG);
-DEFINE_PRIM(_BYTES, event_text, _NO_ARG);
-DEFINE_PRIM(_BOOL, event_push_test, _I32 _I32 _I32 _I32);
-DEFINE_PRIM(_BOOL, clipboard_set, _BYTES);
-DEFINE_PRIM(_BYTES, clipboard_get, _NO_ARG);
-DEFINE_PRIM(_BOOL, frame_begin, _I32);
-DEFINE_PRIM(_BOOL, set_clip_rect, _I32 _I32 _I32 _I32 _I32);
-DEFINE_PRIM(_BOOL, draw_rect, _I32 _I32 _I32 _I32 _I32 _I32);
-DEFINE_PRIM(_I32, font_create, _I32 _BYTES _I32);
-DEFINE_PRIM(_BOOL, font_destroy, _I32);
-DEFINE_PRIM(_I32, font_height, _I32);
-DEFINE_PRIM(_I32, font_text_width, _I32 _BYTES);
-DEFINE_PRIM(_BOOL, draw_text, _I32 _I32 _I32 _I32 _BYTES _I32);
-DEFINE_PRIM(_BOOL, frame_present, _I32);
-DEFINE_PRIM(_I32, frame_count, _I32);
-DEFINE_PRIM(_VOID, plugin_api_install, _FUN(_BYTES, _I32 _BYTES _BYTES _BYTES _BYTES));
-DEFINE_PRIM(_VOID, host_install, _FUN(_VOID, _NO_ARG) _FUN(_I32, _NO_ARG) _FUN(_VOID, _NO_ARG));
-DEFINE_PRIM(_BYTES, plugin_api_call, _I32 _BYTES _BYTES _BYTES _BYTES);
+#include "pragtical_hx/native_ffi.h"

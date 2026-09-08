@@ -13,6 +13,15 @@ if [[ ! -f "$haxeon_root/out/realtime_runtime.hdll" ]]; then
 	exit 1
 fi
 
+mapfile -t sources < <(find "$root_dir/src" -type f -name '*.hx' -print | LC_ALL=C sort)
+mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -print | LC_ALL=C sort)
+mapfile -t compiler_sources < <(find "$haxeon_root/src/compiler" "$haxeon_root/src/runtime" -type f -name '*.hx' -print | LC_ALL=C sort)
+"$root_dir/scripts/haxeon-compile.sh" \
+	--output="$root_dir/out/pragtical-haxeon.hl" --entry=app.GraphicalMain \
+	--ffi-header="$root_dir/include/pragtical_hx/native_ffi.h" --ffi-library=pragtical_hx \
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
+
 read -r -a sdl_cflags <<< "$(pkg-config --cflags sdl3)"
 read -r -a sdl_libs <<< "$(pkg-config --libs sdl3)"
 read -r -a font_cflags <<< "$(pkg-config --cflags freetype2)"
@@ -70,11 +79,3 @@ cp "$haxeon_root/out/realtime_runtime.hdll" "$root_dir/out/realtime_runtime.hdll
 cp "$root_dir/README.md" "$root_dir/out/README.md"
 mkdir -p "$root_dir/out/data/fonts"
 cp "$pragtical_root/data/fonts/JetBrainsMono-Regular.ttf" "$root_dir/out/data/fonts/"
-
-mapfile -t sources < <(find "$root_dir/src" -type f -name '*.hx' -print | LC_ALL=C sort)
-mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -print | LC_ALL=C sort)
-mapfile -t compiler_sources < <(find "$haxeon_root/src/compiler" "$haxeon_root/src/runtime" -type f -name '*.hx' -print | LC_ALL=C sort)
-"$root_dir/scripts/haxeon-compile.sh" \
-	--output="$root_dir/out/pragtical-haxeon.hl" --entry=app.GraphicalMain \
-	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
-	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"

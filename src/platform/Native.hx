@@ -34,5 +34,6 @@ extern class Native {
 	static function frame_present(window:Int):Bool;
 	static function frame_count(window:Int):Int;
 	static function plugin_api_install(dispatch:(Int, String, String, String, String)->String):Void;
+	static function plugin_api_call(operation:Int, token:String, a:String, b:String, c:String):String;
 	static function host_install(event:()->Void, iterate:()->Int, quit:()->Void):Void;
 }
