@@ -9,9 +9,13 @@ class SyntaxDefinition {
 	public final lineComment:String;
 	public final blockCommentStart:String;
 	public final blockCommentEnd:String;
+	public final multilineStringStart:String;
+	public final multilineStringEnd:String;
+	public final stringsContinueAcrossLines:Bool;
 
 	public function new(name:String, extensions:Array<String>, highlighting:Bool, ?keywords:Map<String, Int>, ?headers:Array<String>, lineComment:String = "//",
-			blockCommentStart:String = "/*", blockCommentEnd:String = "*/") {
+			blockCommentStart:String = "/*", blockCommentEnd:String = "*/", multilineStringStart:String = "", multilineStringEnd:String = "",
+			stringsContinueAcrossLines:Bool = false) {
 		this.name = name;
 		this.extensions = extensions;
 		this.headers = headers == null ? [] : headers;
@@ -20,5 +24,8 @@ class SyntaxDefinition {
 		this.lineComment = lineComment;
 		this.blockCommentStart = blockCommentStart;
 		this.blockCommentEnd = blockCommentEnd;
+		this.multilineStringStart = multilineStringStart;
+		this.multilineStringEnd = multilineStringEnd;
+		this.stringsContinueAcrossLines = stringsContinueAcrossLines;
 	}
 }

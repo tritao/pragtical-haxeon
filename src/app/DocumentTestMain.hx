@@ -45,7 +45,8 @@ class DocumentTestMain {
 		var syntaxes = new SyntaxRegistry();
 		BuiltinSyntax.install(syntaxes);
 		require(syntaxes.find("script", "#!/usr/bin/env lua\n").name == "Lua" && syntaxes.find("data.json").name == "JSON"
-			&& syntaxes.find("README.md").name == "Markdown", "built-in syntax selection failed");
+			&& syntaxes.find("README.md").name == "Markdown" && syntaxes.find("main.c").name == "C"
+			&& syntaxes.find("main.cpp").name == "C++" && syntaxes.find("build.sh").name == "Shell", "built-in syntax selection failed");
 		var buffer = new TextBuffer("alpha\nbeta"), selection = new BufferSelection();
 		var observedChanges = 0, secondObservedChanges = 0;
 		var releaseFirst = buffer.subscribe(change -> {
@@ -238,14 +239,28 @@ class DocumentTestMain {
 		var firstHighlight = source.highlighter.line(0), cachedHighlight = source.highlighter.line(0), comment = source.highlighter.line(1),
 			continued = source.highlighter.line(2), stableTail = source.highlighter.line(3);
 		require(firstHighlight == cachedHighlight && hasToken(firstHighlight.tokens, HighlightToken.KEYWORD), "highlight cache or keyword token failed");
-		require(comment.stateAfter && hasToken(continued.tokens, HighlightToken.COMMENT), "multiline comment state failed");
+		require(comment.stateAfter != 0 && hasToken(continued.tokens, HighlightToken.COMMENT), "multiline comment state failed");
 		var sourceSelection = new BufferSelection();
 		sourceSelection.setCursor(source.buffer, new BufferPosition(1, 0));
 		sourceSelection.move(source.buffer, 2, true);
 		source.insert(sourceSelection, "");
 		var updated = source.highlighter.line(2);
-		require(updated != continued && !updated.stateBefore, "edit did not invalidate downstream lexical state");
+		require(updated != continued && updated.stateBefore == 0, "edit did not invalidate downstream lexical state");
 		require(source.highlighter.line(3) == stableTail, "unchanged converged highlight cache was discarded");
+		var lua = new Document("fixture.lua", "local text = [[first\nsecond]]\nreturn text", syntaxes),
+			markdown = new Document("fixture.md", "```haxe\nclass Main {}\n```\nafter", syntaxes),
+			shell = new Document("fixture.sh", "value=\"first\nsecond\"\nif true; then", syntaxes);
+		require(lua.highlighter.line(0).stateAfter != 0
+			&& hasToken(lua.highlighter.line(1).tokens, HighlightToken.STRING)
+			&& lua.highlighter.line(1).stateAfter == 0
+			&& hasToken(lua.highlighter.line(2).tokens, HighlightToken.KEYWORD), "Lua long-string state did not converge");
+		require(markdown.highlighter.line(0).stateAfter != 0
+			&& hasToken(markdown.highlighter.line(1).tokens, HighlightToken.STRING)
+			&& markdown.highlighter.line(2).stateAfter == 0, "Markdown fenced-code state did not converge");
+		require(shell.highlighter.line(0).stateAfter != 0
+			&& hasToken(shell.highlighter.line(1).tokens, HighlightToken.STRING)
+			&& shell.highlighter.line(1).stateAfter == 0
+			&& hasToken(shell.highlighter.line(2).tokens, HighlightToken.KEYWORD), "shell multiline quote state did not converge");
 		var arguments = Sys.args();
 		if (arguments.length > 0) {
 			var saveAsPath = arguments[0] + ".save-as";
