@@ -166,17 +166,17 @@ class Application {
 	}
 
 	public function replaceCurrent(replacement:String):Bool {
-		var document = activeDocument(), match = currentDocumentMatch();
-		if (document == null || match == null) return false;
-		if (!DocumentSearch.replaceCurrent(document, match, replacement)) return false;
+		var document = activeDocument(), match = currentDocumentMatch(), selection = activeSelection();
+		if (document == null || match == null || selection == null) return false;
+		if (!DocumentSearch.replaceCurrent(document, selection, match, replacement)) return false;
 		refreshDocumentSearch(documentSearchQuery);
 		return true;
 	}
 
 	public function replaceAll(replacement:String):Int {
-		var document = activeDocument();
-		if (document == null) return 0;
-		var count = DocumentSearch.replaceAll(document, documentSearchQuery, replacement, searchOptions);
+		var document = activeDocument(), selection = activeSelection();
+		if (document == null || selection == null) return 0;
+		var count = DocumentSearch.replaceAll(document, selection, documentSearchQuery, replacement, searchOptions);
 		refreshDocumentSearch(documentSearchQuery);
 		return count;
 	}
@@ -215,9 +215,9 @@ class Application {
 	}
 
 	function selectDocumentMatch():Void {
-		var document = activeDocument(), match = currentDocumentMatch();
-		if (document != null && match != null) {
-			if (DocumentSearch.select(document, match)) root.cursorChanged();
+		var document = activeDocument(), match = currentDocumentMatch(), selection = activeSelection();
+		if (document != null && match != null && selection != null) {
+			if (DocumentSearch.select(document, selection, match)) root.cursorChanged();
 		}
 	}
 
@@ -230,6 +230,11 @@ class Application {
 	function activeDocument():Null<Document> {
 		var view = context.activeView();
 		return view == null ? null : view.getDocument();
+	}
+
+	function activeSelection():Null<editor.BufferSelection> {
+		var current = context.activeView();
+		return current == null ? null : current.getSelection();
 	}
 
 	function currentDocumentMatch():Null<SearchMatch>
@@ -302,7 +307,7 @@ class Application {
 					matchedLength = project.root.length;
 				}
 			for (index in 0...value.tabWidth) spaces += " ";
-			context.requireDocument().insert(spaces);
+			context.requireView().textInput(spaces);
 		}, function(context) return context.activeView() != null && context.activeView().getDocument() != null);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL, ["files:open"]);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["commands:open"]);

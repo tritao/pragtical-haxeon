@@ -77,23 +77,23 @@ class Document {
 		return document;
 	}
 
-	public function insert(text:String):Void
-		buffer.insert(text);
+	public function insert(selection:BufferSelection, text:String):Void
+		buffer.insert(selection, text);
 
-	public function backspace():Void {
-		buffer.deleteBackward();
+	public function backspace(selection:BufferSelection):Void {
+		buffer.deleteBackward(selection);
 	}
 
-	public function deleteForward():Void {
-		buffer.deleteForward();
+	public function deleteForward(selection:BufferSelection):Void {
+		buffer.deleteForward(selection);
 	}
 
-	public function undo():Void {
-		buffer.undo();
+	public function undo(selection:BufferSelection):Void {
+		buffer.undo(selection);
 	}
 
-	public function redo():Void {
-		buffer.redo();
+	public function redo(selection:BufferSelection):Void {
+		buffer.redo(selection);
 	}
 
 	public function save(force:Bool = false):Bool {

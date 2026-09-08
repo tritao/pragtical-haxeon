@@ -50,6 +50,7 @@ class TabGroup {
 				setActive(views[index]);
 			}
 		}
+		view.dispose();
 		return true;
 	}
 

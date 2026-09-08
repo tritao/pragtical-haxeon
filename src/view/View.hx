@@ -1,6 +1,8 @@
 package view;
 
 import editor.Document;
+import editor.BufferPosition;
+import editor.BufferSelection;
 import search.SearchMatch;
 
 class View {
@@ -18,8 +20,21 @@ class View {
 
 	public function getDocument():Null<Document>
 		return null;
+	public function getSelection():Null<BufferSelection>
+		return null;
 
 	public function moveVertical(delta:Int, extend:Bool):Void {}
+	public function moveHorizontal(delta:Int, extend:Bool):Void {}
+	public function moveHome(extend:Bool):Void {}
+	public function moveEnd(extend:Bool):Void {}
+	public function selectAll():Void {}
+	public function undo():Void {}
+	public function redo():Void {}
+	public function backspace():Void {}
+	public function deleteForward():Void {}
+	public function selectRange(from:BufferPosition, to:BufferPosition):Bool return false;
+	public function replaceRange(from:BufferPosition, to:BufferPosition, text:String):Bool return false;
+	public function replaceAllText(text:String):Bool return false;
 	public function setBounds(x:Int, y:Int, width:Int, height:Int):Void
 		resize(width, height);
 
@@ -33,6 +48,7 @@ class View {
 	public function deactivate():Void {}
 	public function cursorLine():Int return 0;
 	public function cursorColumn():Int return 0;
+	public function hasSelection():Bool return false;
 	public function restoreCursor(line:Int, column:Int):Void {}
 	public function setSearchMatches(matches:Array<SearchMatch>):Void {}
 	public function searchMatchCount():Int return 0;
@@ -40,5 +56,6 @@ class View {
 	public function mouseDown(button:Int, x:Int, y:Int):Void {}
 	public function mouseMove(x:Int, y:Int):Void {}
 	public function mouseUp(button:Int):Void {}
+	public function dispose():Void {}
 	public function draw():Void {}
 }

@@ -2,6 +2,7 @@ package search;
 
 import editor.BufferPosition;
 import editor.Document;
+import editor.BufferSelection;
 
 class DocumentSearch {
 	public static function find(document:Document, query:String, options:SearchOptions):Array<SearchMatch>
@@ -25,19 +26,19 @@ class DocumentSearch {
 		return result;
 	}
 
-	public static function select(document:Document, match:SearchMatch):Bool {
+	public static function select(document:Document, selection:BufferSelection, match:SearchMatch):Bool {
 		if (!valid(document, match)) return false;
 		var start = new BufferPosition(match.line, match.column), end = new BufferPosition(match.line, match.column + match.length);
-		document.buffer.setCursor(start);
-		document.buffer.setCursor(end, true);
+		selection.restore(document.buffer, end, start);
 		return true;
 	}
 
-	public static function replaceCurrent(document:Document, match:SearchMatch, replacement:String):Bool
+	public static function replaceCurrent(document:Document, selection:BufferSelection, match:SearchMatch, replacement:String):Bool
 		return valid(document, match)
-			&& document.buffer.replaceRange(new BufferPosition(match.line, match.column), new BufferPosition(match.line, match.column + match.length), replacement);
+			&& document.buffer.replaceRange(selection, new BufferPosition(match.line, match.column),
+				new BufferPosition(match.line, match.column + match.length), replacement);
 
-	public static function replaceAll(document:Document, query:String, replacement:String, options:SearchOptions):Int {
+	public static function replaceAll(document:Document, selection:BufferSelection, query:String, replacement:String, options:SearchOptions):Int {
 		var matches = find(document, query, options);
 		if (matches.length == 0) return 0;
 		var text = document.buffer.text;
@@ -45,7 +46,7 @@ class DocumentSearch {
 			var match = matches[matches.length - index - 1], start = document.buffer.offsetOf(new BufferPosition(match.line, match.column));
 			text = text.substring(0, start) + replacement + text.substring(start + match.length);
 		}
-		document.buffer.replaceAllText(text);
+		document.buffer.replaceAllText(text, selection);
 		return matches.length;
 	}
 

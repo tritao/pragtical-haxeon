@@ -129,6 +129,7 @@ class RootView {
 			if (document != null) documentsToCheck.push(document);
 		}
 		if (!node.collapse(closing)) return false;
+		closing.disposeViews();
 		activeLeaf = node.firstLeaf();
 		focus.activate(activeLeaf.tabs.activeView);
 		for (document in documentsToCheck)
@@ -242,7 +243,10 @@ class RootView {
 		var view = openDocument(documents.open(match.path));
 		var document = view.getDocument();
 		if (document != null) {
-			if (DocumentSearch.select(document, match)) view.cursorChanged();
+			if (DocumentSearch.valid(document, match)) {
+				view.selectRange(new BufferPosition(match.line, match.column), new BufferPosition(match.line, match.column + match.length));
+				view.cursorChanged();
+			}
 		}
 	}
 

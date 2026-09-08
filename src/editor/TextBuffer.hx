@@ -4,19 +4,14 @@ class TextBuffer {
 	final lines:Array<String>;
 	final changeListeners:Map<Int, BufferChangeListener> = [];
 	var nextListenerId:Int = 1;
-	public var cursor(default, null):BufferPosition;
-	public var anchor(default, null):BufferPosition;
 	public var stateId(default, null):Int = 0;
 	var nextStateId:Int = 1;
-	var preferredColumn:Int = -1;
 	final undoStack:Array<BufferEdit> = [];
 	final redoStack:Array<BufferEdit> = [];
 	public var text(get, never):String;
 
 	public function new(?text:String) {
 		lines = splitLines(text == null ? "" : text);
-		cursor = new BufferPosition(0, 0);
-		anchor = cursor;
 	}
 
 	function get_text():String
@@ -39,100 +34,49 @@ class TextBuffer {
 	function releaseSubscription(id:Int):Void
 		changeListeners.remove(id);
 
-	public function hasSelection():Bool
-		return !cursor.equals(anchor);
-
-	public function selectionStart():BufferPosition
-		return cursor.before(anchor) ? cursor : anchor;
-
-	public function selectionEnd():BufferPosition
-		return cursor.before(anchor) ? anchor : cursor;
-
-	public function setCursor(position:BufferPosition, extend:Bool = false):Void {
-		cursor = sanitize(position);
-		if (!extend) anchor = cursor;
-		preferredColumn = -1;
+	public function insert(selection:BufferSelection, value:String):Bool {
+		if (value.length == 0 && !selection.hasSelection()) return false;
+		return replace(selection, selection.start(), selection.end(), value);
 	}
 
-	public function restoreSelection(cursor:BufferPosition, anchor:BufferPosition):Void {
-		this.cursor = sanitize(cursor);
-		this.anchor = sanitize(anchor);
-		preferredColumn = -1;
+	public function replaceRange(selection:BufferSelection, from:BufferPosition, to:BufferPosition, value:String):Bool
+		return replace(selection, from, to, value);
+
+	public function replaceAllText(value:String, ?selection:BufferSelection):Bool {
+		var owner = selection == null ? new BufferSelection() : selection;
+		return replace(owner, new BufferPosition(0, 0), endPosition(), value);
 	}
 
-	public function move(delta:Int, extend:Bool = false):Void
-		setCursor(positionOffset(cursor, delta), extend);
-
-	public function selectAll():Void {
-		anchor = new BufferPosition(0, 0);
-		cursor = documentEnd();
-		preferredColumn = -1;
+	public function deleteBackward(selection:BufferSelection):Bool {
+		if (selection.hasSelection()) return replace(selection, selection.start(), selection.end(), "");
+		var start = positionOffset(selection.cursor, -1);
+		return start.equals(selection.cursor) ? false : replace(selection, start, selection.cursor, "");
 	}
 
-	public function selectedText():String
-		return hasSelection() ? textRange(selectionStart(), selectionEnd()) : "";
-
-	public function insert(value:String):Bool {
-		if (value.length == 0 && !hasSelection()) return false;
-		return replace(selectionStart(), selectionEnd(), value);
+	public function deleteForward(selection:BufferSelection):Bool {
+		if (selection.hasSelection()) return replace(selection, selection.start(), selection.end(), "");
+		var end = positionOffset(selection.cursor, 1);
+		return end.equals(selection.cursor) ? false : replace(selection, selection.cursor, end, "");
 	}
 
-	public function replaceRange(from:BufferPosition, to:BufferPosition, value:String):Bool
-		return replace(from, to, value);
-
-	public function replaceAllText(value:String):Bool
-		return replace(new BufferPosition(0, 0), documentEnd(), value);
-
-	public function deleteBackward():Bool {
-		if (hasSelection()) return replace(selectionStart(), selectionEnd(), "");
-		var start = positionOffset(cursor, -1);
-		return start.equals(cursor) ? false : replace(start, cursor, "");
-	}
-
-	public function deleteForward():Bool {
-		if (hasSelection()) return replace(selectionStart(), selectionEnd(), "");
-		var end = positionOffset(cursor, 1);
-		return end.equals(cursor) ? false : replace(cursor, end, "");
-	}
-
-	public function undo():Bool {
+	public function undo(selection:BufferSelection):Bool {
 		var edit = undoStack.pop();
 		if (edit == null) return false;
 		replaceRaw(edit.start, advance(edit.start, edit.inserted), edit.removed, edit.stateAfter, edit.stateBefore);
-		cursor = edit.cursorBefore;
-		anchor = edit.anchorBefore;
+		selection.restore(this, edit.cursorBefore, edit.anchorBefore);
 		stateId = edit.stateBefore;
-		preferredColumn = -1;
 		redoStack.push(edit);
 		return true;
 	}
 
-	public function redo():Bool {
+	public function redo(selection:BufferSelection):Bool {
 		var edit = redoStack.pop();
 		if (edit == null) return false;
 		replaceRaw(edit.start, advance(edit.start, edit.removed), edit.inserted, edit.stateBefore, edit.stateAfter);
-		cursor = edit.cursorAfter;
-		anchor = edit.anchorAfter;
+		selection.restore(this, edit.cursorAfter, edit.anchorAfter);
 		stateId = edit.stateAfter;
-		preferredColumn = -1;
 		undoStack.push(edit);
 		return true;
-	}
-
-	public function moveHome(extend:Bool = false):Void
-		setCursor(new BufferPosition(cursor.line, 0), extend);
-
-	public function moveEnd(extend:Bool = false):Void
-		setCursor(new BufferPosition(cursor.line, line(cursor.line).length), extend);
-
-	public function moveVertical(delta:Int, extend:Bool = false):Void {
-		if (preferredColumn < 0) preferredColumn = cursor.column;
-		var targetLine = cursor.line + delta;
-		if (targetLine < 0) targetLine = 0;
-		else if (targetLine >= lines.length) targetLine = lines.length - 1;
-		var column = preferredColumn > lines[targetLine].length ? lines[targetLine].length : preferredColumn;
-		cursor = new BufferPosition(targetLine, column);
-		if (!extend) anchor = cursor;
 	}
 
 	public function positionAt(line:Int, column:Int):BufferPosition
@@ -194,25 +138,23 @@ class TextBuffer {
 			if (remaining <= lines[lineIndex].length) return sanitize(new BufferPosition(lineIndex, remaining));
 			remaining -= lines[lineIndex].length + 1;
 		}
-		return documentEnd();
+		return endPosition();
 	}
 
-	function replace(from:BufferPosition, to:BufferPosition, value:String):Bool {
+	function replace(selection:BufferSelection, from:BufferPosition, to:BufferPosition, value:String):Bool {
 		var start = sanitize(from), end = sanitize(to);
 		if (end.before(start)) {
 			var swap = start;
 			start = end;
 			end = swap;
 		}
-		var removed = textRange(start, end), beforeCursor = cursor, beforeAnchor = anchor, beforeState = stateId;
+		var removed = textRange(start, end), beforeCursor = selection.cursor, beforeAnchor = selection.anchor, beforeState = stateId;
 		if (removed == value) return false;
 		var afterState = nextStateId++;
 		replaceRaw(start, end, value, beforeState, afterState);
-		cursor = advance(start, value);
-		anchor = cursor;
-		preferredColumn = -1;
+		selection.collapse(this, advance(start, value));
 		stateId = afterState;
-		undoStack.push(new BufferEdit(start, removed, value, beforeCursor, beforeAnchor, cursor, anchor, beforeState, stateId));
+		undoStack.push(new BufferEdit(start, removed, value, beforeCursor, beforeAnchor, selection.cursor, selection.anchor, beforeState, stateId));
 		redoStack.resize(0);
 		return true;
 	}
@@ -243,7 +185,7 @@ class TextBuffer {
 		return new BufferPosition(line, column);
 	}
 
-	function documentEnd():BufferPosition
+	public function endPosition():BufferPosition
 		return new BufferPosition(lines.length - 1, lines[lines.length - 1].length);
 
 	static function splitLines(value:String):Array<String> {

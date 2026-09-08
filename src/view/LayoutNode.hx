@@ -64,12 +64,22 @@ class LayoutNode {
 	}
 
 	public function reset():Void {
+		disposeViews();
 		kind = LayoutKind.Leaf;
 		tabs = new TabGroup(focus);
 		first = null;
 		second = null;
 		divider = 500;
 		setBounds(x, y, width, height);
+	}
+
+	public function disposeViews():Void {
+		if (isLeaf()) {
+			for (view in tabs.views) view.dispose();
+			return;
+		}
+		requireFirst().disposeViews();
+		requireSecond().disposeViews();
 	}
 
 	public function setDivider(value:Int):Void {

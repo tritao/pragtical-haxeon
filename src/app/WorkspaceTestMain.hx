@@ -6,6 +6,7 @@ import platform.Platform;
 import renderer.Renderer;
 import session.WorkspaceSession;
 import view.LayoutKind;
+import editor.BufferSelection;
 
 class WorkspaceTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -36,20 +37,20 @@ class WorkspaceTestMain {
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(application.documents.documents.length == 2 && !application.root.commandView.active, "file command view did not accept selection");
 		application.workspace.addProject(arguments[1]);
-		application.documents.documents[1].insert("needle ");
+		application.root.tabs.activeView.textInput("needle ");
 		require(application.keyPressed(Platform.KEY_F, Platform.MOD_CTRL), "Ctrl+F did not open document find");
 		application.textInput("needle");
-		require(application.documentMatches.length == 1 && application.documents.documents[1].buffer.hasSelection(),
+		require(application.documentMatches.length == 1 && application.root.tabs.activeView.hasSelection(),
 			"document find did not select an unsaved match");
 		application.keyPressed(Platform.KEY_ESCAPE, 0);
 		application.textInput("changed");
 		require(application.documentMatches.length == 0, "document find retained a stale match after editing");
-		application.documents.documents[1].undo();
+		application.root.tabs.activeView.undo();
 		application.commands.perform("find:next", application.context);
 		require(application.documentMatches.length == 1, "document find did not refresh after undo");
 		require(application.replaceAll("found") == 1 && application.documents.documents[1].buffer.text.indexOf("needle") < 0,
 			"replace all did not apply as one document operation");
-		application.documents.documents[1].undo();
+		application.root.tabs.activeView.undo();
 		require(application.documents.documents[1].buffer.text.indexOf("needle") >= 0, "one undo did not restore replace all");
 		application.openDocumentFind();
 		application.textInput("needle");
@@ -83,7 +84,7 @@ class WorkspaceTestMain {
 		for (index in 0...4) project.pollChanges(1);
 		require(project.files().length == 3, "incremental polling missed created file");
 		var movedDocument = application.documents.open(createdPath);
-		movedDocument.insert("moved safely");
+		movedDocument.insert(new BufferSelection(), "moved safely");
 		require(application.documents.rename(movedDocument, movedPath) && movedDocument.path == movedPath,
 			"rename did not reconcile dirty open document identity");
 		require(!application.documents.rename(movedDocument, arguments[0] + "/alpha.txt"), "rename overwrote a collision");

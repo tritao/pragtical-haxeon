@@ -55,7 +55,7 @@ class ConfigurationTestMain {
 		require(recovery.save(application) && recovery.load().length == 1, "unaccepted recovery was erased by periodic save");
 		var untitledView = application.newDocument(), untitled = untitledView.getDocument();
 		if (untitled == null) throw "untitled view has no document";
-		untitled.insert("unsaved untitled");
+		untitledView.textInput("unsaved untitled");
 		require(recovery.save(application), "untitled recovery save failed");
 		var withUntitled = recovery.load(), untitledSnapshot:Null<RecoverySnapshot> = null;
 		for (snapshot in withUntitled) if (snapshot.path == null) untitledSnapshot = snapshot;

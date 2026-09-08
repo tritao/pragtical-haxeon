@@ -7,6 +7,7 @@ import platform.Platform;
 import renderer.Renderer;
 import view.LayoutKind;
 import view.LayoutNode;
+import editor.BufferSelection;
 
 class ApplicationTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -53,9 +54,9 @@ class ApplicationTestMain {
 		leftView.restoreCursor(1, 1);
 		rightView.restoreCursor(1, 2);
 		application.root.activateLeaf(application.root.node.requireFirst());
-		require(second.buffer.cursor.line == 1 && second.buffer.cursor.column == 1, "left pane did not restore its cursor");
+		require(leftView.cursorLine() == 1 && leftView.cursorColumn() == 1, "left pane did not restore its cursor");
 		application.root.activateLeaf(application.root.node.requireSecond());
-		require(second.buffer.cursor.line == 1 && second.buffer.cursor.column == 2, "right pane did not retain an independent cursor");
+		require(rightView.cursorLine() == 1 && rightView.cursorColumn() == 2, "right pane did not retain an independent cursor");
 		rightView.restoreCursor(0, 0);
 		application.commands.perform("doc:newline", application.context);
 		application.root.activateLeaf(application.root.node.requireFirst());
@@ -77,7 +78,7 @@ class ApplicationTestMain {
 			"shared-document pane close prompted or failed to collapse");
 		require(application.root.closeActivePane(true) && application.root.node.isLeaf(), "closing final pane did not collapse layout root");
 		var failing = new Document("/missing-parent/failure.txt", "clean", application.syntaxes);
-		failing.insert("dirty");
+		failing.insert(new BufferSelection(), "dirty");
 		application.add(failing);
 		require(application.requestCloseActiveTab(), "failed-save close did not start");
 		application.textInput("save");
@@ -85,7 +86,7 @@ class ApplicationTestMain {
 		require(application.documents.documents.indexOf(failing) >= 0 && failing.dirty && !application.root.commandView.active,
 			"failed save closed or cleaned the document");
 		var quitOther = application.documents.createUntitled();
-		quitOther.insert("quit dirty");
+		quitOther.insert(new BufferSelection(), "quit dirty");
 		require(application.requestQuit(), "quit coordination did not start");
 		application.textInput("discard");
 		application.keyPressed(Platform.KEY_ENTER, 0);
