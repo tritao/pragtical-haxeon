@@ -16,10 +16,10 @@ movement, selection and search reveal the correct physical document positions.
 
 ## M6.2 — Background processes and output
 
-- [ ] Add owned process handles, argument arrays, cwd/env, nonblocking output,
+- [x] Add owned process handles, argument arrays, cwd/env, nonblocking output,
   cancellation, exit status and shutdown cleanup across platform backends.
-- [ ] Bound output queues and UI retention; avoid shell interpolation for paths.
-- [ ] Implement build tasks and an output panel with clickable file/line diagnostics.
+- [x] Bound output queues and UI retention; avoid shell interpolation for paths.
+- [x] Implement build tasks and an output panel with clickable file/line diagnostics.
   Require a deliberate user command before running project-defined tasks.
 
 Acceptance: run editor tests/build from a task; handle spaces in paths, output

@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M6.2, background processes, bounded output and build tasks.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3, M5.1–M5.3 and M6.1.
+- Active task: M6.3, framed language-service transport and Haxeon integration.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3, M5.1–M5.3, M6.1 and M6.2.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: add owned process handles and nonblocking, bounded output across
-  both native platform backends.
-- Editor implementation HEAD: `d232752`. Haxeon HEAD observed: `d3ab07b`.
+- Next action: build bounded framed JSON-RPC transport with deterministic fake
+  server coverage before connecting the inspected Haxeon language service.
+- Editor implementation HEAD: `0813b05`. Haxeon HEAD observed: `d3ab07b`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -22,7 +22,7 @@ Last updated: 2026-09-08.
 | M3 | Complete headlessly | Reusable command input, pane/tab/sidebar navigation, logical-point DPI routing, status, bounded feedback, error inspection and centralized UI roles pass; interactive M0.3 smoke remains |
 | M4 | Complete headlessly | Responsive index/search, safe replacement, recoverable file operations and defensive sessions pass; graphical smoke remains in M0.3 |
 | M5 | Complete headlessly | Live layered configuration, owned APIs, debounced background compilation, transactional reload and editor lifecycle controls pass |
-| M6 | In progress | M6.1 complete; background tasks and language service pending |
+| M6 | In progress | M6.1/M6.2 complete; language service pending |
 | M7 | Pending | Packaging, performance and platform checks |
 
 ## Completed records
@@ -41,6 +41,24 @@ Last updated: 2026-09-08.
 - Focused acceptance covers multiline repair, wrapped movement and selection,
   physical search reveal, completion insertion and provider cleanup. The full
   headless suite and SDL build passed after the implementation.
+
+### M6.2 — background processes and output
+
+- `22c4628` adds generation-checked native process handles with exact argument
+  arrays, cwd/environment configuration, separate nonblocking output, exit status,
+  cancellation and manager/platform shutdown cleanup. Headless and SDL builds use
+  the shared implementation.
+- `080b09f` adds deliberately selected project tasks, bounded 10,000-line/1 MiB
+  retention, a Build Output view and clickable file/line diagnostics. `2ce8368`
+  exposes subprocesses through plugin ownership and proves unload and failed
+  activation retire them.
+- `0813b05` defines this repository's own headless test/build and SDL build tasks.
+  The automated smoke launches the real headless build through the editor task UI;
+  atomic artifact publication prevents rebuilding a currently running editor from
+  truncating its mapped runtime libraries.
+- Acceptance covers spaces in arguments/cwd, environment values, a 200 KB pipe
+  flood, UI byte/line limits, nonzero exit, cancellation, stale handles, editor
+  shutdown and diagnostic navigation. The full headless suite and SDL build pass.
 
 ### M0.1 — trustworthy baseline
 
