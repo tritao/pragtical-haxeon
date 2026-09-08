@@ -123,6 +123,48 @@ HL_PRIM bool HL_NAME(frame_present)(int window) {
 }
 HL_PRIM int HL_NAME(frame_count)(int window) { return phx_frame_count(window); }
 
+HL_PRIM int HL_NAME(process_create)(vbyte *executable, vbyte *cwd) {
+  return phx_process_create(executable ? hl_to_utf8((uchar *)executable) : "",
+    cwd ? hl_to_utf8((uchar *)cwd) : "");
+}
+HL_PRIM bool HL_NAME(process_add_argument)(int process, vbyte *argument) {
+  return phx_process_add_argument(process,
+    argument ? hl_to_utf8((uchar *)argument) : "");
+}
+HL_PRIM bool HL_NAME(process_set_environment)(int process, vbyte *key,
+                                               vbyte *value) {
+  return phx_process_set_environment(process,
+    key ? hl_to_utf8((uchar *)key) : "", value ? hl_to_utf8((uchar *)value) : "");
+}
+HL_PRIM bool HL_NAME(process_start)(int process) {
+  return phx_process_start(process);
+}
+static vbyte *process_output(int process, bool standard_error) {
+  char buffer[4097];
+  int32_t count = phx_process_read(process, standard_error, buffer, 4096);
+  if (count <= 0) return utf8_string("");
+  buffer[count] = '\0';
+  return utf8_string(buffer);
+}
+HL_PRIM vbyte *HL_NAME(process_stdout)(int process) {
+  return process_output(process, false);
+}
+HL_PRIM vbyte *HL_NAME(process_stderr)(int process) {
+  return process_output(process, true);
+}
+HL_PRIM int HL_NAME(process_state)(int process) {
+  return phx_process_state(process);
+}
+HL_PRIM int HL_NAME(process_exit_status)(int process) {
+  return phx_process_exit_status(process);
+}
+HL_PRIM bool HL_NAME(process_cancel)(int process) {
+  return phx_process_cancel(process);
+}
+HL_PRIM bool HL_NAME(process_destroy)(int process) {
+  return phx_process_destroy(process);
+}
+
 HL_PRIM void HL_NAME(plugin_api_install)(vclosure *dispatch) {
 	if (plugin_api_dispatch == NULL) hl_add_root(&plugin_api_dispatch);
 	plugin_api_dispatch = dispatch;

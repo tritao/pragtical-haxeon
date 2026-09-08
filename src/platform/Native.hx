@@ -33,6 +33,16 @@ extern class Native {
 	static function draw_text(window:Int, font:Int, x:Int, y:Int, text:String, rgba:Int):Bool;
 	static function frame_present(window:Int):Bool;
 	static function frame_count(window:Int):Int;
+	static function process_create(executable:String, cwd:String):Int;
+	static function process_add_argument(process:Int, argument:String):Bool;
+	static function process_set_environment(process:Int, key:String, value:String):Bool;
+	static function process_start(process:Int):Bool;
+	static function process_stdout(process:Int):String;
+	static function process_stderr(process:Int):String;
+	static function process_state(process:Int):Int;
+	static function process_exit_status(process:Int):Int;
+	static function process_cancel(process:Int):Bool;
+	static function process_destroy(process:Int):Bool;
 	static function plugin_api_install(dispatch:(Int, String, String, String, String)->String):Void;
 	static function plugin_api_call(operation:Int, token:String, a:String, b:String, c:String):String;
 	static function host_install(event:()->Void, iterate:()->Int, quit:()->Void):Void;

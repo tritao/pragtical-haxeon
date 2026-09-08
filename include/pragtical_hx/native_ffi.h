@@ -4,7 +4,7 @@
 
 #include <hl.h>
 
-#define PRAGTICAL_HX_FFI_H_SIGNATURE 0x1DA21E14u
+#define PRAGTICAL_HX_FFI_H_SIGNATURE 0xBC6B4B45u
 
 HL_PRIM int pragtical_hx_abi_version(void);
 HL_PRIM vbyte * pragtical_hx_clipboard_get(void);
@@ -32,6 +32,16 @@ HL_PRIM bool pragtical_hx_init(bool arg0);
 HL_PRIM vbyte * pragtical_hx_last_error(void);
 HL_PRIM vbyte * pragtical_hx_plugin_api_call(int arg0, vbyte * arg1, vbyte * arg2, vbyte * arg3, vbyte * arg4);
 HL_PRIM void pragtical_hx_plugin_api_install(vclosure * arg0);
+HL_PRIM bool pragtical_hx_process_add_argument(int arg0, vbyte * arg1);
+HL_PRIM bool pragtical_hx_process_cancel(int arg0);
+HL_PRIM int pragtical_hx_process_create(vbyte * arg0, vbyte * arg1);
+HL_PRIM bool pragtical_hx_process_destroy(int arg0);
+HL_PRIM int pragtical_hx_process_exit_status(int arg0);
+HL_PRIM bool pragtical_hx_process_set_environment(int arg0, vbyte * arg1, vbyte * arg2);
+HL_PRIM bool pragtical_hx_process_start(int arg0);
+HL_PRIM int pragtical_hx_process_state(int arg0);
+HL_PRIM vbyte * pragtical_hx_process_stderr(int arg0);
+HL_PRIM vbyte * pragtical_hx_process_stdout(int arg0);
 HL_PRIM bool pragtical_hx_set_clip_rect(int arg0, int arg1, int arg2, int arg3, int arg4);
 HL_PRIM void pragtical_hx_shutdown(void);
 HL_PRIM int pragtical_hx_window_create(vbyte * arg0, int arg1, int arg2);
@@ -67,6 +77,16 @@ DEFINE_PRIM(_BOOL, init, _BOOL);
 DEFINE_PRIM(_BYTES, last_error, _NO_ARG);
 DEFINE_PRIM(_BYTES, plugin_api_call, _I32 _BYTES _BYTES _BYTES _BYTES);
 DEFINE_PRIM(_VOID, plugin_api_install, _FUN(_BYTES, _I32 _BYTES _BYTES _BYTES _BYTES));
+DEFINE_PRIM(_BOOL, process_add_argument, _I32 _BYTES);
+DEFINE_PRIM(_BOOL, process_cancel, _I32);
+DEFINE_PRIM(_I32, process_create, _BYTES _BYTES);
+DEFINE_PRIM(_BOOL, process_destroy, _I32);
+DEFINE_PRIM(_I32, process_exit_status, _I32);
+DEFINE_PRIM(_BOOL, process_set_environment, _I32 _BYTES _BYTES);
+DEFINE_PRIM(_BOOL, process_start, _I32);
+DEFINE_PRIM(_I32, process_state, _I32);
+DEFINE_PRIM(_BYTES, process_stderr, _I32);
+DEFINE_PRIM(_BYTES, process_stdout, _I32);
 DEFINE_PRIM(_BOOL, set_clip_rect, _I32 _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_VOID, shutdown, _NO_ARG);
 DEFINE_PRIM(_I32, window_create, _BYTES _I32 _I32);

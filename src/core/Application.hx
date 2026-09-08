@@ -37,6 +37,7 @@ import controller.ConfigurationController;
 import controller.PluginController;
 import controller.SessionController;
 import controller.WorkbenchController;
+import process.ProcessManager;
 
 class Application {
 	public final documents:DocumentManager;
@@ -57,6 +58,7 @@ class Application {
 	public final configuration:ConfigurationController;
 	public final session:SessionController;
 	public final workbench:WorkbenchController;
+	public final processes:ProcessManager;
 	public final searchOptions:SearchOptions;
 	public final workspaceSearch:WorkspaceSearch;
 	public final workspaceReplacement:WorkspaceReplacement;
@@ -78,6 +80,7 @@ class Application {
 		completions.add("core", new DocumentWordCompletionProvider());
 		theme = new Theme();
 		workspace = new Workspace(syntaxes);
+		processes = new ProcessManager();
 		fileOperations = new FileOperations(workspace, new TrashService(ConfigurationPaths.trash(), workspace.fileSystem));
 		documents = workspace.documents;
 		focus = new FocusManager();
@@ -242,6 +245,7 @@ class Application {
 	public function shutdown():Void {
 		configuration.shutdown();
 		pluginController.shutdown();
+		processes.shutdown();
 		session.shutdown();
 	}
 }

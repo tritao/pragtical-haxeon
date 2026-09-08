@@ -1,8 +1,15 @@
+#define _POSIX_C_SOURCE 200809L
 #include "pragtical_hx/platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #ifdef PHX_WITH_SDL
 #include <SDL3/SDL.h>
@@ -38,10 +45,29 @@ typedef struct phx_font_slot {
 #endif
 } phx_font_slot;
 
+typedef struct phx_process_slot {
+  uint32_t generation;
+  bool occupied;
+  bool started;
+  bool running;
+  int32_t exit_status;
+  pid_t pid;
+  int stdout_fd;
+  int stderr_fd;
+  char *executable;
+  char *cwd;
+  char *arguments[PHX_MAX_PROCESS_ARGS];
+  int32_t argument_count;
+  char *environment_keys[PHX_MAX_PROCESS_ENV];
+  char *environment_values[PHX_MAX_PROCESS_ENV];
+  int32_t environment_count;
+} phx_process_slot;
+
 static bool initialized;
 static bool is_headless;
 static phx_window_slot windows[PHX_MAX_WINDOWS];
 static phx_font_slot fonts[PHX_MAX_FONTS];
+static phx_process_slot processes[PHX_MAX_PROCESSES];
 static phx_event events[PHX_EVENT_CAPACITY];
 static uint32_t event_read;
 static uint32_t event_count;
@@ -145,6 +171,81 @@ static phx_font_slot *resolve_font(phx_handle handle) {
   return slot;
 }
 
+static phx_process_slot *resolve_process(phx_handle handle) {
+  if (handle <= 0) return NULL;
+  uint32_t encoded_index = (uint32_t)handle & PHX_INDEX_MASK;
+  uint32_t generation = (uint32_t)handle >> PHX_INDEX_BITS;
+  if (encoded_index == 0 || encoded_index > PHX_MAX_PROCESSES) return NULL;
+  phx_process_slot *slot = &processes[encoded_index - 1];
+  if (!slot->occupied || slot->generation != generation) return NULL;
+  return slot;
+}
+
+static void free_process_configuration(phx_process_slot *slot) {
+  free(slot->executable);
+  free(slot->cwd);
+  slot->executable = NULL;
+  slot->cwd = NULL;
+  for (int32_t index = 0; index < slot->argument_count; index++) {
+    free(slot->arguments[index]);
+    slot->arguments[index] = NULL;
+  }
+  for (int32_t index = 0; index < slot->environment_count; index++) {
+    free(slot->environment_keys[index]);
+    free(slot->environment_values[index]);
+    slot->environment_keys[index] = NULL;
+    slot->environment_values[index] = NULL;
+  }
+  slot->argument_count = 0;
+  slot->environment_count = 0;
+}
+
+static void reap_process(phx_process_slot *slot) {
+  if (!slot->started || !slot->running) return;
+  int status = 0;
+  pid_t result = waitpid(slot->pid, &status, WNOHANG);
+  if (result != slot->pid) return;
+  slot->running = false;
+  slot->exit_status = WIFEXITED(status) ? WEXITSTATUS(status)
+    : WIFSIGNALED(status) ? 128 + WTERMSIG(status) : -1;
+}
+
+static void close_process_pipes(phx_process_slot *slot) {
+  if (slot->stdout_fd >= 0) close(slot->stdout_fd);
+  if (slot->stderr_fd >= 0) close(slot->stderr_fd);
+  slot->stdout_fd = -1;
+  slot->stderr_fd = -1;
+}
+
+static void terminate_process(phx_process_slot *slot) {
+  reap_process(slot);
+  if (slot->running) {
+    int status = 0;
+    kill(slot->pid, SIGTERM);
+    pid_t result = waitpid(slot->pid, &status, WNOHANG);
+    if (result == 0) {
+      kill(slot->pid, SIGKILL);
+      result = waitpid(slot->pid, &status, 0);
+    }
+    slot->running = false;
+    slot->exit_status = result == slot->pid && WIFEXITED(status) ? WEXITSTATUS(status)
+      : result == slot->pid && WIFSIGNALED(status) ? 128 + WTERMSIG(status) : -1;
+  }
+}
+
+static bool process_pipe(int descriptors[2]) {
+  if (pipe(descriptors) != 0) return false;
+  if (fcntl(descriptors[0], F_SETFD, FD_CLOEXEC) < 0 ||
+      fcntl(descriptors[1], F_SETFD, FD_CLOEXEC) < 0) {
+    int saved_errno = errno;
+    close(descriptors[0]);
+    close(descriptors[1]);
+    errno = saved_errno;
+    return false;
+  }
+  return true;
+}
+
 #ifdef PHX_WITH_SDL
 static RenColor renderer_color(int32_t rgba) {
   return (RenColor){.r = (rgba >> 24) & 255, .g = (rgba >> 16) & 255,
@@ -166,6 +267,11 @@ bool phx_platform_init(bool headless) {
 #endif
   memset(windows, 0, sizeof(windows));
   memset(fonts, 0, sizeof(fonts));
+  memset(processes, 0, sizeof(processes));
+  for (uint32_t index = 0; index < PHX_MAX_PROCESSES; index++) {
+    processes[index].stdout_fd = -1;
+    processes[index].stderr_fd = -1;
+  }
   memset(events, 0, sizeof(events));
   event_read = 0;
   event_count = 0;
@@ -180,6 +286,14 @@ bool phx_platform_init(bool headless) {
 }
 
 void phx_platform_shutdown(void) {
+  for (uint32_t index = 0; index < PHX_MAX_PROCESSES; index++) {
+    phx_process_slot *slot = &processes[index];
+    if (!slot->occupied) continue;
+    terminate_process(slot);
+    close_process_pipes(slot);
+    free_process_configuration(slot);
+    slot->occupied = false;
+  }
   if (!initialized) return;
 #ifdef PHX_WITH_SDL
   if (!is_headless) {
@@ -197,6 +311,7 @@ void phx_platform_shutdown(void) {
   initialized = false;
   memset(windows, 0, sizeof(windows));
   memset(fonts, 0, sizeof(fonts));
+  memset(processes, 0, sizeof(processes));
   event_read = 0;
   event_count = 0;
   free(clipboard_text);
@@ -562,4 +677,182 @@ int32_t phx_frame_count(phx_handle window) {
     return -1;
   }
   return slot->frames;
+}
+
+phx_handle phx_process_create(const char *executable, const char *cwd) {
+  if (!initialized) { fail("platform is not initialized"); return 0; }
+  if (!executable || executable[0] == '\0') { fail("process executable is empty"); return 0; }
+  for (uint32_t index = 0; index < PHX_MAX_PROCESSES; index++) {
+    phx_process_slot *slot = &processes[index];
+    if (slot->occupied) continue;
+    uint32_t generation = slot->generation + 1;
+    if (generation == 0) generation = 1;
+    memset(slot, 0, sizeof(*slot));
+    slot->generation = generation;
+    slot->stdout_fd = -1;
+    slot->stderr_fd = -1;
+    slot->exit_status = -1;
+    slot->executable = strdup(executable);
+    slot->cwd = cwd && cwd[0] != '\0' ? strdup(cwd) : NULL;
+    if (!slot->executable || (cwd && cwd[0] != '\0' && !slot->cwd)) {
+      free_process_configuration(slot);
+      fail("could not allocate process configuration");
+      return 0;
+    }
+    slot->occupied = true;
+    return make_handle(index, generation);
+  }
+  fail("process table is full");
+  return 0;
+}
+
+bool phx_process_add_argument(phx_handle process, const char *argument) {
+  phx_process_slot *slot = resolve_process(process);
+  if (!slot) return fail("invalid or stale process handle");
+  if (slot->started) return fail("process already started");
+  if (slot->argument_count >= PHX_MAX_PROCESS_ARGS)
+    return fail("process argument limit exceeded");
+  char *copy = strdup(argument ? argument : "");
+  if (!copy) return fail("could not allocate process argument");
+  slot->arguments[slot->argument_count++] = copy;
+  return true;
+}
+
+bool phx_process_set_environment(phx_handle process, const char *key,
+                                 const char *value) {
+  phx_process_slot *slot = resolve_process(process);
+  if (!slot) return fail("invalid or stale process handle");
+  if (slot->started) return fail("process already started");
+  if (!key || key[0] == '\0' || strchr(key, '='))
+    return fail("invalid process environment key");
+  for (int32_t index = 0; index < slot->environment_count; index++) {
+    if (strcmp(slot->environment_keys[index], key) != 0) continue;
+    char *replacement = strdup(value ? value : "");
+    if (!replacement) return fail("could not allocate process environment value");
+    free(slot->environment_values[index]);
+    slot->environment_values[index] = replacement;
+    return true;
+  }
+  if (slot->environment_count >= PHX_MAX_PROCESS_ENV)
+    return fail("process environment limit exceeded");
+  char *key_copy = strdup(key);
+  char *value_copy = strdup(value ? value : "");
+  if (!key_copy || !value_copy) {
+    free(key_copy);
+    free(value_copy);
+    return fail("could not allocate process environment entry");
+  }
+  int32_t index = slot->environment_count++;
+  slot->environment_keys[index] = key_copy;
+  slot->environment_values[index] = value_copy;
+  return true;
+}
+
+bool phx_process_start(phx_handle process) {
+  phx_process_slot *slot = resolve_process(process);
+  if (!slot) return fail("invalid or stale process handle");
+  if (slot->started) return fail("process already started");
+  int stdout_pipe[2], stderr_pipe[2];
+  if (!process_pipe(stdout_pipe)) return fail(strerror(errno));
+  if (!process_pipe(stderr_pipe)) {
+    close(stdout_pipe[0]);
+    close(stdout_pipe[1]);
+    return fail(strerror(errno));
+  }
+  char *arguments[PHX_MAX_PROCESS_ARGS + 2];
+  arguments[0] = slot->executable;
+  for (int32_t index = 0; index < slot->argument_count; index++)
+    arguments[index + 1] = slot->arguments[index];
+  arguments[slot->argument_count + 1] = NULL;
+  pid_t pid = fork();
+  if (pid == 0) {
+    close(stdout_pipe[0]);
+    close(stderr_pipe[0]);
+    if (dup2(stdout_pipe[1], STDOUT_FILENO) < 0 ||
+        dup2(stderr_pipe[1], STDERR_FILENO) < 0) _exit(127);
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+    if (slot->cwd && chdir(slot->cwd) != 0) {
+      dprintf(STDERR_FILENO, "could not change process cwd: %s\n", strerror(errno));
+      _exit(127);
+    }
+    for (int32_t index = 0; index < slot->environment_count; index++)
+      if (setenv(slot->environment_keys[index], slot->environment_values[index], 1) != 0)
+        _exit(127);
+    execvp(slot->executable, arguments);
+    dprintf(STDERR_FILENO, "could not execute %s: %s\n", slot->executable, strerror(errno));
+    _exit(127);
+  }
+  close(stdout_pipe[1]);
+  close(stderr_pipe[1]);
+  if (pid < 0) {
+    close(stdout_pipe[0]);
+    close(stderr_pipe[0]);
+    return fail(strerror(errno));
+  }
+  if (fcntl(stdout_pipe[0], F_SETFL, fcntl(stdout_pipe[0], F_GETFL) | O_NONBLOCK) < 0 ||
+      fcntl(stderr_pipe[0], F_SETFL, fcntl(stderr_pipe[0], F_GETFL) | O_NONBLOCK) < 0) {
+    kill(pid, SIGKILL);
+    waitpid(pid, NULL, 0);
+    close(stdout_pipe[0]);
+    close(stderr_pipe[0]);
+    return fail(strerror(errno));
+  }
+  slot->pid = pid;
+  slot->stdout_fd = stdout_pipe[0];
+  slot->stderr_fd = stderr_pipe[0];
+  slot->started = true;
+  slot->running = true;
+  return true;
+}
+
+int32_t phx_process_read(phx_handle process, bool standard_error,
+                         char *buffer, int32_t capacity) {
+  phx_process_slot *slot = resolve_process(process);
+  if (!slot) { fail("invalid or stale process handle"); return -1; }
+  if (!slot->started || !buffer || capacity <= 0) return 0;
+  int fd = standard_error ? slot->stderr_fd : slot->stdout_fd;
+  if (fd < 0) return 0;
+  ssize_t count = read(fd, buffer, (size_t)capacity);
+  if (count > 0) return (int32_t)count;
+  if (count == 0) {
+    close(fd);
+    if (standard_error) slot->stderr_fd = -1; else slot->stdout_fd = -1;
+    return 0;
+  }
+  if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) return 0;
+  fail(strerror(errno));
+  return -1;
+}
+
+int32_t phx_process_state(phx_handle process) {
+  phx_process_slot *slot = resolve_process(process);
+  if (!slot || !slot->started) return 0;
+  reap_process(slot);
+  return slot->running ? 1 : 2;
+}
+
+int32_t phx_process_exit_status(phx_handle process) {
+  phx_process_slot *slot = resolve_process(process);
+  if (!slot || !slot->started) { fail("invalid or unstarted process handle"); return -1; }
+  reap_process(slot);
+  return slot->running ? -1 : slot->exit_status;
+}
+
+bool phx_process_cancel(phx_handle process) {
+  phx_process_slot *slot = resolve_process(process);
+  if (!slot || !slot->started) return fail("invalid or unstarted process handle");
+  reap_process(slot);
+  if (!slot->running) return true;
+  return kill(slot->pid, SIGTERM) == 0 || errno == ESRCH;
+}
+
+bool phx_process_destroy(phx_handle process) {
+  phx_process_slot *slot = resolve_process(process);
+  if (!slot) return fail("invalid or stale process handle");
+  terminate_process(slot);
+  close_process_pipes(slot);
+  free_process_configuration(slot);
+  slot->occupied = false;
+  return true;
 }

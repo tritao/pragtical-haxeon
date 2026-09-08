@@ -7,6 +7,9 @@
 
 #define PHX_MAX_WINDOWS 64
 #define PHX_MAX_FONTS 32
+#define PHX_MAX_PROCESSES 32
+#define PHX_MAX_PROCESS_ARGS 256
+#define PHX_MAX_PROCESS_ENV 128
 #define PHX_EVENT_CAPACITY 256
 
 typedef int32_t phx_handle;
@@ -54,5 +57,18 @@ bool phx_draw_text(phx_handle window, phx_handle font, int32_t x, int32_t y,
                    const char *text, int32_t rgba);
 bool phx_frame_present(phx_handle window);
 int32_t phx_frame_count(phx_handle window);
+
+phx_handle phx_process_create(const char *executable, const char *cwd);
+bool phx_process_add_argument(phx_handle process, const char *argument);
+bool phx_process_set_environment(phx_handle process, const char *key,
+                                 const char *value);
+bool phx_process_start(phx_handle process);
+int32_t phx_process_read(phx_handle process, bool standard_error,
+                         char *buffer, int32_t capacity);
+/* 1 while running, 2 after exit, and 0 for an invalid/stale handle. */
+int32_t phx_process_state(phx_handle process);
+int32_t phx_process_exit_status(phx_handle process);
+bool phx_process_cancel(phx_handle process);
+bool phx_process_destroy(phx_handle process);
 
 #endif

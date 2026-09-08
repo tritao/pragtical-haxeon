@@ -14,6 +14,10 @@ python3 "$root_dir/scripts/generate-platform-abi.py" --check
 	-o "$root_dir/build/platform-test"
 "$root_dir/build/platform-test"
 
+"$cc" -std=c11 -Wall -Wextra -Werror \
+	"$root_dir/tests/process_fixture.c" \
+	-o "$root_dir/build/process-fixture"
+
 "$root_dir/scripts/build.sh"
 (
 	cd "$root_dir/out"
@@ -25,6 +29,18 @@ echo "PASS: Haxeon application exercised the platform ABI"
 mapfile -t sources < <(find "$root_dir/src" -type f -name '*.hx' -print | LC_ALL=C sort)
 mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -print | LC_ALL=C sort)
 mapfile -t compiler_sources < <(find "$haxeon_root/src/compiler" "$haxeon_root/src/runtime" -type f -name '*.hx' -print | LC_ALL=C sort)
+
+process_cwd="$root_dir/build/process cwd"
+mkdir -p "$process_cwd"
+"$root_dir/scripts/haxeon-compile.sh" \
+	--output="$root_dir/out/process-test.hl" --entry=app.ProcessTestMain \
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
+(
+	cd "$root_dir/out"
+	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+		"$haxeon_root/vendor/hashlink/hl" process-test.hl "$root_dir/build/process-fixture" "$process_cwd"
+)
 
 configuration_root="$root_dir/build/configuration-test"
 configuration_project="$configuration_root/project"
