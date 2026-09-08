@@ -21,6 +21,7 @@ class GraphicalMain {
 		var application = new Application(renderer, Native.window_width(window), Native.window_height(window), settings);
 		var sessionPath = ConfigurationPaths.session(), savedSession = WorkspaceSession.load(sessionPath);
 		if (savedSession != null) savedSession.restore(application);
+		var lastRecoverySave = Sys.time();
 		var documentCount = 0;
 		for (argument in arguments) {
 			if (StringTools.startsWith(argument, "--plugin="))
@@ -30,8 +31,13 @@ class GraphicalMain {
 		}
 		if (documentCount == 0 && application.workspace.projects.length == 0)
 			application.open("README.md");
+		application.openRecoveryCommandView();
 		while (running) {
 			application.update();
+			if (Sys.time() - lastRecoverySave >= 2.0) {
+				application.recovery.save(application);
+				lastRecoverySave = Sys.time();
+			}
 			while (Native.event_poll()) {
 				var kind = Native.event_kind();
 				if (kind == Platform.EVENT_QUIT)
@@ -57,6 +63,7 @@ class GraphicalMain {
 			renderer.present();
 		}
 		application.shutdown();
+		application.recovery.save(application);
 		WorkspaceSession.capture(application).save(sessionPath);
 		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy editor window");

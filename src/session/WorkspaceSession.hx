@@ -10,12 +10,17 @@ class WorkspaceSession {
 	public final documents:Array<String> = [];
 	public var activeDocument:String = "";
 	public var sidebar:String = "project";
+	public final layout:Array<String> = [];
+	public final expanded:Array<String> = [];
 
 	public function new() {}
 
 	public static function capture(application:Application):WorkspaceSession {
 		var result = new WorkspaceSession();
-		for (project in application.workspace.projects) result.projects.push(project.root);
+		for (project in application.workspace.projects) {
+			result.projects.push(project.root);
+			for (path in project.expandedPaths()) result.expanded.push(path);
+		}
 		for (document in application.documents.documents)
 			if (FileSystem.exists(document.path) && !FileSystem.isDirectory(document.path)) result.documents.push(document.path);
 		var view = application.context.activeView();
@@ -24,15 +29,19 @@ class WorkspaceSession {
 			if (active != null) result.activeDocument = active.path;
 		}
 		result.sidebar = application.root.searchVisible ? "search" : "project";
+		for (line in application.root.sessionLines()) result.layout.push(line);
 		return result;
 	}
 
 	public function restore(application:Application):Void {
 		for (root in projects)
 			if (FileSystem.exists(root) && FileSystem.isDirectory(root)) application.openArgument(root);
-		for (path in documents)
-			if (FileSystem.exists(path) && !FileSystem.isDirectory(path)) application.open(path);
-		if (activeDocument.length > 0 && FileSystem.exists(activeDocument) && !FileSystem.isDirectory(activeDocument)) application.open(activeDocument);
+		for (project in application.workspace.projects) project.restoreExpanded(expanded);
+		if (layout.length > 0) application.root.restoreSessionLines(layout); else {
+			for (path in documents)
+				if (FileSystem.exists(path) && !FileSystem.isDirectory(path)) application.open(path);
+			if (activeDocument.length > 0 && FileSystem.exists(activeDocument) && !FileSystem.isDirectory(activeDocument)) application.open(activeDocument);
+		}
 		if (sidebar == "project") application.root.showProjectSidebar(); else application.root.showSearchResults("", []);
 	}
 
@@ -41,13 +50,15 @@ class WorkspaceSession {
 		for (project in projects) output += "project=" + clean(project) + "\n";
 		for (document in documents) output += "document=" + clean(document) + "\n";
 		output += "active=" + clean(activeDocument) + "\nsidebar=" + sidebar + "\n";
+		for (line in layout) output += "layout=" + clean(line) + "\n";
+		for (path in expanded) output += "expanded=" + clean(path) + "\n";
 		return output;
 	}
 
 	public static function decode(content:String):WorkspaceSession {
 		var result = new WorkspaceSession(), version = 0;
 		for (raw in content.split("\n")) {
-			var line = StringTools.trim(raw), separator = line.indexOf("=");
+			var line = StringTools.endsWith(raw, "\r") ? raw.substring(0, raw.length - 1) : raw, separator = line.indexOf("=");
 			if (line.length == 0 || separator < 0) continue;
 			var key = line.substring(0, separator), value = line.substring(separator + 1);
 			if (key == "version") version = Std.parseInt(value);
@@ -55,6 +66,8 @@ class WorkspaceSession {
 			else if (key == "document") result.documents.push(value);
 			else if (key == "active") result.activeDocument = value;
 			else if (key == "sidebar" && (value == "project" || value == "search")) result.sidebar = value;
+			else if (key == "layout") result.layout.push(value);
+			else if (key == "expanded") result.expanded.push(value);
 		}
 		if (version != VERSION) throw "unsupported workspace session version";
 		return result;
@@ -71,12 +84,13 @@ class WorkspaceSession {
 
 	public function save(path:String):Bool {
 		if (path.length == 0 || !ensureParent(path)) return false;
-		File.saveContent(path, encode());
-		return true;
+		return sys.io.AtomicFile.write(path, encode());
 	}
 
-	static function clean(value:String):String
-		return value.split("\n").join("").split("\r").join("");
+	static function clean(value:String):String {
+		if (value.indexOf("\n") >= 0 || value.indexOf("\r") >= 0) throw "session value contains a newline";
+		return value;
+	}
 
 	static function ensureParent(path:String):Bool {
 		var separator = path.lastIndexOf("/");

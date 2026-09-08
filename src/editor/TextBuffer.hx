@@ -42,6 +42,12 @@ class TextBuffer {
 		preferredColumn = -1;
 	}
 
+	public function restoreSelection(cursor:BufferPosition, anchor:BufferPosition):Void {
+		this.cursor = sanitize(cursor);
+		this.anchor = sanitize(anchor);
+		preferredColumn = -1;
+	}
+
 	public function move(delta:Int, extend:Bool = false):Void
 		setCursor(positionOffset(cursor, delta), extend);
 

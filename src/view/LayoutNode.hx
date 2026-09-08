@@ -63,6 +63,22 @@ class LayoutNode {
 		return created;
 	}
 
+	public function reset():Void {
+		kind = LayoutKind.Leaf;
+		tabs = new TabGroup(focus);
+		first = null;
+		second = null;
+		divider = 500;
+		setBounds(x, y, width, height);
+	}
+
+	public function setDivider(value:Int):Void {
+		divider = value;
+		if (divider < 150) divider = 150;
+		if (divider > 850) divider = 850;
+		setBounds(x, y, width, height);
+	}
+
 	public function leafAt(px:Int, py:Int):Null<LayoutNode> {
 		if (px < x || py < y || px >= x + width || py >= y + height)
 			return null;

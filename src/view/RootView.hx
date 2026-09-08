@@ -10,6 +10,8 @@ import workspace.Workspace;
 import commandview.CommandView;
 import search.DocumentSearch;
 import search.SearchMatch;
+import sys.FileSystem;
+import editor.BufferPosition;
 
 class RootView {
 	public static inline final TAB_WIDTH = 180;
@@ -25,6 +27,7 @@ class RootView {
 	public final searchSidebar:SearchSidebar;
 	public final commandView:CommandView;
 	public var searchVisible(default, null):Bool = false;
+	public var notification:String = "";
 	var width:Int;
 	var height:Int;
 	var draggingDivider:Null<LayoutNode>;
@@ -114,6 +117,7 @@ class RootView {
 
 	public function setSidebarWidth(width:Int):Void {
 		sidebar.width = width;
+		searchSidebar.width = width;
 		setNodeBounds();
 	}
 
@@ -183,6 +187,11 @@ class RootView {
 		drawNode(node);
 		renderer.clip(0, 0, width, height);
 		commandView.draw(renderer, width, height);
+		if (notification.length > 0) {
+			renderer.clip(0, 0, width, height);
+			renderer.rect(0, height - 28, width, 28, 0x4c3030ff);
+			renderer.text(8, height - 23, notification, 0xffffffff);
+		}
 	}
 
 	public function showSearchResults(query:String, results:Array<SearchMatch>):Void {
@@ -215,6 +224,18 @@ class RootView {
 		var view = tabs.activeView;
 		if (view == null) return;
 		view.setSearchMatches(results);
+	}
+
+	public function documentRenamed(document:Document):Void
+		updateDocumentTitle(node, document);
+
+	function updateDocumentTitle(current:LayoutNode, document:Document):Void {
+		if (current.isLeaf()) {
+			for (view in current.tabs.views) if (view.getDocument() == document) view.setTitle(document.path);
+			return;
+		}
+		updateDocumentTitle(current.requireFirst(), document);
+		updateDocumentTitle(current.requireSecond(), document);
 	}
 
 	public function sidebarMove(delta:Int):Bool
@@ -264,5 +285,95 @@ class RootView {
 		if (current.isLeaf()) return current.tabs.indexOf(view) >= 0 ? current : null;
 		var found = leafForView(current.requireFirst(), view);
 		return found == null ? leafForView(current.requireSecond(), view) : found;
+	}
+
+	public function sessionLines():Array<String> {
+		var result:Array<String> = [];
+		appendSessionNode(node, "", result);
+		result.push("A\t" + routeFor(node, activeLeaf, ""));
+		return result;
+	}
+
+	function appendSessionNode(current:LayoutNode, route:String, result:Array<String>):Void {
+		if (!current.isLeaf()) {
+			result.push("S\t" + route + "\t" + (current.kind == LayoutKind.Horizontal ? "H" : "V") + "\t" + current.divider);
+			appendSessionNode(current.requireFirst(), route + "0", result);
+			appendSessionNode(current.requireSecond(), route + "1", result);
+			return;
+		}
+		for (view in current.tabs.views) {
+			var document = view.getDocument();
+			if (document != null && document.path.indexOf("\t") < 0 && document.path.indexOf("\n") < 0)
+				result.push("T\t" + route + "\t" + (view == current.tabs.activeView ? "1" : "0") + "\t" + view.cursorLine() + "\t"
+					+ view.cursorColumn() + "\t" + view.scrollX() + "\t" + view.scrollY() + "\t" + document.path);
+		}
+	}
+
+	public function restoreSessionLines(lines:Array<String>):Void {
+		focus.activate(null);
+		node.reset();
+		activeLeaf = node;
+		for (line in lines) {
+			var fields = line.split("\t");
+			if (fields.length == 4 && fields[0] == "S" && (fields[2] == "H" || fields[2] == "V")) {
+				var target = nodeAtRoute(fields[1]);
+				if (target != null && target.isLeaf()) {
+					target.split(fields[2] == "H" ? LayoutKind.Horizontal : LayoutKind.Vertical);
+					target.setDivider(Std.parseInt(fields[3]));
+				}
+			}
+		}
+		for (line in lines) {
+			var fields = line.split("\t");
+			if (fields.length == 8 && fields[0] == "T" && FileSystem.exists(fields[7]) && !FileSystem.isDirectory(fields[7])) {
+				var leaf = nodeAtRoute(fields[1]);
+				if (leaf != null && leaf.isLeaf()) {
+					var document = documents.open(fields[7]), view = new DocumentView(document, renderer, theme, leaf.width, leaf.height);
+					view.setBounds(leaf.x, leaf.y, leaf.width, leaf.height);
+					leaf.tabs.add(view);
+					view.restoreCursor(Std.parseInt(fields[3]), Std.parseInt(fields[4]));
+					view.restoreScroll(Std.parseInt(fields[5]), Std.parseInt(fields[6]));
+					if (fields[2] == "1") leaf.tabs.setActive(view);
+				}
+			}
+		}
+		for (line in lines) {
+			var fields = line.split("\t");
+			if (fields.length == 8 && fields[0] == "T" && fields[2] == "1") {
+				var leaf = nodeAtRoute(fields[1]);
+				if (leaf != null)
+					for (view in leaf.tabs.views) {
+						var document = view.getDocument();
+						if (document != null && document.path == fields[7]) leaf.tabs.setActive(view);
+					}
+			}
+		}
+		for (line in lines) {
+			var fields = line.split("\t");
+			if (fields.length == 2 && fields[0] == "A") {
+				var leaf = nodeAtRoute(fields[1]);
+				if (leaf != null && leaf.isLeaf()) activateLeaf(leaf);
+			}
+		}
+		setNodeBounds();
+	}
+
+	function nodeAtRoute(route:String):Null<LayoutNode> {
+		if (route.length > 64) return null;
+		var current = node;
+		for (index in 0...route.length) {
+			if (route.charAt(index) != "0" && route.charAt(index) != "1") return null;
+			if (current.isLeaf()) return null;
+			current = route.charAt(index) == "0" ? current.requireFirst() : current.requireSecond();
+		}
+		return current;
+	}
+
+	function routeFor(current:LayoutNode, target:LayoutNode, route:String):String {
+		if (current == target) return route;
+		if (current.isLeaf()) return "";
+		var left = routeFor(current.requireFirst(), target, route + "0");
+		if (left.length > 0 || current.requireFirst() == target) return left;
+		return routeFor(current.requireSecond(), target, route + "1");
 	}
 }

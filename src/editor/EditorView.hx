@@ -49,6 +49,12 @@ class EditorView {
 	public function cursorChanged():Void
 		ensureCaretVisible();
 
+	public function restoreScroll(x:Int, y:Int):Void {
+		scrollX = x;
+		scrollY = y;
+		clampScroll();
+	}
+
 	public function setSearchMatches(matches:Array<SearchMatch>):Void {
 		searchMatches.resize(0);
 		for (match in matches) searchMatches.push(match);

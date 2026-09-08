@@ -13,7 +13,7 @@ class Workspace {
 	public function new(syntaxes:SyntaxRegistry, ?fileSystem:FileSystemService) {
 		this.syntaxes = syntaxes;
 		this.fileSystem = fileSystem == null ? new FileSystemService() : fileSystem;
-		documents = new DocumentManager(syntaxes);
+		documents = new DocumentManager(syntaxes, this.fileSystem);
 	}
 
 	public function addProject(path:String, ?ignoredNames:Array<String>):Project {
@@ -27,5 +27,11 @@ class Workspace {
 		projects.push(project);
 		activeProject = project;
 		return project;
+	}
+
+	public function refreshProjects(directoryBudget:Int = 32):Bool {
+		var changed = false;
+		for (project in projects) if (project.pollChanges(directoryBudget)) changed = true;
+		return changed;
 	}
 }

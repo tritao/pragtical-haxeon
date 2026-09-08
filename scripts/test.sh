@@ -75,9 +75,12 @@ printf 'version=1\neditor.fontSize=18\nworkbench.sidebarWidth=280\nkeybinding=Ct
 	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
 	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
 (
+	printf 'saved by Haxeon\n' > "$root_dir/build/document-save-smoke.txt"
+	chmod 640 "$root_dir/build/document-save-smoke.txt"
 	cd "$root_dir/out"
 	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
 		"$haxeon_root/vendor/hashlink/hl" document-test.hl "$root_dir/build/document-save-smoke.txt"
+	[[ $(stat -c '%a' "$root_dir/build/document-save-smoke.txt") == 640 ]]
 )
 
 "$root_dir/scripts/haxeon-compile.sh" \
@@ -94,6 +97,7 @@ workspace_root="$root_dir/build/workspace-test"
 workspace_other="$root_dir/build/workspace-test-other"
 mkdir -p "$workspace_root/src" "$workspace_root/.git" "$workspace_root/.cache"
 mkdir -p "$workspace_other"
+rm -f "$workspace_root/created.txt" "$workspace_root/moved.txt"
 printf 'alpha\n' > "$workspace_root/alpha.txt"
 printf 'class Main {}\n' > "$workspace_root/src/Main.hx"
 printf 'ignored\n' > "$workspace_root/.git/ignored"

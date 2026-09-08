@@ -37,6 +37,14 @@ class ApplicationTestMain {
 			+ LayoutNode.DIVIDER_SIZE == 640 - view.Sidebar.WIDTH, "horizontal split did not assign recursive bounds");
 		require(application.documents.documents.length == 1 && application.root.node.containsDocument(second),
 			"split duplicated document ownership");
+		var leftView = application.root.node.requireFirst().tabs.activeView, rightView = application.root.node.requireSecond().tabs.activeView;
+		if (leftView == null || rightView == null) throw "split views are missing";
+		leftView.restoreCursor(1, 1);
+		rightView.restoreCursor(1, 2);
+		application.root.activateLeaf(application.root.node.requireFirst());
+		require(second.buffer.cursor.line == 1 && second.buffer.cursor.column == 1, "left pane did not restore its cursor");
+		application.root.activateLeaf(application.root.node.requireSecond());
+		require(second.buffer.cursor.line == 1 && second.buffer.cursor.column == 2, "right pane did not retain an independent cursor");
 		var divider = application.root.node.requireFirst().x + application.root.node.requireFirst().width;
 		application.root.mouseDown(Platform.MOUSE_LEFT, divider + 1, 100);
 		application.root.mouseMove(520, 100);

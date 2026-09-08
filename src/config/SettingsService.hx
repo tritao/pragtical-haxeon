@@ -16,10 +16,20 @@ class SettingsService {
 		reload(true);
 	}
 
-	public function addProject(path:String):Bool {
-		for (layer in layers) if (layer.name == "project" && layer.path == path) return false;
+	public function setProject(path:String):Bool {
+		var index = layers.length;
+		while (index > 0) {
+			index--;
+			if (layers[index].name == "project") layers.splice(index, 1);
+		}
 		layers.push(new SettingsLayer("project", path));
 		return reload(true);
+	}
+
+	public function forProject(path:String):SettingsService {
+		var userPath = "";
+		for (layer in layers) if (layer.name == "user") userPath = layer.path;
+		return new SettingsService(userPath, path);
 	}
 
 	public function subscribe(listener:Settings->Void):Void {

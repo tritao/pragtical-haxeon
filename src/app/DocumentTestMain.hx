@@ -8,6 +8,26 @@ import syntax.BuiltinSyntax;
 import syntax.SyntaxRegistry;
 import search.DocumentSearch;
 import search.SearchOptions;
+import editor.ExternalState;
+import sys.io.File;
+import workspace.FileSystemService;
+import workspace.EditorFileSystem;
+
+class FailingFileSystem implements EditorFileSystem {
+	final delegate = new FileSystemService();
+	public function new() {}
+	public function normalize(path:String):String return delegate.normalize(path);
+	public function exists(path:String):Bool return delegate.exists(path);
+	public function isDirectory(path:String):Bool return delegate.isDirectory(path);
+	public function entries(path:String):Array<String> return delegate.entries(path);
+	public function join(parent:String, name:String):String return delegate.join(parent, name);
+	public function read(path:String):String return delegate.read(path);
+	public function writeAtomic(path:String, content:String):Bool return false;
+	public function createFile(path:String):Bool return delegate.createFile(path);
+	public function createFolder(path:String):Bool return delegate.createFolder(path);
+	public function rename(path:String, destination:String):Bool return delegate.rename(path, destination);
+	public function deleteFile(path:String):Bool return delegate.deleteFile(path);
+}
 
 class DocumentTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -91,10 +111,28 @@ class DocumentTestMain {
 		require(source.highlighter.line(3) == stableTail, "unchanged converged highlight cache was discarded");
 		var arguments = Sys.args();
 		if (arguments.length > 0) {
-			var saved = new Document(arguments[0], "saved by Haxeon\n", syntaxes);
+			var saved = Document.open(arguments[0], syntaxes);
 			saved.insert("!");
-			saved.save();
-			require(!saved.dirty && Document.open(arguments[0], syntaxes).buffer.text == "!saved by Haxeon\n", "document save failed");
+			require(saved.save() && !saved.dirty && Document.open(arguments[0], syntaxes).buffer.text == "!saved by Haxeon\n", "atomic document save failed");
+			File.saveContent(arguments[0], "external\n");
+			require(saved.checkExternal() == ExternalState.Current && saved.buffer.text == "external\n", "clean external edit did not reload");
+			saved.insert("dirty ");
+			File.saveContent(arguments[0], "other writer\n");
+			require(saved.checkExternal() == ExternalState.Changed && !saved.save() && File.getContent(arguments[0]) == "other writer\n",
+				"dirty external conflict overwrote disk");
+			require(saved.save(true) && File.getContent(arguments[0]) == saved.buffer.text, "explicit conflict overwrite failed");
+			var failing = new Document(arguments[0], File.getContent(arguments[0]), syntaxes, new FailingFileSystem());
+			failing.insert("unsaved ");
+			require(!failing.save() && failing.dirty && File.getContent(arguments[0]) == saved.buffer.text, "failed save changed disk or clean state");
+			File.saveContent(arguments[0], "﻿first\r\nsecond\r\n");
+			var formatted = Document.open(arguments[0], syntaxes);
+			var lastLine = formatted.buffer.lineCount() - 1;
+			formatted.buffer.setCursor(formatted.buffer.positionAt(lastLine, formatted.buffer.line(lastLine).length));
+			formatted.insert("third\n");
+			require(formatted.save() && File.getContent(arguments[0]) == "﻿first\r\nsecond\r\nthird\r\n", "BOM/CRLF format was not preserved");
+			require(!sys.io.AtomicFile.write(arguments[0] + "/missing/file.txt", "bad"), "invalid atomic destination was accepted");
+			require(!sys.io.AtomicFile.create(arguments[0], "overwrite") && File.getContent(arguments[0]) == "﻿first\r\nsecond\r\nthird\r\n",
+				"exclusive file creation overwrote an existing file");
 		}
 		Sys.println("PASS: Haxeon text buffer editing, selections, and history");
 		return 0;

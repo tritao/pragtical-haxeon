@@ -27,6 +27,8 @@ import command.KeyBinding;
 import config.ConfigurationPaths;
 import config.Settings;
 import config.SettingsService;
+import recovery.RecoveryStore;
+import recovery.RecoverySnapshot;
 
 class Application {
 	public final documents:DocumentManager;
@@ -41,13 +43,17 @@ class Application {
 	public final theme:Theme;
 	public final searchOptions:SearchOptions;
 	public final settings:SettingsService;
+	public final recovery:RecoveryStore;
 	public final documentMatches:Array<SearchMatch> = [];
 	public var documentSearchQuery(default, null):String = "";
 	var documentMatchIndex:Int = -1;
 	var settingsListener:Settings->Void;
+	var lastFileSystemCheck:Float = 0.0;
+	public final messages:Array<String> = [];
 
 	public function new(renderer:Renderer, width:Int, height:Int, ?settings:SettingsService) {
 		this.settings = settings == null ? new SettingsService() : settings;
+		recovery = new RecoveryStore(ConfigurationPaths.recovery());
 		syntaxes = new SyntaxRegistry();
 		BuiltinSyntax.install(syntaxes);
 		theme = new Theme();
@@ -63,6 +69,8 @@ class Application {
 		installSearchCommands();
 		plugins = new PluginManager(commands, keymap, context, syntaxes);
 		installConfigurationCommands();
+		installFileCommands();
+		commands.add("recovery:open", context -> openRecoveryCommandView());
 		settingsListener = applySettings;
 		this.settings.subscribe(settingsListener);
 	}
@@ -73,8 +81,9 @@ class Application {
 	public function openArgument(path:String):Null<View> {
 		if (FileSystem.isDirectory(path)) {
 			var normalized = workspace.fileSystem.normalize(path);
-			settings.addProject(ConfigurationPaths.projectSettings(normalized));
-			workspace.addProject(normalized, settings.current.excludedNames);
+			var projectSettings = settings.forProject(ConfigurationPaths.projectSettings(normalized));
+			var project = workspace.addProject(normalized, projectSettings.current.excludedNames);
+			project.settings = projectSettings;
 			return null;
 		}
 		return open(path);
@@ -261,11 +270,84 @@ class Application {
 		});
 		commands.add("doc:indent", function(context) {
 			var spaces = "";
-			for (index in 0...settings.current.tabWidth) spaces += " ";
+			var value = settings.current, document = context.requireDocument(), matchedLength = -1;
+			for (project in workspace.projects)
+				if (project.settings != null && StringTools.startsWith(document.path, project.root + "/") && project.root.length > matchedLength) {
+					value = project.settings.current;
+					matchedLength = project.root.length;
+				}
+			for (index in 0...value.tabWidth) spaces += " ";
 			context.requireDocument().insert(spaces);
 		}, function(context) return context.activeView() != null && context.activeView().getDocument() != null);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL, ["files:open"]);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["commands:open"]);
+	}
+
+	function installFileCommands():Void {
+		commands.add("doc:save", function(context) {
+			var document = context.requireDocument();
+			if (!document.save()) {
+				messages.push('Save blocked for "' + document.path + '": disk changed or write failed');
+				if (document.externalState != editor.ExternalState.Current) confirmOverwrite(document);
+			}
+			else recovery.forget(document.path);
+		}, context -> activeDocument() != null);
+		commands.add("file:new", context -> openCreateFile());
+		commands.add("folder:new", context -> openCreateFolder());
+		commands.add("file:rename", context -> openRenameFile(), context -> activeDocument() != null);
+		commands.add("file:delete", context -> openDeleteFile(), context -> activeDocument() != null);
+	}
+
+	public function openCreateFile():Void {
+		root.commandView.open(new CommandViewProvider("New File: ", [], function(query) {}, function(entry, path, backwards) {
+			if (workspace.fileSystem.createFile(path)) {
+				workspace.refreshProjects();
+				open(path);
+			} else messages.push('Could not create file "$path"');
+			root.commandView.close();
+		}));
+	}
+
+	function confirmOverwrite(document:Document):Void {
+		root.commandView.open(new CommandViewProvider("Disk changed. Type overwrite to save, or Escape to cancel: ", [], function(query) {}, function(entry, answer, backwards) {
+			if (answer != "overwrite") return;
+			if (document.save(true)) {
+				recovery.forget(document.path);
+				messages.push("Saved " + document.path);
+			} else messages.push("Could not save " + document.path);
+			root.commandView.close();
+		}));
+	}
+
+	public function openCreateFolder():Void {
+		root.commandView.open(new CommandViewProvider("New Folder: ", [], function(query) {}, function(entry, path, backwards) {
+			if (!workspace.fileSystem.createFolder(path)) messages.push('Could not create folder "$path"');
+			workspace.refreshProjects();
+			root.commandView.close();
+		}));
+	}
+
+	public function openRenameFile():Void {
+		var document = activeDocument();
+		if (document == null) return;
+		root.commandView.open(new CommandViewProvider("Rename/Move: ", [], function(query) {}, function(entry, destination, backwards) {
+			if (!documents.rename(document, destination)) messages.push('Could not rename "' + document.path + '"');
+			else root.documentRenamed(document);
+			workspace.refreshProjects();
+			root.commandView.close();
+		}));
+	}
+
+	public function openDeleteFile():Void {
+		var document = activeDocument();
+		if (document == null) return;
+		root.commandView.open(new CommandViewProvider('Type delete to remove "' + document.path + '": ', [], function(query) {}, function(entry, answer, backwards) {
+			if (answer == "delete" && !document.dirty && workspace.fileSystem.deleteFile(document.path)) {
+				root.closeActiveTab(true);
+				workspace.refreshProjects();
+			} else if (answer == "delete") messages.push('Could not safely delete "' + document.path + '"');
+			root.commandView.close();
+		}));
 	}
 
 	public function openSettingsCommandView():Void {
@@ -291,6 +373,24 @@ class Application {
 		}));
 	}
 
+	public function openRecoveryCommandView():Bool {
+		var snapshots = recovery.load(), entries:Array<CommandViewEntry> = [];
+		for (index in 0...snapshots.length)
+			entries.push(new CommandViewEntry(snapshots[index].path, "Recovered unsaved buffer", Std.string(index)));
+		for (diagnostic in recovery.diagnostics) messages.push(diagnostic);
+		if (entries.length == 0) return false;
+		root.commandView.open(new CommandViewProvider("Recover: ", entries, function(query) {}, function(entry, query, backwards) {
+			if (entry != null) {
+				var selected = Std.parseInt(entry.value);
+				if (selected >= 0 && selected < snapshots.length && recovery.restore(this, snapshots[selected])) {
+					recovery.save(this);
+				}
+			}
+			root.commandView.close();
+		}));
+		return true;
+	}
+
 	function applySettings(value:Settings):Void {
 		theme.editorBackground = value.editorBackground;
 		theme.editorForeground = value.editorForeground;
@@ -298,7 +398,6 @@ class Application {
 		searchOptions.caseSensitive = value.searchCaseSensitive;
 		searchOptions.wholeWord = value.searchWholeWord;
 		root.setSidebarWidth(value.sidebarWidth);
-		for (project in workspace.projects) project.setIgnored(value.excludedNames);
 		keymap.setConfigured([for (binding in value.keybindings) new KeyBinding(binding.key, binding.modifiers, binding.commands)]);
 		if (!root.renderer.reloadFont(value.fontPath, value.fontSize))
 			settings.diagnostics.push('could not load font "' + value.fontPath + '"');
@@ -313,7 +412,13 @@ class Application {
 
 	public function update():Void {
 		settings.reload();
+		if (Sys.time() - lastFileSystemCheck >= 1.0) {
+			lastFileSystemCheck = Sys.time();
+			documents.checkExternalChanges();
+			workspace.refreshProjects();
+		}
 		plugins.update();
+		if (messages.length > 0) root.notification = messages[messages.length - 1];
 	}
 
 	public function shutdown():Void {

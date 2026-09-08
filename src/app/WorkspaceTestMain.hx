@@ -4,6 +4,8 @@ import core.Application;
 import platform.Native;
 import platform.Platform;
 import renderer.Renderer;
+import session.WorkspaceSession;
+import view.LayoutKind;
 
 class WorkspaceTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -19,7 +21,7 @@ class WorkspaceTestMain {
 			visible = project.visibleNodes();
 		require(application.workspace.activeProject == project && visible.length == 3, "project root did not scan or ignored entries leaked");
 		require(visible[0] == project.tree && visible[1].name == "alpha.txt" && visible[2].name == "src", "project tree ordering failed");
-		project.toggle(visible[2]);
+		project.restoreExpanded([arguments[0] + "/src"]);
 		require(project.visibleNodes().length == 4 && project.visibleNodes()[3].name == "Main.hx", "directory expansion failed");
 		application.commands.perform("project:sidebar-next", application.context);
 		application.commands.perform("project:sidebar-open", application.context);
@@ -55,6 +57,29 @@ class WorkspaceTestMain {
 		application.openFileCommandView();
 		application.keyPressed(Platform.KEY_ESCAPE, 0);
 		require(!application.root.commandView.active, "Escape did not cancel command view");
+		var createdPath = arguments[0] + "/created.txt", movedPath = arguments[0] + "/moved.txt";
+		for (index in 0...4) project.pollChanges(1);
+		require(application.workspace.fileSystem.createFile(createdPath), "file creation failed");
+		for (index in 0...4) project.pollChanges(1);
+		require(project.files().length == 3, "incremental polling missed created file");
+		var movedDocument = application.documents.open(createdPath);
+		movedDocument.insert("moved safely");
+		require(application.documents.rename(movedDocument, movedPath) && movedDocument.path == movedPath,
+			"rename did not reconcile dirty open document identity");
+		require(!application.documents.rename(movedDocument, arguments[0] + "/alpha.txt"), "rename overwrote a collision");
+		require(movedDocument.save() && application.workspace.fileSystem.deleteFile(movedPath), "save/delete lifecycle failed");
+		application.documents.close(movedDocument, true);
+		for (index in 0...4) project.pollChanges(1);
+		require(project.files().length == 2, "incremental polling retained deleted file");
+		project.restoreExpanded([arguments[0] + "/src"]);
+		application.root.splitActive(LayoutKind.Horizontal);
+		application.open(arguments[1] + "/second.txt");
+		var session = WorkspaceSession.decode(WorkspaceSession.capture(application).encode());
+		session.restore(application);
+		require(application.root.sessionLines().join("\n") == session.layout.join("\n"), "layout tab order, active pane, cursor or scroll changed on restore");
+		require(application.workspace.projects.length == 2 && !application.root.node.isLeaf()
+			&& application.root.activeLeaf.tabs.activeView != null, "multi-root split session did not restore");
+		require(project.visibleNodes().length == 4, "expanded project folders did not restore");
 		renderer.begin();
 		application.root.draw();
 		renderer.present();

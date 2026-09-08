@@ -10,6 +10,8 @@ import platform.Platform;
 import renderer.Renderer;
 import sys.io.File;
 import session.WorkspaceSession;
+import recovery.RecoverySnapshot;
+import recovery.RecoveryStore;
 
 class ConfigurationTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -45,6 +47,17 @@ class ConfigurationTestMain {
 		var loaded = WorkspaceSession.load(sessionPath);
 		require(loaded != null && loaded.projects.length == 1 && loaded.documents.length == 1 && loaded.activeDocument == arguments[3],
 			"session round trip lost workspace state");
+		var recoveryPath = arguments[2] + "/state/recovery.conf", recovery = new RecoveryStore(recoveryPath);
+		require(recovery.saveSnapshots([new RecoverySnapshot(arguments[3], "dirty\nrecovered")]), "recovery snapshot save failed");
+		var snapshots = recovery.load();
+		require(snapshots.length == 1 && snapshots[0].path == arguments[3] && snapshots[0].text == "dirty\nrecovered",
+			"length-framed recovery snapshot round trip failed");
+		require(recovery.save(application) && recovery.load().length == 1, "unaccepted recovery was erased by periodic save");
+		require(!recovery.restore(application, new RecoverySnapshot(arguments[2] + "/missing", "lost")) && recovery.diagnostics.length > 0,
+			"missing recovery source was silently ignored");
+		File.saveContent(recoveryPath, "pragtical-recovery=1\nnope:2:xx");
+		require(recovery.load().length == 0 && recovery.diagnostics.length > 0, "corrupt recovery lengths accepted");
+		require(!recovery.save(application) && File.getContent(recoveryPath) == "pragtical-recovery=1\nnope:2:xx", "corrupt recovery was overwritten");
 		application.shutdown();
 		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy configuration test window");

@@ -11,7 +11,9 @@ class FocusManager {
 	public function activate(view:Null<View>):Void {
 		if (activeView == view)
 			return;
+		if (activeView != null) activeView.deactivate();
 		lastActiveView = activeView;
 		activeView = view;
+		if (view != null) view.activate();
 	}
 }

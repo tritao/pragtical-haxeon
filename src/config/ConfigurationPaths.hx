@@ -19,6 +19,11 @@ class ConfigurationPaths {
 		return home == null ? "" : home + "/.local/state/pragtical-haxeon/session.conf";
 	}
 
+	public static function recovery():String {
+		var sessionPath = session(), separator = sessionPath.lastIndexOf("/");
+		return separator < 0 ? "recovery.conf" : sessionPath.substring(0, separator + 1) + "recovery.conf";
+	}
+
 	public static function projectSettings(root:String):String
 		return root + "/.pragtical/settings.conf";
 }
