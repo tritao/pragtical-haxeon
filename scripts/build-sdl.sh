@@ -19,14 +19,40 @@ read -r -a font_libs <<< "$(pkg-config --libs freetype2)"
 read -r -a shape_cflags <<< "$(pkg-config --cflags harfbuzz)"
 read -r -a shape_libs <<< "$(pkg-config --libs harfbuzz)"
 read -r -a lua_cflags <<< "$(pkg-config --cflags lua5.4)"
+hl_host_objects=(
+	"$haxeon_root/vendor/hashlink/src/code.o"
+	"$haxeon_root/vendor/hashlink/src/hlpatch.o"
+	"$haxeon_root/vendor/hashlink/src/hlruntime.o"
+	"$haxeon_root/vendor/hashlink/src/jit.o"
+	"$haxeon_root/vendor/hashlink/src/jit_emit.o"
+	"$haxeon_root/vendor/hashlink/src/jit_regs.o"
+	"$haxeon_root/vendor/hashlink/src/jit_x86_64.o"
+	"$haxeon_root/vendor/hashlink/src/jit_dump.o"
+	"$haxeon_root/vendor/hashlink/src/jit_gdb.o"
+	"$haxeon_root/vendor/hashlink/src/module.o"
+	"$haxeon_root/vendor/hashlink/src/debugger.o"
+	"$haxeon_root/vendor/hashlink/src/diagnostics.o"
+	"$haxeon_root/vendor/hashlink/src/diagnostics_transport.o"
+	"$haxeon_root/vendor/hashlink/src/profile.o"
+)
 "$cc" -std=c11 -Wall -Wextra -Werror \
 	-Wno-sign-compare -Wno-missing-field-initializers -Wno-ignored-qualifiers \
 	-Wno-type-limits -Wno-unused-parameter \
-	-fPIC -shared -DPHX_WITH_SDL -DPHX_WITH_FREETYPE \
-	-I"$root_dir/include" -I"$haxeon_root/vendor/hashlink/src" -I"$pragtical_root/src" \
-	"${sdl_cflags[@]}" "${font_cflags[@]}" "${shape_cflags[@]}" "${lua_cflags[@]}" \
-	"$root_dir/native/headless/platform.c" \
+	-fPIC -shared \
+	-I"$root_dir/include" -I"$root_dir/native" -I"$haxeon_root/vendor/hashlink/src" -I"$pragtical_root/src" \
 	"$root_dir/native/hashlink/pragtical_hx.c" \
+	-L"$haxeon_root/vendor/hashlink" -lhl \
+	-Wl,-rpath,"$haxeon_root/vendor/hashlink" \
+	-o "$root_dir/out/pragtical_hx.hdll"
+
+"$cc" -std=c11 -Wall -Wextra -Werror \
+	-Wno-sign-compare -Wno-missing-field-initializers -Wno-ignored-qualifiers \
+	-Wno-type-limits -Wno-unused-parameter \
+	-DPHX_WITH_SDL -DPHX_WITH_FREETYPE \
+	-I"$root_dir/include" -I"$root_dir/native" -I"$haxeon_root/vendor/hashlink/src" -I"$pragtical_root/src" \
+	"${sdl_cflags[@]}" "${font_cflags[@]}" "${shape_cflags[@]}" "${lua_cflags[@]}" \
+	"$root_dir/native/host/main.c" \
+	"$root_dir/native/headless/platform.c" \
 	"$root_dir/native/pragtical/renderer_backend.c" \
 	"$pragtical_root/src/renderer/atlas.c" \
 	"$pragtical_root/src/renderer/atlas_surface.c" \
@@ -34,9 +60,11 @@ read -r -a lua_cflags <<< "$(pkg-config --cflags lua5.4)"
 	"$pragtical_root/src/renderer/cache.c" \
 	"$pragtical_root/src/renderer/renderer.c" \
 	"$pragtical_root/src/renderer/window.c" \
-	-L"$haxeon_root/vendor/hashlink" -lhl "${sdl_libs[@]}" "${font_libs[@]}" "${shape_libs[@]}" -lm \
-	-Wl,-rpath,"$haxeon_root/vendor/hashlink" \
-	-o "$root_dir/out/pragtical_hx.hdll"
+	"${hl_host_objects[@]}" \
+	-L"$root_dir/out" -Wl,-rpath,'$ORIGIN' -l:pragtical_hx.hdll \
+	-L"$haxeon_root/vendor/hashlink" -Wl,-rpath,"$haxeon_root/vendor/hashlink" -lhl \
+	"${sdl_libs[@]}" "${font_libs[@]}" "${shape_libs[@]}" -lm -rdynamic \
+	-o "$root_dir/out/pragtical-haxeon"
 cp "$haxeon_root/out/realtime_runtime.hdll" "$root_dir/out/realtime_runtime.hdll"
 cp "$root_dir/README.md" "$root_dir/out/README.md"
 mkdir -p "$root_dir/out/data/fonts"

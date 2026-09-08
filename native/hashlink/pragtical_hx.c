@@ -2,9 +2,49 @@
 #include <hl.h>
 
 #include "pragtical_hx/platform.h"
+#include "pragtical_hx/host.h"
 
 static phx_event current_event;
 static vclosure *plugin_api_dispatch;
+static vclosure *host_event;
+static vclosure *host_iterate;
+static vclosure *host_quit;
+
+static bool call_host(vclosure *callback, vdynamic **result) {
+  bool raised = false;
+  if (!callback) return false;
+  *result = hl_dyn_call_safe(callback, NULL, 0, &raised);
+  if (raised) {
+    hl_print_uncaught_exception(*result);
+    return false;
+  }
+  return true;
+}
+
+bool phx_haxeon_callbacks_ready(void) {
+  return host_event && host_iterate && host_quit;
+}
+
+bool phx_haxeon_event(void) {
+  vdynamic *result = NULL;
+  return call_host(host_event, &result);
+}
+
+bool phx_haxeon_iterate(bool *keep_running) {
+  vdynamic *result = NULL;
+  if (!keep_running || !call_host(host_iterate, &result)) return false;
+  *keep_running = result && result->v.i != 0;
+  return true;
+}
+
+bool phx_haxeon_quit(void) {
+  vdynamic *result = NULL;
+  bool ok = !host_quit || call_host(host_quit, &result);
+  host_event = NULL;
+  host_iterate = NULL;
+  host_quit = NULL;
+  return ok;
+}
 
 static vbyte *utf8_string(const char *text) {
   const char *value = text ? text : "";
@@ -88,6 +128,18 @@ HL_PRIM void HL_NAME(plugin_api_install)(vclosure *dispatch) {
 	plugin_api_dispatch = dispatch;
 }
 
+HL_PRIM void HL_NAME(host_install)(vclosure *event, vclosure *iterate,
+                                   vclosure *quit) {
+  if (host_event == NULL) {
+    hl_add_root(&host_event);
+    hl_add_root(&host_iterate);
+    hl_add_root(&host_quit);
+  }
+  host_event = event;
+  host_iterate = iterate;
+  host_quit = quit;
+}
+
 HL_PRIM vbyte *HL_NAME(plugin_api_call)(int operation, vbyte *token, vbyte *a,
 		vbyte *b, vbyte *c) {
 	if (plugin_api_dispatch == NULL) hl_error("Pragtical plugin host is not installed");
@@ -129,4 +181,5 @@ DEFINE_PRIM(_BOOL, draw_text, _I32 _I32 _I32 _I32 _BYTES _I32);
 DEFINE_PRIM(_BOOL, frame_present, _I32);
 DEFINE_PRIM(_I32, frame_count, _I32);
 DEFINE_PRIM(_VOID, plugin_api_install, _FUN(_BYTES, _I32 _BYTES _BYTES _BYTES _BYTES));
+DEFINE_PRIM(_VOID, host_install, _FUN(_VOID, _NO_ARG) _FUN(_I32, _NO_ARG) _FUN(_VOID, _NO_ARG));
 DEFINE_PRIM(_BYTES, plugin_api_call, _I32 _BYTES _BYTES _BYTES _BYTES);

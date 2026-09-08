@@ -19,4 +19,4 @@ done < <(
 )
 cd "$root_dir/out"
 LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-	exec "$haxeon_root/vendor/hashlink/hl" pragtical-haxeon.hl "${plugin_arguments[@]}" "$@"
+	exec ./pragtical-haxeon "${plugin_arguments[@]}" "$@"

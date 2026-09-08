@@ -6,6 +6,7 @@
 
 #ifdef PHX_WITH_SDL
 #include <SDL3/SDL.h>
+#include "platform_sdl.h"
 #include "renderer/cache.h"
 #include "renderer/renderer.h"
 #include "renderer/window.h"
@@ -179,6 +180,7 @@ bool phx_platform_init(bool headless) {
 }
 
 void phx_platform_shutdown(void) {
+  if (!initialized) return;
 #ifdef PHX_WITH_SDL
   if (!is_headless) {
     for (uint32_t index = 0; index < PHX_MAX_FONTS; index++) {
@@ -299,89 +301,91 @@ bool phx_event_poll(phx_event *event) {
     event_count--;
     return true;
   }
+  /* The graphical executable feeds this queue from SDL_AppEvent. */
+  return false;
+}
+
 #ifdef PHX_WITH_SDL
-  if (!is_headless) {
-    SDL_Event input;
-    while (SDL_PollEvent(&input)) {
-      memset(event, 0, sizeof(*event));
-      switch (input.type) {
-        case SDL_EVENT_QUIT: event->kind = PHX_EVENT_QUIT; return true;
+bool phx_event_push_sdl(const SDL_Event *input) {
+  if (!initialized || is_headless || !input) return false;
+  phx_event event;
+  memset(&event, 0, sizeof(event));
+  switch (input->type) {
+        case SDL_EVENT_QUIT: event.kind = PHX_EVENT_QUIT; break;
         case SDL_EVENT_WINDOW_RESIZED:
-          event->kind = PHX_EVENT_WINDOW_RESIZED;
-          event->a = input.window.data1;
-          event->b = input.window.data2;
+          event.kind = PHX_EVENT_WINDOW_RESIZED;
+          event.a = input->window.data1;
+          event.b = input->window.data2;
           for (uint32_t index = 0; index < PHX_MAX_WINDOWS; index++) {
             if (windows[index].occupied && windows[index].window &&
-                SDL_GetWindowID(windows[index].window) == input.window.windowID) {
-              windows[index].width = event->a;
-              windows[index].height = event->b;
-              event->window = make_handle(index, windows[index].generation);
+                SDL_GetWindowID(windows[index].window) == input->window.windowID) {
+              windows[index].width = event.a;
+              windows[index].height = event.b;
+              event.window = make_handle(index, windows[index].generation);
               ren_resize_window(windows[index].renderer);
               break;
             }
           }
-          return true;
+          break;
         case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
-          event->kind = PHX_EVENT_DISPLAY_SCALE_CHANGED;
-          event->window = window_handle_from_id(input.window.windowID);
+          event.kind = PHX_EVENT_DISPLAY_SCALE_CHANGED;
+          event.window = window_handle_from_id(input->window.windowID);
           for (uint32_t index = 0; index < PHX_MAX_WINDOWS; index++) {
             if (windows[index].occupied && windows[index].window &&
-                SDL_GetWindowID(windows[index].window) == input.window.windowID) {
+                SDL_GetWindowID(windows[index].window) == input->window.windowID) {
               ren_resize_window(windows[index].renderer);
-              event->a = phx_window_display_scale_milli(
+              event.a = phx_window_display_scale_milli(
                 make_handle(index, windows[index].generation));
               break;
             }
           }
-          return true;
+          break;
         case SDL_EVENT_KEY_DOWN:
-          event->kind = PHX_EVENT_KEY_DOWN;
-          event->window = window_handle_from_id(input.key.windowID);
-          event->a = normalize_key(input.key.key);
-          event->b = normalize_modifiers(input.key.mod);
-          return true;
+          event.kind = PHX_EVENT_KEY_DOWN;
+          event.window = window_handle_from_id(input->key.windowID);
+          event.a = normalize_key(input->key.key);
+          event.b = normalize_modifiers(input->key.mod);
+          break;
         case SDL_EVENT_KEY_UP:
-          event->kind = PHX_EVENT_KEY_UP;
-          event->window = window_handle_from_id(input.key.windowID);
-          event->a = normalize_key(input.key.key);
-          event->b = normalize_modifiers(input.key.mod);
-          return true;
+          event.kind = PHX_EVENT_KEY_UP;
+          event.window = window_handle_from_id(input->key.windowID);
+          event.a = normalize_key(input->key.key);
+          event.b = normalize_modifiers(input->key.mod);
+          break;
         case SDL_EVENT_TEXT_INPUT:
-          event->kind = PHX_EVENT_TEXT_INPUT;
-          event->window = window_handle_from_id(input.text.windowID);
-          snprintf(event->text, sizeof(event->text), "%s", input.text.text);
-          return true;
+          event.kind = PHX_EVENT_TEXT_INPUT;
+          event.window = window_handle_from_id(input->text.windowID);
+          snprintf(event.text, sizeof(event.text), "%s", input->text.text);
+          break;
         case SDL_EVENT_MOUSE_MOTION:
-          event->kind = PHX_EVENT_MOUSE_MOVED;
-          event->window = window_handle_from_id(input.motion.windowID);
-          event->a = (int32_t)input.motion.x;
-          event->b = (int32_t)input.motion.y;
-          event->c = (int32_t)input.motion.xrel;
-          event->d = (int32_t)input.motion.yrel;
-          return true;
+          event.kind = PHX_EVENT_MOUSE_MOVED;
+          event.window = window_handle_from_id(input->motion.windowID);
+          event.a = (int32_t)input->motion.x;
+          event.b = (int32_t)input->motion.y;
+          event.c = (int32_t)input->motion.xrel;
+          event.d = (int32_t)input->motion.yrel;
+          break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP:
-          event->kind = input.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+          event.kind = input->type == SDL_EVENT_MOUSE_BUTTON_DOWN
             ? PHX_EVENT_MOUSE_BUTTON_DOWN : PHX_EVENT_MOUSE_BUTTON_UP;
-          event->window = window_handle_from_id(input.button.windowID);
-          event->a = input.button.button;
-          event->b = (int32_t)input.button.x;
-          event->c = (int32_t)input.button.y;
-          event->d = input.button.clicks;
-          return true;
+          event.window = window_handle_from_id(input->button.windowID);
+          event.a = input->button.button;
+          event.b = (int32_t)input->button.x;
+          event.c = (int32_t)input->button.y;
+          event.d = input->button.clicks;
+          break;
         case SDL_EVENT_MOUSE_WHEEL:
-          event->kind = PHX_EVENT_MOUSE_WHEEL;
-          event->window = window_handle_from_id(input.wheel.windowID);
-          event->a = (int32_t)(input.wheel.y * 100.0f);
-          event->b = (int32_t)(-input.wheel.x * 100.0f);
-          return true;
-        default: break;
-      }
-    }
+          event.kind = PHX_EVENT_MOUSE_WHEEL;
+          event.window = window_handle_from_id(input->wheel.windowID);
+          event.a = (int32_t)(input->wheel.y * 100.0f);
+          event.b = (int32_t)(-input->wheel.x * 100.0f);
+          break;
+        default: return false;
   }
-#endif
-  return false;
+  return phx_event_push_for_test(&event);
 }
+#endif
 
 bool phx_event_push_for_test(const phx_event *event) {
   if (!initialized) return fail("platform is not initialized");
