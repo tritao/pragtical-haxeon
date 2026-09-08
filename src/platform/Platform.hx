@@ -1,52 +1,6 @@
 package platform;
 
-class Platform {
-	public static inline final ABI_VERSION = 12;
-	public static inline final EVENT_QUIT = 1;
-	public static inline final EVENT_WINDOW_RESIZED = 2;
-	public static inline final EVENT_KEY_DOWN = 3;
-	public static inline final EVENT_KEY_UP = 4;
-	public static inline final EVENT_TEXT_INPUT = 5;
-	public static inline final EVENT_MOUSE_MOVED = 6;
-	public static inline final EVENT_MOUSE_BUTTON_DOWN = 7;
-	public static inline final EVENT_MOUSE_BUTTON_UP = 8;
-	public static inline final EVENT_MOUSE_WHEEL = 9;
-	public static inline final EVENT_DISPLAY_SCALE_CHANGED = 10;
-	public static inline final MOUSE_LEFT = 1;
-	public static inline final KEY_BACKSPACE = 1;
-	public static inline final KEY_TAB = 2;
-	public static inline final KEY_ENTER = 3;
-	public static inline final KEY_ESCAPE = 4;
-	public static inline final KEY_DELETE = 5;
-	public static inline final KEY_LEFT = 6;
-	public static inline final KEY_RIGHT = 7;
-	public static inline final KEY_UP = 8;
-	public static inline final KEY_DOWN = 9;
-	public static inline final KEY_HOME = 10;
-	public static inline final KEY_END = 11;
-	public static inline final KEY_A = 12;
-	public static inline final KEY_S = 13;
-	public static inline final KEY_Y = 14;
-	public static inline final KEY_Z = 15;
-	public static inline final KEY_W = 16;
-	public static inline final KEY_P = 17;
-	public static inline final KEY_F = 18;
-	public static inline final KEY_H = 19;
-	public static inline final KEY_C = 20;
-	public static inline final KEY_V = 21;
-	public static inline final KEY_X = 22;
-	public static inline final KEY_PAGE_UP = 23;
-	public static inline final KEY_PAGE_DOWN = 24;
-	public static inline final KEY_K = 25;
-	public static inline final KEY_J = 26;
-	public static inline final KEY_SLASH = 27;
-	public static inline final KEY_D = 28;
-	public static inline final KEY_G = 29;
-	public static inline final KEY_B = 30;
-	public static inline final KEY_SPACE = 31;
-	public static inline final MOD_SHIFT = 1;
-	public static inline final MOD_CTRL = 2;
-	public static inline final MOD_ALT = 4;
+class Platform extends PlatformAbi {
 
 	public static function require(condition:Bool, operation:String):Void {
 		if (!condition)
@@ -54,21 +8,7 @@ class Platform {
 	}
 
 	public static function pollEvent():Null<PlatformEvent> {
-		if (!Native.event_poll()) return null;
-		var window = Native.event_window();
-		return switch Native.event_kind() {
-			case EVENT_QUIT: Quit;
-			case EVENT_WINDOW_RESIZED: WindowResize(window, Native.event_a(), Native.event_b());
-			case EVENT_DISPLAY_SCALE_CHANGED: DisplayScaleChanged(window, Native.event_a());
-			case EVENT_KEY_DOWN: KeyDown(window, Native.event_a(), Native.event_b());
-			case EVENT_KEY_UP: KeyUp(window, Native.event_a(), Native.event_b());
-			case EVENT_TEXT_INPUT: TextInput(window, Native.event_text());
-			case EVENT_MOUSE_MOVED: MouseMove(window, Native.event_a(), Native.event_b(), Native.event_c(), Native.event_d());
-			case EVENT_MOUSE_BUTTON_DOWN: MouseButtonDown(window, Native.event_a(), Native.event_b(), Native.event_c(), Native.event_d());
-			case EVENT_MOUSE_BUTTON_UP: MouseButtonUp(window, Native.event_a(), Native.event_b(), Native.event_c(), Native.event_d());
-			case EVENT_MOUSE_WHEEL: MouseWheel(window, Native.event_a(), Native.event_b());
-			default: null;
-		};
+		return PlatformEventDecoder.poll();
 	}
 
 	public static function startHeadless():Void {

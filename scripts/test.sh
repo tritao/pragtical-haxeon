@@ -6,6 +6,7 @@ haxeon_root=${HAXEON_ROOT:-"$root_dir/../realtime-haxe"}
 cc=${CC:-cc}
 
 mkdir -p "$root_dir/build"
+python3 "$root_dir/scripts/generate-platform-abi.py" --check
 "$cc" -std=c11 -Wall -Wextra -Werror \
 	-I"$root_dir/include" \
 	"$root_dir/native/headless/platform.c" \

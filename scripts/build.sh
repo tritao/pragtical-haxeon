@@ -6,6 +6,7 @@ haxeon_root=${HAXEON_ROOT:-"$root_dir/../realtime-haxe"}
 cc=${CC:-cc}
 
 mkdir -p "$root_dir/build" "$root_dir/out"
+python3 "$root_dir/scripts/generate-platform-abi.py" --check
 
 if [[ ! -f "$haxeon_root/out/realtime_runtime.hdll" ]]; then
 	echo "missing Haxeon runtime bridge: $haxeon_root/out/realtime_runtime.hdll" >&2
