@@ -218,6 +218,19 @@ class DocumentTestMain {
 		require(DocumentSearch.replaceAll(searched, searchedSelection, "alpha", "beta", options) == 3, "replace-all count failed");
 		require(searched.buffer.text == "beta beta alphabet\n😀 beta", "replace-all content failed");
 		require(searched.buffer.undo(searchedSelection) && searched.buffer.text == "Alpha alpha alphabet\n😀 alpha", "replace-all was not one undo transaction");
+		options.wholeWord = false;
+		options.regularExpression = true;
+		var regexMatches = DocumentSearch.find(searched, "(Alpha|alpha) (alpha)", options);
+		require(regexMatches.length == 1 && regexMatches[0].captures.length == 3 && regexMatches[0].captures[2] == "alpha",
+			"regular-expression captures failed");
+		require(DocumentSearch.replaceAll(searched, searchedSelection, "(Alpha|alpha) (alpha)", "$2:$1", options) == 1
+			&& searched.buffer.text == "alpha:Alpha alphabet\n😀 alpha", "capture replacement failed");
+		searched.buffer.undo(searchedSelection);
+		var zeroWidth = new Document("zero.txt", "aa", syntaxes);
+		require(DocumentSearch.find(zeroWidth, "(?=a)", options).length == 2, "zero-width regular-expression search did not terminate");
+		var invalidPattern = false;
+		try DocumentSearch.find(searched, "(", options) catch (error:Dynamic) invalidPattern = true;
+		require(invalidPattern, "invalid regular expression was accepted");
 		var source = new Document("Main.hx", "class Main {\n/* comment\nstill comment */ var value = 42;\n}", syntaxes);
 		source.setPath("Main.txt");
 		require(source.syntax.name == "Plain Text", "path change did not reselect syntax");

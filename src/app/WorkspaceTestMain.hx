@@ -114,6 +114,20 @@ class WorkspaceTestMain {
 		require(application.workspaceSearch.results.length == 1
 			&& StringTools.endsWith(application.workspaceSearch.results[0].path, "/second.txt"), "workspace path filtering failed");
 		application.searchOptions.pathFilter = "";
+		application.searchOptions.regularExpression = true;
+		application.workspaceSearch.request("nee(dle)", application.searchOptions, 100);
+		application.workspaceSearch.flush();
+		application.workspace.jobs.update(32);
+		require(application.workspaceSearch.results.length == 2 && application.workspaceSearch.results[0].captures[1] == "dle",
+			"workspace regular-expression search did not preserve captures");
+		application.workspaceSearch.request("(", application.searchOptions, 100);
+		application.workspaceSearch.flush();
+		require(application.workspaceSearch.complete && application.workspaceSearch.errors.length == 1,
+			"invalid workspace regular expression did not become a visible error");
+		application.searchOptions.regularExpression = false;
+		application.workspaceSearch.request("needle", application.searchOptions, 100);
+		application.workspaceSearch.flush();
+		application.workspace.jobs.update(32);
 		application.keyPressed(Platform.KEY_ENTER, 0);
 		require(application.root.searchSidebar.active() != null, "workspace result activation failed");
 		application.keyPressed(Platform.KEY_ESCAPE, 0);

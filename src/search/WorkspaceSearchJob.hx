@@ -14,6 +14,7 @@ class WorkspaceSearchJob implements JobTask {
 	final query:String;
 	final options:SearchOptions;
 	final maximum:Int;
+	final pattern:SearchPattern;
 	final files:Array<ProjectNode> = [];
 	var cursor:Int = 0;
 	var retained:Int = 0;
@@ -26,6 +27,7 @@ class WorkspaceSearchJob implements JobTask {
 		this.query = query;
 		this.options = options;
 		this.maximum = maximum < 1 ? 1 : maximum;
+		pattern = new SearchPattern(query, options);
 		for (project in workspace.projects)
 			for (file in project.files()) files.push(file);
 	}
@@ -68,12 +70,12 @@ class WorkspaceSearchJob implements JobTask {
 			owner.publish(generation, [], 'Skipped oversized file: "' + file.path + '"');
 			return finishIfDone();
 		}
-		var found = DocumentSearch.findText(file.path, text, query, options, document, document == null ? -1 : document.buffer.stateId),
+		var found = pattern.findText(file.path, text, document, document == null ? -1 : document.buffer.stateId),
 			batch:Array<SearchMatch> = [];
 		for (match in found) {
 			var preview = match.preview.length > MAX_PREVIEW_UNITS ? match.preview.substring(0, MAX_PREVIEW_UNITS) : match.preview;
 			batch.push(new SearchMatch(match.path, match.line, match.column, match.length, preview, match.matchedText,
-				match.document, match.revision));
+				match.document, match.revision, match.captures, match.regularExpression));
 			retained++;
 			if (retained >= maximum) {
 				owner.publish(generation, batch, null, true, true);

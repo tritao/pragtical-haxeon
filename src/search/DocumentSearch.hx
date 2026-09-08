@@ -9,21 +9,7 @@ class DocumentSearch {
 		return findText(document.path == null ? document.title : document.path, document.buffer.text, query, options, document, document.buffer.stateId);
 
 	public static function findText(path:String, text:String, query:String, options:SearchOptions, ?document:Document, revision:Int = -1):Array<SearchMatch> {
-		var result:Array<SearchMatch> = [];
-		if (query.length == 0) return result;
-		var needle = options.caseSensitive ? query : query.toLowerCase(), lines = text.split("\n");
-		for (lineIndex in 0...lines.length) {
-			var line = lines[lineIndex], haystack = options.caseSensitive ? line : line.toLowerCase(), from = 0;
-			while (from <= haystack.length - needle.length) {
-				var column = haystack.indexOf(needle, from);
-				if (column < 0) break;
-				if (!options.wholeWord || isBoundary(line, column - 1) && isBoundary(line, column + query.length))
-					result.push(new SearchMatch(path, lineIndex, column, query.length, StringTools.trim(line), line.substring(column, column + query.length),
-						document, revision));
-				from = column + (needle.length == 0 ? 1 : needle.length);
-			}
-		}
-		return result;
+		return new SearchPattern(query, options).findText(path, text, document, revision);
 	}
 
 	public static function select(document:Document, selection:BufferSelection, match:SearchMatch):Bool {
@@ -36,7 +22,7 @@ class DocumentSearch {
 	public static function replaceCurrent(document:Document, selection:BufferSelection, match:SearchMatch, replacement:String):Bool
 		return valid(document, match)
 			&& document.buffer.replaceRange(selection, new BufferPosition(match.line, match.column),
-				new BufferPosition(match.line, match.column + match.length), replacement);
+				new BufferPosition(match.line, match.column + match.length), replacementFor(match, replacement));
 
 	public static function replaceAll(document:Document, selection:BufferSelection, query:String, replacement:String, options:SearchOptions):Int {
 		var matches = find(document, query, options);
@@ -44,7 +30,7 @@ class DocumentSearch {
 		var text = document.buffer.text;
 		for (index in 0...matches.length) {
 			var match = matches[matches.length - index - 1], start = document.buffer.offsetOf(new BufferPosition(match.line, match.column));
-			text = text.substring(0, start) + replacement + text.substring(start + match.length);
+			text = text.substring(0, start) + replacementFor(match, replacement) + text.substring(start + match.length);
 		}
 		document.buffer.replaceAllText(text, selection);
 		return matches.length;
@@ -57,12 +43,19 @@ class DocumentSearch {
 		return document.buffer.textRange(from, to) == match.matchedText;
 	}
 
-	static function isBoundary(value:String, index:Int):Bool {
-		if (index < 0 || index >= value.length) return true;
-		var code = value.charCodeAt(index);
-		return !codePointWord(code);
+	public static function replacementFor(match:SearchMatch, replacement:String):String {
+		if (!match.regularExpression) return replacement;
+		var output = new StringBuf(), index = 0;
+		while (index < replacement.length) {
+			if (replacement.charAt(index) != "$" || index + 1 >= replacement.length) {
+				output.add(replacement.charAt(index++));
+				continue;
+			}
+			var code = replacement.charCodeAt(index + 1);
+			if (code == 36) output.add("$"); else if (code >= 49 && code <= 57 && code - 48 < match.captures.length)
+				output.add(match.captures[code - 48]); else output.add("$" + replacement.charAt(index + 1));
+			index += 2;
+		}
+		return output.toString();
 	}
-
-	static function codePointWord(code:Int):Bool
-		return code >= 48 && code <= 57 || code >= 65 && code <= 90 || code >= 97 && code <= 122 || code == 95 || code >= 128;
 }

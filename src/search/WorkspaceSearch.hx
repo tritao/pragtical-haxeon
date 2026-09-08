@@ -59,8 +59,14 @@ class WorkspaceSearch {
 			onChange();
 			return;
 		}
-		var task = new WorkspaceSearchJob(this, generation, workspace, query, pendingOptions, pendingMaximum);
-		handle = scheduler.schedule(task);
+		try {
+			var task = new WorkspaceSearchJob(this, generation, workspace, query, pendingOptions, pendingMaximum);
+			handle = scheduler.schedule(task);
+		} catch (error:Dynamic) {
+			errors.push('Invalid search pattern: ' + Std.string(error));
+			complete = true;
+			onChange();
+		}
 	}
 
 	public function publish(sourceGeneration:Int, matches:Array<SearchMatch>, ?error:String, isComplete:Bool = false,

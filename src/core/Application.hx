@@ -238,7 +238,11 @@ class Application {
 		documentSearchDocument = document;
 		documentSearchRevision = document == null ? -1 : document.buffer.stateId;
 		if (document != null)
-			for (match in DocumentSearch.find(document, query, searchOptions)) documentMatches.push(match);
+			try {
+				for (match in DocumentSearch.find(document, query, searchOptions)) documentMatches.push(match);
+			} catch (error:Dynamic) {
+				reportError("search", 'Invalid search pattern: ' + Std.string(error));
+			}
 		documentMatchIndex = documentMatches.length == 0 ? -1 : 0;
 		root.setDocumentSearchMatches(documentMatches);
 		if (documentMatchIndex >= 0) selectDocumentMatch();
@@ -302,6 +306,10 @@ class Application {
 		}, hasDocument);
 		commands.add("find:toggle-whole-word", function(context) {
 			searchOptions.wholeWord = !searchOptions.wholeWord;
+			refreshDocumentSearch(documentSearchQuery);
+		}, hasDocument);
+		commands.add("find:toggle-regular-expression", function(context) {
+			searchOptions.regularExpression = !searchOptions.regularExpression;
 			refreshDocumentSearch(documentSearchQuery);
 		}, hasDocument);
 		commands.add("workspace:search", function(context) {
