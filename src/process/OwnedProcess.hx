@@ -29,6 +29,17 @@ class OwnedProcess {
 	public function readStderr():String
 		return disposed ? "" : Native.process_stderr(id);
 
+	/** Atomically accepts the complete UTF-8 value, returns zero for backpressure, or throws. */
+	public function writeStdin(data:String):Int {
+		if (disposed) throw "process is disposed";
+		var written = Native.process_write(id, data);
+		if (written < 0) throw Native.last_error();
+		return written;
+	}
+
+	public function closeStdin():Bool
+		return !disposed && Native.process_close_stdin(id);
+
 	public function cancel():Bool
 		return !disposed && Native.process_cancel(id);
 

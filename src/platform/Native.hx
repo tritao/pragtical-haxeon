@@ -37,6 +37,8 @@ extern class Native {
 	static function process_add_argument(process:Int, argument:String):Bool;
 	static function process_set_environment(process:Int, key:String, value:String):Bool;
 	static function process_start(process:Int):Bool;
+	static function process_write(process:Int, data:String):Int;
+	static function process_close_stdin(process:Int):Bool;
 	static function process_stdout(process:Int):String;
 	static function process_stderr(process:Int):String;
 	static function process_state(process:Int):Int;

@@ -139,6 +139,13 @@ HL_PRIM bool HL_NAME(process_set_environment)(int process, vbyte *key,
 HL_PRIM bool HL_NAME(process_start)(int process) {
   return phx_process_start(process);
 }
+HL_PRIM int HL_NAME(process_write)(int process, vbyte *data) {
+  const char *utf8 = data ? hl_to_utf8((uchar *)data) : "";
+  return phx_process_write(process, utf8, (int32_t)strlen(utf8));
+}
+HL_PRIM bool HL_NAME(process_close_stdin)(int process) {
+  return phx_process_close_stdin(process);
+}
 static vbyte *process_output(int process, bool standard_error) {
   char buffer[4097];
   int32_t count = phx_process_read(process, standard_error, buffer, 4096);

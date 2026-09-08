@@ -52,6 +52,7 @@ typedef struct phx_process_slot {
   bool running;
   int32_t exit_status;
   pid_t pid;
+  int stdin_fd;
   int stdout_fd;
   int stderr_fd;
   char *executable;
@@ -73,6 +74,8 @@ static uint32_t event_read;
 static uint32_t event_count;
 static char last_error[256];
 static char *clipboard_text;
+static struct sigaction previous_sigpipe;
+static bool sigpipe_ignored;
 
 #ifdef PHX_WITH_SDL
 static int32_t normalize_key(SDL_Keycode key) {
@@ -211,8 +214,10 @@ static void reap_process(phx_process_slot *slot) {
 }
 
 static void close_process_pipes(phx_process_slot *slot) {
+  if (slot->stdin_fd >= 0) close(slot->stdin_fd);
   if (slot->stdout_fd >= 0) close(slot->stdout_fd);
   if (slot->stderr_fd >= 0) close(slot->stderr_fd);
+  slot->stdin_fd = -1;
   slot->stdout_fd = -1;
   slot->stderr_fd = -1;
 }
@@ -246,6 +251,20 @@ static bool process_pipe(int descriptors[2]) {
   return true;
 }
 
+static bool ignore_sigpipe(void) {
+  struct sigaction ignored = {0};
+  ignored.sa_handler = SIG_IGN;
+  sigemptyset(&ignored.sa_mask);
+  if (sigaction(SIGPIPE, &ignored, &previous_sigpipe) != 0) return false;
+  sigpipe_ignored = true;
+  return true;
+}
+
+static void restore_sigpipe(void) {
+  if (sigpipe_ignored) sigaction(SIGPIPE, &previous_sigpipe, NULL);
+  sigpipe_ignored = false;
+}
+
 #ifdef PHX_WITH_SDL
 static RenColor renderer_color(int32_t rgba) {
   return (RenColor){.r = (rgba >> 24) & 255, .g = (rgba >> 16) & 255,
@@ -257,18 +276,30 @@ int32_t phx_platform_abi_version(void) { return PHX_PLATFORM_ABI_VERSION; }
 
 bool phx_platform_init(bool headless) {
   if (initialized) return fail("platform is already initialized");
+  if (!ignore_sigpipe()) return fail(strerror(errno));
 #ifndef PHX_WITH_SDL
-  if (!headless) return fail("graphical backend is not compiled in");
+  if (!headless) {
+    restore_sigpipe();
+    return fail("graphical backend is not compiled in");
+  }
 #else
   if (!headless) {
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) return fail(SDL_GetError());
-    if (ren_init() != 0) { SDL_Quit(); return fail(SDL_GetError()); }
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
+      restore_sigpipe();
+      return fail(SDL_GetError());
+    }
+    if (ren_init() != 0) {
+      SDL_Quit();
+      restore_sigpipe();
+      return fail(SDL_GetError());
+    }
   }
 #endif
   memset(windows, 0, sizeof(windows));
   memset(fonts, 0, sizeof(fonts));
   memset(processes, 0, sizeof(processes));
   for (uint32_t index = 0; index < PHX_MAX_PROCESSES; index++) {
+    processes[index].stdin_fd = -1;
     processes[index].stdout_fd = -1;
     processes[index].stderr_fd = -1;
   }
@@ -280,6 +311,7 @@ bool phx_platform_init(bool headless) {
   is_headless = headless;
   if (!store_clipboard("")) {
     initialized = false;
+    restore_sigpipe();
     return false;
   }
   return true;
@@ -316,6 +348,7 @@ void phx_platform_shutdown(void) {
   event_count = 0;
   free(clipboard_text);
   clipboard_text = NULL;
+  restore_sigpipe();
 }
 
 const char *phx_platform_last_error(void) { return last_error; }
@@ -689,6 +722,7 @@ phx_handle phx_process_create(const char *executable, const char *cwd) {
     if (generation == 0) generation = 1;
     memset(slot, 0, sizeof(*slot));
     slot->generation = generation;
+    slot->stdin_fd = -1;
     slot->stdout_fd = -1;
     slot->stderr_fd = -1;
     slot->exit_status = -1;
@@ -752,9 +786,16 @@ bool phx_process_start(phx_handle process) {
   phx_process_slot *slot = resolve_process(process);
   if (!slot) return fail("invalid or stale process handle");
   if (slot->started) return fail("process already started");
-  int stdout_pipe[2], stderr_pipe[2];
-  if (!process_pipe(stdout_pipe)) return fail(strerror(errno));
+  int stdin_pipe[2], stdout_pipe[2], stderr_pipe[2];
+  if (!process_pipe(stdin_pipe)) return fail(strerror(errno));
+  if (!process_pipe(stdout_pipe)) {
+    close(stdin_pipe[0]);
+    close(stdin_pipe[1]);
+    return fail(strerror(errno));
+  }
   if (!process_pipe(stderr_pipe)) {
+    close(stdin_pipe[0]);
+    close(stdin_pipe[1]);
     close(stdout_pipe[0]);
     close(stdout_pipe[1]);
     return fail(strerror(errno));
@@ -766,10 +807,13 @@ bool phx_process_start(phx_handle process) {
   arguments[slot->argument_count + 1] = NULL;
   pid_t pid = fork();
   if (pid == 0) {
+    close(stdin_pipe[1]);
     close(stdout_pipe[0]);
     close(stderr_pipe[0]);
-    if (dup2(stdout_pipe[1], STDOUT_FILENO) < 0 ||
+    if (dup2(stdin_pipe[0], STDIN_FILENO) < 0 ||
+        dup2(stdout_pipe[1], STDOUT_FILENO) < 0 ||
         dup2(stderr_pipe[1], STDERR_FILENO) < 0) _exit(127);
+    close(stdin_pipe[0]);
     close(stdout_pipe[1]);
     close(stderr_pipe[1]);
     if (slot->cwd && chdir(slot->cwd) != 0) {
@@ -783,26 +827,56 @@ bool phx_process_start(phx_handle process) {
     dprintf(STDERR_FILENO, "could not execute %s: %s\n", slot->executable, strerror(errno));
     _exit(127);
   }
+  close(stdin_pipe[0]);
   close(stdout_pipe[1]);
   close(stderr_pipe[1]);
   if (pid < 0) {
+    close(stdin_pipe[1]);
     close(stdout_pipe[0]);
     close(stderr_pipe[0]);
     return fail(strerror(errno));
   }
-  if (fcntl(stdout_pipe[0], F_SETFL, fcntl(stdout_pipe[0], F_GETFL) | O_NONBLOCK) < 0 ||
+  if (fcntl(stdin_pipe[1], F_SETFL, fcntl(stdin_pipe[1], F_GETFL) | O_NONBLOCK) < 0 ||
+      fcntl(stdout_pipe[0], F_SETFL, fcntl(stdout_pipe[0], F_GETFL) | O_NONBLOCK) < 0 ||
       fcntl(stderr_pipe[0], F_SETFL, fcntl(stderr_pipe[0], F_GETFL) | O_NONBLOCK) < 0) {
     kill(pid, SIGKILL);
     waitpid(pid, NULL, 0);
+    close(stdin_pipe[1]);
     close(stdout_pipe[0]);
     close(stderr_pipe[0]);
     return fail(strerror(errno));
   }
   slot->pid = pid;
+  slot->stdin_fd = stdin_pipe[1];
   slot->stdout_fd = stdout_pipe[0];
   slot->stderr_fd = stderr_pipe[0];
   slot->started = true;
   slot->running = true;
+  return true;
+}
+
+int32_t phx_process_write(phx_handle process, const char *data, int32_t length) {
+  phx_process_slot *slot = resolve_process(process);
+  if (!slot || !slot->started) { fail("invalid or unstarted process handle"); return -1; }
+  if (slot->stdin_fd < 0) { fail("process stdin is closed"); return -1; }
+  if (!data || length <= 0) return 0;
+  long atomic_limit = fpathconf(slot->stdin_fd, _PC_PIPE_BUF);
+  if (atomic_limit < 1 || length > atomic_limit) {
+    fail("process stdin write exceeds atomic pipe limit");
+    return -1;
+  }
+  ssize_t count = write(slot->stdin_fd, data, (size_t)length);
+  if (count >= 0) return (int32_t)count;
+  if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) return 0;
+  fail(strerror(errno));
+  return -1;
+}
+
+bool phx_process_close_stdin(phx_handle process) {
+  phx_process_slot *slot = resolve_process(process);
+  if (!slot || !slot->started) return fail("invalid or unstarted process handle");
+  if (slot->stdin_fd >= 0) close(slot->stdin_fd);
+  slot->stdin_fd = -1;
   return true;
 }
 

@@ -53,6 +53,24 @@ class ProcessTestMain {
 		require(flooded.exitStatus() == 0 && floodStreams[0].length == 200000, "nonblocking process output was truncated or hung");
 		manager.release(flooded);
 
+		var copied = manager.start(fixture, ["copy"]), input = "framed stdin Olá 😀\n";
+		var written = 0, deadline = Sys.time() + 5.0;
+		while (written == 0 && Sys.time() < deadline) written = copied.writeStdin(input);
+		require(written == haxe.io.Bytes.ofString(input).length, "process stdin write was partial or used character length");
+		require(copied.closeStdin(), "process stdin did not close");
+		var copyStreams = collect(copied, 5.0);
+		require(copied.exitStatus() == 0 && copyStreams[0] == input && copyStreams[1] == "", "process stdin was not copied byte-exactly");
+		manager.release(copied);
+		var blocked = manager.start(fixture, ["sleep"]), block = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+		var backpressure = false;
+		for (_ in 0...10000)
+			if (blocked.writeStdin(block) == 0) {
+				backpressure = true;
+				break;
+			}
+		require(backpressure, "process stdin did not expose nonblocking backpressure");
+		manager.release(blocked);
+
 		var cancelled = manager.start(fixture, ["sleep"]);
 		require(cancelled.cancel(), "process cancellation request failed");
 		collect(cancelled, 5.0);
