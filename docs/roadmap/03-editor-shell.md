@@ -5,11 +5,11 @@ Depends on M2. Files: `src/commandview/`, `src/view/`, `src/core/FocusManager.hx
 
 ## M3.1 — Reusable command input
 
-- [ ] Give command input normal caret/selection/clipboard editing, history and
+- [x] Give command input normal caret/selection/clipboard editing, history and
   completion, reusing editing primitives without creating a fake file document.
-- [ ] Add deterministic fuzzy ranking with exact/prefix preference, path-aware
+- [x] Add deterministic fuzzy ranking with exact/prefix preference, path-aware
   scoring and stable tie-breaking. Preserve selection as providers update.
-- [ ] Implement go-to-line/column and path completion; route picker shortcuts
+- [x] Implement go-to-line/column and path completion; route picker shortcuts
   through the named registry instead of hardcoded application branches.
 
 Acceptance: keyboard-only file open, command execution, cancellation and go-to
@@ -17,11 +17,11 @@ work; empty/no-match/long Unicode queries behave predictably.
 
 ## M3.2 — Layout and navigation
 
-- [ ] Add directional pane focus, move tab between panes, reorder tabs and close
+- [x] Add directional pane focus, move tab between panes, reorder tabs and close
   controls that use M1 lifecycle handling.
 - [ ] Add scrollbars, sidebar resizing/toggling, overflow behavior and minimum
   pane sizes. Keep hit testing consistent with clipping and display scale.
-- [ ] Restore prior focus after transient UI; scope commands by active context.
+- [x] Restore prior focus after transient UI; scope commands by active context.
 
 Acceptance: nested splits survive resize and collapse; narrow windows stay
 operable; sidebar/prompt input cannot mutate an inactive document unexpectedly.

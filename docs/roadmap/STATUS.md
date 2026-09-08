@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M3.1, navigation history and document switching.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4 and M2.1–M2.4.
+- Active task: M3.2, display-scale consistency, followed by M3.3 status and feedback.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4 and M3.1.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: add per-view navigation history and named switching commands, then
-  build reusable status, notification and modal feedback primitives.
-- Editor HEAD: `4987556`. Haxeon HEAD observed: `4bd73cf`.
+- Next action: make graphical coordinates and hit testing explicitly scale-aware,
+  then build reusable status, notification and modal feedback primitives.
+- Editor HEAD: `86dd34e`. Haxeon HEAD observed: `4bd73cf`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -19,7 +19,7 @@ Last updated: 2026-09-08.
 | M0 | In progress | M0.1/M0.2 complete; interactive M0.3 smoke pending |
 | M1 | Complete headlessly | Stable pathless identity, atomic persistence, Save As, unified close/quit, external conflicts and bounded recovery pass; graphical prompt smoke remains in the M0.3 manual route |
 | M2 | Complete headlessly | Everyday editing, clipboard/navigation, coding transformations and normalized multiple selections pass; graphical keyboard/mouse smoke remains in M0.3 |
-| M3 | Partial foundation | Command view and split shell exist; navigation, reusable feedback and theme roles remain |
+| M3 | In progress | M3.1 complete; pane/tab/sidebar/scroll behavior landed in M3.2, with explicit display-scale handling still required before M3.2 closes |
 | M4 | Partial foundation | Bounded polling, multi-root search, file operations and sessions exist; scheduling/scale and replacement remain |
 | M5 | Partial foundation | Layered typed settings and plugin reload exist; subscriptions and stable editor API remain |
 | M6 | Pending | Development workflow |
@@ -103,6 +103,30 @@ Last updated: 2026-09-08.
   distributed copy/paste, next occurrence, undo/redo range restoration, mixed
   indentation, blank/final/trailing lines and one-transaction command behavior.
 - `./scripts/test.sh` and `./scripts/build-sdl.sh` both exited 0 at `4987556`.
+
+### M3.1 — reusable command input
+
+- `d10ddf8` gives command input its own reusable text buffer and selection,
+  clipboard editing, undo/redo, history traversal and completion without creating
+  a document.
+- Command results use deterministic exact/prefix/path-aware fuzzy ranking with
+  stable tie-breaking and preserve the selected identity across provider updates.
+- Named commands provide keyboard-only command execution, file opening and
+  go-to-line/column behavior; file completion operates on workspace paths.
+- Headless application and command-view tests cover empty, unmatched and Unicode
+  queries, completion, cancellation, history and navigation.
+
+### M3.2 — layout and navigation (partial)
+
+- `86dd34e` adds directional pane focus, tab movement and reordering, lifecycle-
+  coordinated close controls, sidebar toggle/resize, active-tab overflow,
+  physical split clamps and draggable editor scrollbars.
+- Modal command input owns pointer and wheel routing without moving editor focus,
+  preventing an inactive document from being changed through prompt input.
+- Headless tests cover focus, tab movement/reordering, narrow layouts, close
+  routing, modal input isolation and scrollbar dragging; the SDL artifact builds.
+- Explicit display-scale propagation and its hit-test regression remain before
+  M3.2 can be marked complete.
 
 ## Previously delivered roadmap foundations
 
