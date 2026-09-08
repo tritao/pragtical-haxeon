@@ -23,6 +23,10 @@ import search.DocumentSearch;
 import search.SearchMatch;
 import search.SearchOptions;
 import search.WorkspaceSearch;
+import command.KeyBinding;
+import config.ConfigurationPaths;
+import config.Settings;
+import config.SettingsService;
 
 class Application {
 	public final documents:DocumentManager;
@@ -36,11 +40,14 @@ class Application {
 	public final syntaxes:SyntaxRegistry;
 	public final theme:Theme;
 	public final searchOptions:SearchOptions;
+	public final settings:SettingsService;
 	public final documentMatches:Array<SearchMatch> = [];
 	public var documentSearchQuery(default, null):String = "";
 	var documentMatchIndex:Int = -1;
+	var settingsListener:Settings->Void;
 
-	public function new(renderer:Renderer, width:Int, height:Int) {
+	public function new(renderer:Renderer, width:Int, height:Int, ?settings:SettingsService) {
+		this.settings = settings == null ? new SettingsService() : settings;
 		syntaxes = new SyntaxRegistry();
 		BuiltinSyntax.install(syntaxes);
 		theme = new Theme();
@@ -55,6 +62,9 @@ class Application {
 		searchOptions = new SearchOptions();
 		installSearchCommands();
 		plugins = new PluginManager(commands, keymap, context, syntaxes);
+		installConfigurationCommands();
+		settingsListener = applySettings;
+		this.settings.subscribe(settingsListener);
 	}
 
 	public function open(path:String):View
@@ -62,7 +72,9 @@ class Application {
 
 	public function openArgument(path:String):Null<View> {
 		if (FileSystem.isDirectory(path)) {
-			workspace.addProject(path);
+			var normalized = workspace.fileSystem.normalize(path);
+			settings.addProject(ConfigurationPaths.projectSettings(normalized));
+			workspace.addProject(normalized, settings.current.excludedNames);
 			return null;
 		}
 		return open(path);
@@ -77,14 +89,6 @@ class Application {
 	public function keyPressed(key:Int, modifiers:Int):Bool {
 		if (root.commandView.active)
 			return root.commandView.keyPressed(key, modifiers);
-		if (key == Platform.KEY_P && modifiers == Platform.MOD_CTRL) {
-			openFileCommandView();
-			return true;
-		}
-		if (key == Platform.KEY_P && modifiers == Platform.MOD_CTRL + Platform.MOD_SHIFT) {
-			openCommandView();
-			return true;
-		}
 		var handled = keymap.onKeyPressed(key, modifiers, context);
 		if (handled)
 			root.cursorChanged();
@@ -128,7 +132,7 @@ class Application {
 
 	public function openWorkspaceFind():Void {
 		root.commandView.open(new CommandViewProvider("Search: ", [], function(query) {
-			root.showSearchResults(query, WorkspaceSearch.find(workspace, query, searchOptions));
+			root.showSearchResults(query, WorkspaceSearch.find(workspace, query, searchOptions, settings.current.searchMaxResults));
 		}, function(entry, query, backwards) {
 			if (backwards) root.searchMove(-1);
 			root.searchActivate();
@@ -239,9 +243,81 @@ class Application {
 		keymap.addDirect(Platform.KEY_H, Platform.MOD_CTRL, ["find:replace"]);
 	}
 
-	public function update():Void
-		plugins.update();
+	function installConfigurationCommands():Void {
+		commands.add("files:open", function(context) {
+			openFileCommandView();
+		});
+		commands.add("commands:open", function(context) {
+			openCommandView();
+		});
+		commands.add("settings:reload", function(context) {
+			settings.reload(true);
+		});
+		commands.add("settings:open", function(context) {
+			openSettingsCommandView();
+		});
+		commands.add("keybindings:open", function(context) {
+			openKeybindingsCommandView();
+		});
+		commands.add("doc:indent", function(context) {
+			var spaces = "";
+			for (index in 0...settings.current.tabWidth) spaces += " ";
+			context.requireDocument().insert(spaces);
+		}, function(context) return context.activeView() != null && context.activeView().getDocument() != null);
+		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL, ["files:open"]);
+		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["commands:open"]);
+	}
 
-	public function shutdown():Void
+	public function openSettingsCommandView():Void {
+		var value = settings.current, entries = [
+			new CommandViewEntry("editor.fontPath", value.fontPath, "editor.fontPath"),
+			new CommandViewEntry("editor.fontSize", Std.string(value.fontSize), "editor.fontSize"),
+			new CommandViewEntry("editor.tabWidth", Std.string(value.tabWidth), "editor.tabWidth"),
+			new CommandViewEntry("workbench.sidebarWidth", Std.string(value.sidebarWidth), "workbench.sidebarWidth"),
+			new CommandViewEntry("search.maxResults", Std.string(value.searchMaxResults), "search.maxResults")
+		];
+		for (diagnostic in settings.diagnostics) entries.unshift(new CommandViewEntry("Configuration error", diagnostic, diagnostic));
+		root.commandView.open(new CommandViewProvider("Settings: ", entries, function(query) {}, function(entry, query, backwards) {
+			root.commandView.close();
+		}));
+	}
+
+	public function openKeybindingsCommandView():Void {
+		var entries:Array<CommandViewEntry> = [];
+		for (binding in settings.current.keybindings)
+			entries.push(new CommandViewEntry(keyName(binding.key, binding.modifiers), binding.commands.join(", "), binding.commands[0]));
+		root.commandView.open(new CommandViewProvider("Keybindings: ", entries, function(query) {}, function(entry, query, backwards) {
+			root.commandView.close();
+		}));
+	}
+
+	function applySettings(value:Settings):Void {
+		theme.editorBackground = value.editorBackground;
+		theme.editorForeground = value.editorForeground;
+		theme.accent = value.accent;
+		searchOptions.caseSensitive = value.searchCaseSensitive;
+		searchOptions.wholeWord = value.searchWholeWord;
+		root.setSidebarWidth(value.sidebarWidth);
+		for (project in workspace.projects) project.setIgnored(value.excludedNames);
+		keymap.setConfigured([for (binding in value.keybindings) new KeyBinding(binding.key, binding.modifiers, binding.commands)]);
+		if (!root.renderer.reloadFont(value.fontPath, value.fontSize))
+			settings.diagnostics.push('could not load font "' + value.fontPath + '"');
+	}
+
+	function keyName(key:Int, modifiers:Int):String {
+		var result = "";
+		if (modifiers & Platform.MOD_CTRL != 0) result += "Ctrl+";
+		if (modifiers & Platform.MOD_SHIFT != 0) result += "Shift+";
+		return result + Std.string(key);
+	}
+
+	public function update():Void {
+		settings.reload();
+		plugins.update();
+	}
+
+	public function shutdown():Void {
+		settings.unsubscribe(settingsListener);
 		plugins.shutdown();
+	}
 }

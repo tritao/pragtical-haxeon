@@ -4,6 +4,9 @@ import platform.Native;
 import platform.Platform;
 import core.Application;
 import renderer.Renderer;
+import config.ConfigurationPaths;
+import config.SettingsService;
+import session.WorkspaceSession;
 
 class GraphicalMain {
 	static function main():Int {
@@ -13,8 +16,11 @@ class GraphicalMain {
 		var arguments = Sys.args();
 		var window = Native.window_create("Pragtical Haxeon", 960, 640), running = true;
 		Platform.require(window != 0, "create editor window");
-		var renderer = new Renderer(window, "data/fonts/JetBrainsMono-Regular.ttf", 15);
-		var application = new Application(renderer, Native.window_width(window), Native.window_height(window));
+		var settings = new SettingsService(ConfigurationPaths.userSettings()), defaults = new config.Settings();
+		var renderer = new Renderer(window, defaults.fontPath, defaults.fontSize);
+		var application = new Application(renderer, Native.window_width(window), Native.window_height(window), settings);
+		var sessionPath = ConfigurationPaths.session(), savedSession = WorkspaceSession.load(sessionPath);
+		if (savedSession != null) savedSession.restore(application);
 		var documentCount = 0;
 		for (argument in arguments) {
 			if (StringTools.startsWith(argument, "--plugin="))
@@ -51,6 +57,7 @@ class GraphicalMain {
 			renderer.present();
 		}
 		application.shutdown();
+		WorkspaceSession.capture(application).save(sessionPath);
 		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy editor window");
 		Native.shutdown();

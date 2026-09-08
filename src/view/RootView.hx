@@ -112,10 +112,15 @@ class RootView {
 		setNodeBounds();
 	}
 
+	public function setSidebarWidth(width:Int):Void {
+		sidebar.width = width;
+		setNodeBounds();
+	}
+
 	function setNodeBounds():Void {
-		var contentWidth = width - Sidebar.WIDTH;
+		var contentWidth = width - sidebar.width;
 		if (contentWidth < 0) contentWidth = 0;
-		node.setBounds(Sidebar.WIDTH, 0, contentWidth, height);
+		node.setBounds(sidebar.width, 0, contentWidth, height);
 	}
 
 	public function textInput(text:String):Void {
@@ -131,7 +136,7 @@ class RootView {
 	}
 
 	public function mouseDown(button:Int, x:Int, y:Int):Void {
-		if (button == 1 && x < Sidebar.WIDTH) {
+		if (button == 1 && x < sidebar.width) {
 			if (searchVisible) {
 				var match = searchSidebar.mouseDown(x, y);
 				if (match != null) openSearchMatch(match);
@@ -241,7 +246,7 @@ class RootView {
 	function drawLeaf(leaf:LayoutNode):Void {
 		renderer.clip(leaf.x, leaf.y, leaf.width, leaf.height);
 		if (leaf.tabs.activeView == null) {
-			renderer.rect(leaf.x, leaf.y, leaf.width, leaf.height, 0x181818ff);
+			renderer.rect(leaf.x, leaf.y, leaf.width, leaf.height, theme.editorBackground);
 			return;
 		}
 		leaf.tabs.activeView.draw();
@@ -252,7 +257,7 @@ class RootView {
 			renderer.text(x + 12, leaf.y + 13, (view.isDirty() ? "* " : "") + view.title, active ? 0xffffffff : 0xaaaaaaff);
 			x += TAB_WIDTH;
 		}
-		if (leaf == activeLeaf) renderer.rect(leaf.x, leaf.y, leaf.width, 2, 0x4f8fccff);
+		if (leaf == activeLeaf) renderer.rect(leaf.x, leaf.y, leaf.width, 2, theme.accent);
 	}
 
 	function leafForView(current:LayoutNode, view:View):Null<LayoutNode> {

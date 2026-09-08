@@ -3,6 +3,7 @@ package command;
 class Keymap {
 	final registry:CommandRegistry;
 	final bindings:Array<KeyBinding> = [];
+	final configured:Array<KeyBinding> = [];
 
 	public function new(registry:CommandRegistry) {
 		this.registry = registry;
@@ -43,7 +44,8 @@ class Keymap {
 			binding.commands.remove(command);
 
 	public function onKeyPressed(key:Int, modifiers:Int, context:CommandContext):Bool {
-		var binding = find(key, modifiers);
+		var binding = findIn(configured, key, modifiers);
+		if (binding == null) binding = find(key, modifiers);
 		if (binding == null)
 			return false;
 		for (command in binding.commands)
@@ -53,12 +55,22 @@ class Keymap {
 	}
 
 	public function commandsFor(key:Int, modifiers:Int):Array<String> {
-		var binding = find(key, modifiers);
+		var binding = findIn(configured, key, modifiers);
+		if (binding == null) binding = find(key, modifiers);
 		return binding == null ? [] : copy(binding.commands);
 	}
 
+	public function setConfigured(values:Array<KeyBinding>):Void {
+		configured.resize(0);
+		for (value in values) configured.push(new KeyBinding(value.key, value.modifiers, copy(value.commands)));
+	}
+
 	function find(key:Int, modifiers:Int):Null<KeyBinding> {
-		for (binding in bindings)
+		return findIn(bindings, key, modifiers);
+	}
+
+	static function findIn(values:Array<KeyBinding>, key:Int, modifiers:Int):Null<KeyBinding> {
+		for (binding in values)
 			if (binding.key == key && binding.modifiers == modifiers)
 				return binding;
 		return null;

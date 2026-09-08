@@ -1,0 +1,113 @@
+package config;
+
+import platform.Platform;
+
+class SettingsCodec {
+	public static function apply(content:String, target:Settings, source:String):Array<String> {
+		var diagnostics:Array<String> = [], version = 0, bindings = [for (binding in target.keybindings) binding.copy()], lines = content.split("\n");
+		for (lineNumber in 0...lines.length) {
+			var line = StringTools.trim(lines[lineNumber]);
+			if (line.length == 0 || StringTools.startsWith(line, "#")) continue;
+			var separator = line.indexOf("=");
+			if (separator < 1) {
+				diagnostics.push(source + ":" + (lineNumber + 1) + ": expected key=value");
+				continue;
+			}
+			var key = StringTools.trim(line.substring(0, separator)), value = StringTools.trim(line.substring(separator + 1));
+			if (key == "version") version = parseBoundedInt(value, 1, Settings.VERSION, key, source, lineNumber, diagnostics);
+			else if (key == "editor.fontPath") target.fontPath = requireText(value, key, source, lineNumber, diagnostics);
+			else if (key == "editor.fontSize") target.fontSize = parseBoundedInt(value, 6, 96, key, source, lineNumber, diagnostics);
+			else if (key == "workbench.sidebarWidth") target.sidebarWidth = parseBoundedInt(value, 120, 600, key, source, lineNumber, diagnostics);
+			else if (key == "editor.tabWidth") target.tabWidth = parseBoundedInt(value, 1, 16, key, source, lineNumber, diagnostics);
+			else if (key == "files.exclude") target.excludedNames = parseList(value);
+			else if (key == "search.caseSensitive") target.searchCaseSensitive = parseBool(value, key, source, lineNumber, diagnostics);
+			else if (key == "search.wholeWord") target.searchWholeWord = parseBool(value, key, source, lineNumber, diagnostics);
+			else if (key == "search.maxResults") target.searchMaxResults = parseBoundedInt(value, 1, 1000000, key, source, lineNumber, diagnostics);
+			else if (key == "theme.editorBackground") target.editorBackground = parseColor(value, key, source, lineNumber, diagnostics);
+			else if (key == "theme.editorForeground") target.editorForeground = parseColor(value, key, source, lineNumber, diagnostics);
+			else if (key == "theme.accent") target.accent = parseColor(value, key, source, lineNumber, diagnostics);
+			else if (key == "keybinding") {
+				var binding = parseBinding(value, source, lineNumber, diagnostics);
+				if (binding != null) {
+					var index = bindings.length;
+					while (index > 0) {
+						index--;
+						if (bindings[index].key == binding.key && bindings[index].modifiers == binding.modifiers) bindings.splice(index, 1);
+					}
+					bindings.push(binding);
+				}
+			} else diagnostics.push(source + ":" + (lineNumber + 1) + ': unknown setting "$key"');
+		}
+		if (version == 0) diagnostics.push(source + ": missing version=" + Settings.VERSION);
+		target.keybindings = bindings;
+		return diagnostics;
+	}
+
+	static function parseBinding(value:String, source:String, line:Int, diagnostics:Array<String>):Null<ConfiguredKeyBinding> {
+		var separator = value.indexOf("|");
+		if (separator < 1 || separator == value.length - 1) {
+			diagnostics.push(source + ":" + (line + 1) + ": keybinding must be chord|command[,command]");
+			return null;
+		}
+		var chord = value.substring(0, separator).split("+"), key = 0, modifiers = 0;
+		for (part in chord) {
+			var name = StringTools.trim(part).toLowerCase();
+			if (name == "ctrl") modifiers += Platform.MOD_CTRL;
+			else if (name == "shift") modifiers += Platform.MOD_SHIFT;
+			else if (key == 0) key = keyNamed(name);
+			else key = 0;
+		}
+		var commands = parseList(value.substring(separator + 1));
+		if (key == 0 || commands.length == 0) {
+			diagnostics.push(source + ":" + (line + 1) + ": invalid keybinding");
+			return null;
+		}
+		return new ConfiguredKeyBinding(key, modifiers, commands);
+	}
+
+	static function keyNamed(name:String):Int
+		return switch name {
+			case "a": Platform.KEY_A; case "s": Platform.KEY_S; case "y": Platform.KEY_Y; case "z": Platform.KEY_Z;
+			case "w": Platform.KEY_W; case "p": Platform.KEY_P; case "f": Platform.KEY_F; case "h": Platform.KEY_H;
+			case "tab": Platform.KEY_TAB; case "enter": Platform.KEY_ENTER; case "escape": Platform.KEY_ESCAPE;
+			case "backspace": Platform.KEY_BACKSPACE; case "delete": Platform.KEY_DELETE; case "left": Platform.KEY_LEFT;
+			case "right": Platform.KEY_RIGHT; case "up": Platform.KEY_UP; case "down": Platform.KEY_DOWN;
+			case "home": Platform.KEY_HOME; case "end": Platform.KEY_END; default: 0;
+		};
+
+	static function parseList(value:String):Array<String> {
+		var result:Array<String> = [];
+		for (part in value.split(",")) {
+			var item = StringTools.trim(part);
+			if (item.length > 0) result.push(item);
+		}
+		return result;
+	}
+
+	static function requireText(value:String, key:String, source:String, line:Int, diagnostics:Array<String>):String {
+		if (value.length == 0) diagnostics.push(source + ":" + (line + 1) + ': "$key" cannot be empty');
+		return value;
+	}
+
+	static function parseBool(value:String, key:String, source:String, line:Int, diagnostics:Array<String>):Bool {
+		if (value == "true") return true;
+		if (value == "false") return false;
+		diagnostics.push(source + ":" + (line + 1) + ': "$key" must be true or false');
+		return false;
+	}
+
+	static function parseBoundedInt(value:String, minimum:Int, maximum:Int, key:String, source:String, line:Int, diagnostics:Array<String>):Int {
+		var result = Std.parseInt(value);
+		if (Std.string(result) != value || result < minimum || result > maximum) {
+			diagnostics.push(source + ":" + (line + 1) + ': "$key" must be an integer from $minimum to $maximum');
+			return minimum;
+		}
+		return result;
+	}
+
+	static function parseColor(value:String, key:String, source:String, line:Int, diagnostics:Array<String>):Int {
+		var result = Std.parseInt(value);
+		if (Std.string(result) != value) diagnostics.push(source + ":" + (line + 1) + ': "$key" must be a decimal RGBA integer');
+		return result;
+	}
+}

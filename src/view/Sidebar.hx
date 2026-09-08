@@ -9,10 +9,12 @@ class Sidebar {
 	public static inline final HEADER_HEIGHT = 42;
 	public static inline final ROW_HEIGHT = 22;
 	public final workspace:Workspace;
+	public var width:Int;
 	public var selected(default, null):Int = 0;
 
-	public function new(workspace:Workspace) {
+	public function new(workspace:Workspace, width:Int = WIDTH) {
 		this.workspace = workspace;
+		this.width = width;
 	}
 
 	public function nodes():Array<ProjectNode> {
@@ -51,23 +53,23 @@ class Sidebar {
 	}
 
 	public function mouseDown(x:Int, y:Int):Null<String> {
-		if (x < 0 || x >= WIDTH || y < HEADER_HEIGHT) return null;
+		if (x < 0 || x >= width || y < HEADER_HEIGHT) return null;
 		selected = Std.int((y - HEADER_HEIGHT) / ROW_HEIGHT);
 		return activate();
 	}
 
 	public function draw(renderer:Renderer, height:Int):Void {
-		renderer.clip(0, 0, WIDTH, height);
-		renderer.rect(0, 0, WIDTH, height, 0x202020ff);
+		renderer.clip(0, 0, width, height);
+		renderer.rect(0, 0, width, height, 0x202020ff);
 		renderer.text(16, 13, "EXPLORER", 0xaaaaaaff);
 		var visible = nodes(), maxRows = Std.int((height - HEADER_HEIGHT) / ROW_HEIGHT);
 		if (maxRows > visible.length) maxRows = visible.length;
 		for (index in 0...maxRows) {
 			var node = visible[index], y = HEADER_HEIGHT + index * ROW_HEIGHT;
-			if (index == selected) renderer.rect(0, y, WIDTH, ROW_HEIGHT, 0x2c313aff);
+			if (index == selected) renderer.rect(0, y, width, ROW_HEIGHT, 0x2c313aff);
 			var marker = node.directory ? (node.expanded ? "v " : "> ") : "  ", indent = node.depth * 14;
 			renderer.text(10 + indent, y + 3, marker + node.name, node.directory ? 0xccccccff : 0xe6e6e6ff);
 		}
-		renderer.clip(0, 0, WIDTH, height);
+		renderer.clip(0, 0, width, height);
 	}
 }

@@ -5,7 +5,7 @@ class Project {
 	public final name:String;
 	public final tree:ProjectNode;
 	final fileSystem:FileSystemService;
-	final ignored:Map<String, Bool> = [];
+	var ignored:Map<String, Bool> = [];
 
 	public function new(path:String, fileSystem:FileSystemService, ?ignoredNames:Array<String>) {
 		this.fileSystem = fileSystem;
@@ -13,10 +13,16 @@ class Project {
 		if (!fileSystem.exists(root) || !fileSystem.isDirectory(root)) throw 'project root is not a directory: "$root"';
 		var separator = root.lastIndexOf("/");
 		name = separator < 0 ? root : root.substring(separator + 1);
-		for (entry in [".git", ".hg", ".svn", ".devstack", "build", "out", "node_modules"]) ignored.set(entry, true);
-		if (ignoredNames != null)
-			for (entry in ignoredNames) ignored.set(entry, true);
 		tree = new ProjectNode(name, root, true, 0, true);
+		setIgnored(ignoredNames == null ? [] : ignoredNames);
+	}
+
+	public function setIgnored(names:Array<String>):Void {
+		ignored = [];
+		for (name in [".git", ".hg", ".svn", ".devstack", "build", "out", "node_modules"]) ignored.set(name, true);
+		for (name in names) ignored.set(name, true);
+		tree.children.resize(0);
+		tree.loaded = false;
 		load(tree);
 	}
 

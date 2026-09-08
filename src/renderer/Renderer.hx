@@ -5,14 +5,31 @@ import platform.Platform;
 
 class Renderer {
 	public final window:Int;
-	public final font:Int;
-	public final lineHeight:Int;
+	public var font(default, null):Int;
+	public var lineHeight(default, null):Int;
+	public var fontPath(default, null):String;
+	public var fontSize(default, null):Int;
 
 	public function new(window:Int, fontPath:String, fontSize:Int) {
 		this.window = window;
+		this.fontPath = fontPath;
+		this.fontSize = fontSize;
 		font = Native.font_create(window, fontPath, fontSize);
 		Platform.require(font != 0, "load editor font");
 		lineHeight = Native.font_height(font);
+	}
+
+	public function reloadFont(fontPath:String, fontSize:Int):Bool {
+		if (this.fontPath == fontPath && this.fontSize == fontSize) return true;
+		var replacement = Native.font_create(window, fontPath, fontSize);
+		if (replacement == 0) return false;
+		var previous = font;
+		font = replacement;
+		lineHeight = Native.font_height(font);
+		this.fontPath = fontPath;
+		this.fontSize = fontSize;
+		Platform.require(Native.font_destroy(previous), "destroy replaced font");
+		return true;
 	}
 
 	public function begin():Void

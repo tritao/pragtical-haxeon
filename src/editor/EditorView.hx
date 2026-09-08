@@ -87,7 +87,7 @@ class EditorView {
 		if (textOffset >= width) textOffset = width - 1;
 		if (textOffset < 0) textOffset = 0;
 		var textLeft = x + textOffset;
-		renderer.rect(x, y, width, height, 0x181818ff);
+		renderer.rect(x, y, width, height, theme.editorBackground);
 		renderer.rect(x, y, width, HEADER_HEIGHT, 0x252525ff);
 		renderer.text(x + 12, y + 13, (document.dirty ? "* " : "") + path, 0xccccccff);
 
