@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M2.2, clipboard and navigation.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4 and M2.1.
+- Active task: M2.3, coding edits.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1 and M2.2.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: add the platform clipboard ABI with deterministic headless storage,
-  then wire clipboard commands and richer navigation through view-owned selections.
-- Editor HEAD: `98a0109`. Haxeon HEAD observed: `4bd73cf`.
+- Next action: implement indentation, line transformations and comment toggling as
+  selection-preserving single transactions with typed indentation defaults.
+- Editor HEAD: `d61c88a`. Haxeon HEAD observed: `4bd73cf`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -18,7 +18,7 @@ Last updated: 2026-09-08.
 | --- | --- | --- |
 | M0 | In progress | M0.1/M0.2 complete; interactive M0.3 smoke pending |
 | M1 | Complete headlessly | Stable pathless identity, atomic persistence, Save As, unified close/quit, external conflicts and bounded recovery pass; graphical prompt smoke remains in the M0.3 manual route |
-| M2 | In progress | M2.1 positions, true per-view selection ownership, fanout subscriptions and grouped/multi-replacement transactions pass; clipboard, coding edits and multiple selections remain |
+| M2 | In progress | M2.1 foundations and M2.2 clipboard/navigation pass; coding edits and multiple selections remain |
 | M3 | Partial foundation | Command view and split shell exist; navigation, reusable feedback and theme roles remain |
 | M4 | Partial foundation | Bounded polling, multi-root search, file operations and sessions exist; scheduling/scale and replacement remain |
 | M5 | Partial foundation | Layered typed settings and plugin reload exist; subscriptions and stable editor API remain |
@@ -73,6 +73,20 @@ Last updated: 2026-09-08.
   independent split-pane cursors, passive range transformation, grouped typing,
   overlapping-transaction rejection and transaction undo/redo.
 - `./scripts/test.sh` and `./scripts/build-sdl.sh` both exited 0 at `98a0109`.
+
+### M2.2 — clipboard and navigation
+
+- `a6b5cf8` added platform ABI v5 clipboard read/write with deterministic headless
+  storage, SDL integration, HashLink UTF-8 conversion and Ctrl+C/X/V editing.
+  Paste normalizes CRLF/CR to the buffer's logical LF representation and remains
+  one undo unit.
+- `d61c88a` added selection collapse, word/page/document movement and selection,
+  double/triple-click selection, SDL click-count forwarding and bounded drag
+  autoscroll driven by an injectable clock. Page keys are covered by ABI v6.
+- Tests cover multiline/non-ASCII clipboard round-trips, cut/paste undo, viewport
+  page movement, word/document ranges, click selection and timed outside-viewport
+  dragging.
+- `./scripts/test.sh` and `./scripts/build-sdl.sh` both exited 0 at `d61c88a`.
 
 ## Previously delivered roadmap foundations
 

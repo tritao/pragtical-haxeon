@@ -22,9 +22,9 @@ characters. Include combining marks and emoji in the declared boundary policy.
 
 ## M2.2 — Clipboard and navigation
 
-- [ ] Add clipboard read/write through the ABI and deterministic headless storage.
-- [ ] Wire cut/copy/paste; normalize pasted newlines consistently with M1.
-- [ ] Add word/page/document movement and selection, selection-collapse behavior,
+- [x] Add clipboard read/write through the ABI and deterministic headless storage.
+- [x] Wire cut/copy/paste; normalize pasted newlines consistently with M1.
+- [x] Add word/page/document movement and selection, selection-collapse behavior,
   double/triple-click selection and drag autoscroll with an injectable clock.
 
 Acceptance: multiline and non-ASCII clipboard round-trip; paste is one undo unit;
