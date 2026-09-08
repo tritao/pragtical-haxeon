@@ -40,6 +40,8 @@ class EditorCommands {
 		registry.add("doc:move-page-down", context -> context.requireView().movePage(1, false), hasDocument);
 		registry.add("doc:select-page-up", context -> context.requireView().movePage(-1, true), hasDocument);
 		registry.add("doc:select-page-down", context -> context.requireView().movePage(1, true), hasDocument);
+		registry.add("doc:toggle-word-wrap", context -> context.requireView().toggleWordWrap(), hasDocument);
+		registry.add("doc:toggle-fold", context -> context.requireView().toggleFold(), hasDocument);
 		registry.add("root:switch-to-next-tab", context -> context.root.tabs.switchBy(1));
 		registry.add("root:switch-to-previous-tab", context -> context.root.tabs.switchBy(-1));
 		registry.add("root:close", context -> context.root.closeActiveTab(), context -> context.focus.activeView != null);

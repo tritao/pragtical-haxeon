@@ -51,6 +51,8 @@ class View {
 	public function joinLines():Bool return false;
 	public function toggleLineComment():Bool return false;
 	public function selectNextOccurrence():Bool return false;
+	public function toggleWordWrap():Bool return false;
+	public function toggleFold():Bool return false;
 	public function setBounds(x:Int, y:Int, width:Int, height:Int):Void
 		resize(width, height);
 

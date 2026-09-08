@@ -10,6 +10,9 @@ import syntax.SyntaxRegistry;
 import style.Theme;
 import editor.BufferSelection;
 import editor.EditorClock;
+import editor.BufferPosition;
+import editor.TextBuffer;
+import editor.VisualLineMap;
 
 class FakeEditorClock implements EditorClock {
 	public var value:Float = 0.0;
@@ -29,9 +32,35 @@ class EditorViewTestMain {
 		var syntaxes = new SyntaxRegistry();
 		BuiltinSyntax.install(syntaxes);
 		var clock = new FakeEditorClock();
+		var visual = new VisualLineMap(new TextBuffer("abcdef\nxy\n123456\nlast"), 3);
+		require(visual.rowCount() == 7
+			&& visual.rowAt(new BufferPosition(0, 4)) == 1
+			&& visual.positionAt(1, 1).equals(new BufferPosition(0, 4))
+			&& visual.moveVertical(new BufferPosition(0, 4), 1).equals(new BufferPosition(1, 1)),
+			"wrapped visual-line mapping did not preserve document positions");
+		require(visual.toggleFold(1, 2) && visual.rowCount() == 5
+			&& visual.rowAt(new BufferPosition(2, 4)) == 2, "collapsed visual-line mapping did not hide its document range");
+		require(visual.reveal(new BufferPosition(2, 4)) && visual.rowCount() == 7
+			&& visual.rowAt(new BufferPosition(2, 4)) == 4, "caret reveal did not expand a containing fold");
 		var window = Native.window_create("view-test", 640, 160), renderer = new Renderer(window, "ignored-headlessly.ttf", 15),
 			document = new Document("unused", "abcdef\nxy\n123456\nline four\nline five\nline six\nline seven\nline eight\nline nine\nline ten\nline eleven\nline twelve", syntaxes),
 			view = new EditorView(document, renderer, new Theme(), 640, 160, new BufferSelection(), clock);
+		var wrappedWidth = EditorView.GUTTER_WIDTH + EditorView.SCROLLBAR_SIZE + EditorView.PADDING + renderer.textWidth("MMM");
+		view.setBounds(0, 0, wrappedWidth, 160);
+		view.setWordWrap(true);
+		require(view.visualLines.rowCount() > document.buffer.lineCount(), "view word wrapping did not create visual rows");
+		view.selection.setCursor(document.buffer, new BufferPosition(0, 4));
+		view.cursorChanged();
+		view.moveVertical(1, false);
+		require(view.selection.cursor.equals(new BufferPosition(1, 1)), "view vertical movement did not follow wrapped rows");
+		require(view.toggleFold(1, 2) && view.visualLines.rowAt(new BufferPosition(2, 1)) == view.visualLines.rowAt(new BufferPosition(1, 1)),
+			"view folding did not collapse physical lines into its marker row");
+		view.selection.setCursor(document.buffer, new BufferPosition(2, 1));
+		view.cursorChanged();
+		require(view.visualLines.rowAt(view.selection.cursor) != view.visualLines.rowAt(new BufferPosition(1, 1)),
+			"moving the caret into a fold did not reveal its physical line");
+		view.setWordWrap(false);
+		view.setBounds(0, 0, 640, 160);
 		view.mouseDown(Platform.MOUSE_LEFT, EditorView.GUTTER_WIDTH + 20, EditorView.HEADER_HEIGHT + EditorView.PADDING + 2, 2);
 		view.mouseUp(Platform.MOUSE_LEFT);
 		require(view.selection.selectedText(document.buffer) == "abcdef", "double click did not select a word");

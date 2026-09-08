@@ -112,6 +112,8 @@ class DocumentView extends View {
 		selection.addRange(buffer, to, from);
 		return true;
 	}
+	override public function toggleWordWrap():Bool return editor.toggleWordWrap();
+	override public function toggleFold():Bool return editor.toggleCurrentFold();
 
 	override public function resize(width:Int, height:Int):Void
 		editor.resize(width, height);

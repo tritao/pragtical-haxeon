@@ -15,6 +15,7 @@ class EditorView {
 	public final renderer:Renderer;
 	public final theme:Theme;
 	public final selection:BufferSelection;
+	public final visualLines:VisualLineMap;
 	final clock:EditorClock;
 	public var x(default, null):Int = 0;
 	public var y(default, null):Int = 0;
@@ -29,12 +30,16 @@ class EditorView {
 	var lastDragScroll:Float = -1.0;
 	var draggingVerticalScrollbar:Bool = false;
 	var draggingHorizontalScrollbar:Bool = false;
+	var wordWrap:Bool = false;
+	var mappedStateId:Int = -1;
+	var preferredVisualColumn:Int = -1;
 
 	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int, ?selection:BufferSelection, ?clock:EditorClock) {
 		this.document = document;
 		this.renderer = renderer;
 		this.theme = theme;
 		this.selection = selection == null ? new BufferSelection() : selection;
+		visualLines = new VisualLineMap(document.buffer);
 		this.clock = clock == null ? new SystemEditorClock() : clock;
 		resize(width, height);
 	}
@@ -52,19 +57,71 @@ class EditorView {
 	}
 
 	public function moveVertical(delta:Int, extend:Bool):Void {
-		selection.moveVertical(document.buffer, delta, extend);
+		syncVisualLines();
+		revealSelections();
+		if (selection.rangeCount() > 1) {
+			var moved:Array<BufferRange> = [];
+			for (range in selection.allRanges()) {
+				var row = visualLines.lineAt(visualLines.rowAt(range.cursor)), target = visualLines.moveVertical(range.cursor, delta,
+					range.cursor.column - row.startColumn);
+				moved.push(new BufferRange(target, extend ? range.anchor : target));
+			}
+			selection.setRanges(document.buffer, moved);
+			revealSelections();
+			ensureCaretVisible();
+			return;
+		}
+		var source = visualLines.lineAt(visualLines.rowAt(selection.cursor));
+		if (preferredVisualColumn < 0) preferredVisualColumn = selection.cursor.column - source.startColumn;
+		var target = visualLines.moveVertical(selection.cursor, delta, preferredVisualColumn);
+		visualLines.reveal(target);
+		selection.setCursor(document.buffer, target, extend);
 		ensureCaretVisible();
 	}
 
 	public function movePage(delta:Int, extend:Bool):Void {
 		var lines = Std.int((height - HEADER_HEIGHT - PADDING) / renderer.lineHeight);
 		if (lines < 1) lines = 1;
-		selection.moveVertical(document.buffer, delta * lines, extend);
+		moveVertical(delta * lines, extend);
 		ensureCaretVisible();
 	}
 
-	public function cursorChanged():Void
+	public function cursorChanged():Void {
+		preferredVisualColumn = -1;
+		syncVisualLines();
+		revealSelections();
 		ensureCaretVisible();
+	}
+
+	public function setWordWrap(enabled:Bool):Void {
+		wordWrap = enabled;
+		syncVisualLines(true);
+		ensureCaretVisible();
+	}
+
+	public function toggleWordWrap():Bool {
+		setWordWrap(!wordWrap);
+		return wordWrap;
+	}
+
+	public function toggleCurrentFold():Bool {
+		var line = selection.cursor.line, value = document.buffer.line(line), brace = value.indexOf("{", selection.cursor.column), end = -1;
+		if (brace < 0) brace = value.indexOf("{");
+		if (brace >= 0) {
+			var pair = document.matchingBrackets(new BufferPosition(line, brace));
+			if (pair != null && pair.second.line > line) end = pair.second.line;
+		}
+		if (end < 0) end = indentationFoldEnd(line);
+		return end > line && toggleFold(line, end);
+	}
+
+	public function toggleFold(startLine:Int, endLine:Int):Bool {
+		syncVisualLines();
+		var collapsed = visualLines.toggleFold(startLine, endLine);
+		revealSelections();
+		clampScroll();
+		return collapsed;
+	}
 
 	public function restoreScroll(x:Int, y:Int):Void {
 		scrollX = x;
@@ -133,6 +190,7 @@ class EditorView {
 
 	public function draw(path:String):Void {
 		updateDragAutoscroll();
+		syncVisualLines();
 		var buffer = document.buffer, lineHeight = renderer.lineHeight, contentTop = y + HEADER_HEIGHT + PADDING,
 			contentHeight = height - HEADER_HEIGHT - PADDING - SCROLLBAR_SIZE, textOffset = GUTTER_WIDTH;
 		if (contentHeight < 1) contentHeight = 1;
@@ -145,66 +203,74 @@ class EditorView {
 		renderer.text(x + 12, y + 13, (document.dirty ? "* " : "") + path, theme.foregroundMuted);
 
 		renderer.clip(x, contentTop, width, contentHeight);
-		var firstLine = Std.int(scrollY / lineHeight), lastLine = firstLine + Std.int(contentHeight / lineHeight) + 2,
-			lineCount = buffer.lineCount();
-		if (lastLine > lineCount)
-			lastLine = lineCount;
-		for (lineIndex in firstLine...lastLine) {
-			var y = contentTop + lineIndex * lineHeight - scrollY;
-			renderer.text(x + 8, y, Std.string(lineIndex + 1), theme.foregroundDisabled);
+		var firstRow = Std.int(scrollY / lineHeight), lastRow = firstRow + Std.int(contentHeight / lineHeight) + 2;
+		if (lastRow > visualLines.rowCount()) lastRow = visualLines.rowCount();
+		for (rowIndex in firstRow...lastRow) {
+			var row = visualLines.lineAt(rowIndex), rowY = contentTop + rowIndex * lineHeight - scrollY;
+			if (row.startColumn == 0) renderer.text(x + 8, rowY, Std.string(row.documentLine + 1), theme.foregroundDisabled);
 		}
 
 		renderer.clip(textLeft, contentTop, width - textOffset - SCROLLBAR_SIZE, contentHeight);
-		for (lineIndex in firstLine...lastLine) {
-			var value = buffer.line(lineIndex),
-				y = contentTop + lineIndex * lineHeight - scrollY, x = textLeft - scrollX;
+		for (rowIndex in firstRow...lastRow) {
+			var row = visualLines.lineAt(rowIndex), lineIndex = row.documentLine, value = buffer.line(lineIndex),
+				y = contentTop + rowIndex * lineHeight - scrollY, x = textLeft - scrollX,
+				segment = value.substring(row.startColumn, row.endColumn);
 			if (bracketPair != null) {
-				drawBracketBackground(bracketPair.first, lineIndex, value, x, y, lineHeight);
-				drawBracketBackground(bracketPair.second, lineIndex, value, x, y, lineHeight);
+				drawBracketBackground(bracketPair.first, row, value, x, y, lineHeight);
+				drawBracketBackground(bracketPair.second, row, value, x, y, lineHeight);
 			}
 			for (match in searchMatches)
-				if (match.line == lineIndex) {
-					var matchX = x + renderer.textWidth(value.substr(0, match.column)),
-						matchWidth = renderer.textWidth(value.substr(match.column, match.length));
+				if (match.line == lineIndex && match.column < row.endColumn && match.column + match.length > row.startColumn) {
+					var from = match.column < row.startColumn ? row.startColumn : match.column,
+						to = match.column + match.length > row.endColumn ? row.endColumn : match.column + match.length,
+						matchX = x + renderer.textWidth(value.substring(row.startColumn, from)),
+						matchWidth = renderer.textWidth(value.substring(from, to));
 					renderer.rect(matchX, y, matchWidth, lineHeight, theme.searchMatch);
 				}
 			for (range in selection.allRanges()) {
 				var selectionStart = range.start(), selectionEnd = range.end();
-				if (selectionEnd.line > lineIndex || selectionEnd.line == lineIndex && selectionEnd.column > 0)
-					if (selectionStart.line < lineIndex || selectionStart.line == lineIndex && selectionStart.column <= value.length) {
-						var fromColumn = selectionStart.line == lineIndex ? selectionStart.column : 0,
-							toColumn = selectionEnd.line == lineIndex ? selectionEnd.column : value.length,
-							selectionX = x + renderer.textWidth(value.substr(0, fromColumn)),
+				if (selectionEnd.line > lineIndex || selectionEnd.line == lineIndex && selectionEnd.column > row.startColumn)
+					if (selectionStart.line < lineIndex || selectionStart.line == lineIndex && selectionStart.column < row.endColumn) {
+						var fromColumn = selectionStart.line == lineIndex ? selectionStart.column : row.startColumn,
+							toColumn = selectionEnd.line == lineIndex ? selectionEnd.column : row.endColumn;
+						if (fromColumn < row.startColumn) fromColumn = row.startColumn;
+						if (toColumn > row.endColumn) toColumn = row.endColumn;
+						var selectionX = x + renderer.textWidth(value.substring(row.startColumn, fromColumn)),
 							selectionWidth = renderer.textWidth(value.substring(fromColumn, toColumn));
-						if (selectionEnd.line > lineIndex) selectionWidth += renderer.textWidth(" ");
+						if (selectionEnd.line > lineIndex && row.endColumn == value.length) selectionWidth += renderer.textWidth(" ");
 						renderer.rect(selectionX, y, selectionWidth, lineHeight, theme.selection);
 					}
 			}
 			var highlighted = document.highlighter.line(lineIndex), tokenX = x;
 			for (token in highlighted.tokens) {
-				var tokenText = value.substr(token.start, token.length);
+				var tokenEnd = token.start + token.length;
+				if (tokenEnd <= row.startColumn || token.start >= row.endColumn) continue;
+				var tokenStart = token.start < row.startColumn ? row.startColumn : token.start,
+					clippedEnd = tokenEnd > row.endColumn ? row.endColumn : tokenEnd,
+					tokenText = value.substring(tokenStart, clippedEnd);
+				tokenX = x + renderer.textWidth(value.substring(row.startColumn, tokenStart));
 				renderer.text(tokenX, y, tokenText, theme.tokenColor(token.kind));
-				tokenX += renderer.textWidth(tokenText);
 			}
+			if (row.foldedThroughLine >= 0) renderer.text(x + renderer.textWidth(segment + " "), y, "…", theme.foregroundMuted);
 		}
 		for (range in selection.allRanges()) {
-			var cursorLine = range.cursor.line, cursorValue = buffer.line(cursorLine),
-				caretX = textLeft - scrollX + renderer.textWidth(cursorValue.substr(0, range.cursor.column)),
-				caretY = contentTop + cursorLine * lineHeight - scrollY;
+			var cursorRowIndex = visualLines.rowAt(range.cursor), cursorRow = visualLines.lineAt(cursorRowIndex), cursorValue = buffer.line(cursorRow.documentLine),
+				caretX = textLeft - scrollX + renderer.textWidth(cursorValue.substring(cursorRow.startColumn, range.cursor.column)),
+				caretY = contentTop + cursorRowIndex * lineHeight - scrollY;
 			renderer.rect(caretX, caretY, 2, lineHeight, theme.caret);
 		}
 		drawScrollbars(contentTop, contentHeight);
 		renderer.clip(x, y, width, height);
 	}
 
-	function drawBracketBackground(position:BufferPosition, line:Int, value:String, x:Int, y:Int, lineHeight:Int):Void {
-		if (position.line != line) return;
-		var left = x + renderer.textWidth(value.substr(0, position.column)), width = renderer.textWidth(value.substr(position.column, 1));
+	function drawBracketBackground(position:BufferPosition, row:VisualLine, value:String, x:Int, y:Int, lineHeight:Int):Void {
+		if (position.line != row.documentLine || position.column < row.startColumn || position.column >= row.endColumn) return;
+		var left = x + renderer.textWidth(value.substring(row.startColumn, position.column)), width = renderer.textWidth(value.substr(position.column, 1));
 		renderer.rect(left, y, width, lineHeight, theme.searchMatch);
 	}
 
 	function drawScrollbars(contentTop:Int, contentHeight:Int):Void {
-		var totalHeight = document.buffer.lineCount() * renderer.lineHeight,
+		var totalHeight = visualLines.rowCount() * renderer.lineHeight,
 			viewportWidth = width - GUTTER_WIDTH - SCROLLBAR_SIZE, maximumWidth = maximumLineWidth();
 		renderer.clip(x, y, width, height);
 		if (totalHeight > contentHeight && contentHeight > 0) {
@@ -239,9 +305,12 @@ class EditorView {
 	}
 
 	function ensureCaretVisible():Void {
+		syncVisualLines();
+		revealSelections();
 		var buffer = document.buffer, lineHeight = renderer.lineHeight, viewportHeight = height - HEADER_HEIGHT - PADDING - SCROLLBAR_SIZE,
-			viewportWidth = width - GUTTER_WIDTH - SCROLLBAR_SIZE, caretY = selection.cursor.line * lineHeight,
-			caretX = renderer.textWidth(buffer.line(selection.cursor.line).substr(0, selection.cursor.column)),
+			viewportWidth = width - GUTTER_WIDTH - SCROLLBAR_SIZE, row = visualLines.lineAt(visualLines.rowAt(selection.cursor)),
+			caretY = visualLines.rowAt(selection.cursor) * lineHeight,
+			caretX = renderer.textWidth(buffer.line(selection.cursor.line).substring(row.startColumn, selection.cursor.column)),
 			context = lineHeight;
 		if (caretY - context < scrollY)
 			scrollY = caretY - context;
@@ -255,7 +324,8 @@ class EditorView {
 	}
 
 	function clampScroll():Void {
-		var maxY = document.buffer.lineCount() * renderer.lineHeight - (height - HEADER_HEIGHT - PADDING - SCROLLBAR_SIZE);
+		syncVisualLines();
+		var maxY = visualLines.rowCount() * renderer.lineHeight - (height - HEADER_HEIGHT - PADDING - SCROLLBAR_SIZE);
 		if (maxY < 0)
 			maxY = 0;
 		if (scrollY < 0)
@@ -271,15 +341,16 @@ class EditorView {
 
 	function maximumLineWidth():Int {
 		var result = 0;
-		for (line in 0...document.buffer.lineCount()) {
-			var width = renderer.textWidth(document.buffer.line(line));
+		for (row in visualLines.lines()) {
+			var width = renderer.textWidth(document.buffer.line(row.documentLine).substring(row.startColumn, row.endColumn));
 			if (width > result) result = width;
 		}
 		return result;
 	}
 
 	function updateVerticalScrollbar(pointerY:Int):Void {
-		var viewport = height - HEADER_HEIGHT - PADDING - SCROLLBAR_SIZE, maximum = document.buffer.lineCount() * renderer.lineHeight - viewport;
+		syncVisualLines();
+		var viewport = height - HEADER_HEIGHT - PADDING - SCROLLBAR_SIZE, maximum = visualLines.rowCount() * renderer.lineHeight - viewport;
 		if (maximum <= 0 || viewport <= 0) { scrollY = 0; return; }
 		var position = pointerY - y - HEADER_HEIGHT - PADDING;
 		if (position < 0) position = 0;
@@ -289,6 +360,7 @@ class EditorView {
 	}
 
 	function updateHorizontalScrollbar(pointerX:Int):Void {
+		syncVisualLines();
 		var viewport = width - GUTTER_WIDTH - SCROLLBAR_SIZE, maximum = maximumLineWidth() - viewport;
 		if (maximum <= 0 || viewport <= 0) { scrollX = 0; return; }
 		var position = pointerX - x - GUTTER_WIDTH;
@@ -303,19 +375,65 @@ class EditorView {
 			&& y >= this.y + HEADER_HEIGHT + PADDING && y < this.y + height - SCROLLBAR_SIZE;
 
 	function positionFromPoint(x:Int, y:Int):BufferPosition {
-		var buffer = document.buffer, lineIndex = Std.int((y - this.y - HEADER_HEIGHT - PADDING + scrollY) / renderer.lineHeight);
-		if (lineIndex < 0)
-			lineIndex = 0;
-		else if (lineIndex >= buffer.lineCount())
-			lineIndex = buffer.lineCount() - 1;
-		var value = buffer.line(lineIndex), targetX = x - this.x - GUTTER_WIDTH + scrollX, column = 0;
-		while (column < value.length) {
-			var left = renderer.textWidth(value.substr(0, column)), right = renderer.textWidth(value.substr(0, column + 1));
+		syncVisualLines();
+		var buffer = document.buffer, rowIndex = Std.int((y - this.y - HEADER_HEIGHT - PADDING + scrollY) / renderer.lineHeight);
+		if (rowIndex < 0) rowIndex = 0;
+		else if (rowIndex >= visualLines.rowCount()) rowIndex = visualLines.rowCount() - 1;
+		var row = visualLines.lineAt(rowIndex), value = buffer.line(row.documentLine), targetX = x - this.x - GUTTER_WIDTH + scrollX,
+			column = row.startColumn;
+		while (column < row.endColumn) {
+			var left = renderer.textWidth(value.substring(row.startColumn, column)), right = renderer.textWidth(value.substring(row.startColumn, column + 1));
 			if (targetX < Std.int((left + right) / 2))
 				break;
 			column++;
 		}
-		return buffer.positionAt(lineIndex, column);
+		return buffer.positionAt(row.documentLine, column);
+	}
+
+	function syncVisualLines(force:Bool = false):Void {
+		var columns = 0;
+		if (wordWrap) {
+			var available = width - GUTTER_WIDTH - SCROLLBAR_SIZE - PADDING, cell = renderer.textWidth("M");
+			if (cell < 1) cell = 1;
+			columns = Std.int(available / cell);
+			if (columns < 1) columns = 1;
+		}
+		if (visualLines.wrapColumns != columns) visualLines.setWrapColumns(columns);
+		if (force || mappedStateId != document.buffer.stateId) {
+			visualLines.rebuild();
+			mappedStateId = document.buffer.stateId;
+		}
+	}
+
+	function revealSelections():Void {
+		for (range in selection.allRanges()) {
+			visualLines.reveal(range.cursor);
+			visualLines.reveal(range.anchor);
+		}
+	}
+
+	function indentationFoldEnd(startLine:Int):Int {
+		var buffer = document.buffer, base = indentation(buffer.line(startLine)), end = startLine;
+		for (line in startLine + 1...buffer.lineCount()) {
+			var value = buffer.line(line);
+			if (StringTools.trim(value).length == 0) {
+				if (end > startLine) end = line;
+				continue;
+			}
+			if (indentation(value) <= base) break;
+			end = line;
+		}
+		return end;
+	}
+
+	static function indentation(value:String):Int {
+		var result = 0;
+		while (result < value.length) {
+			var code = value.charCodeAt(result);
+			if (code != 32 && code != 9) break;
+			result++;
+		}
+		return result;
 	}
 
 }
