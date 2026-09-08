@@ -12,6 +12,9 @@ import search.DocumentSearch;
 import search.SearchMatch;
 import sys.FileSystem;
 import editor.BufferPosition;
+import feedback.NotificationCenter;
+import feedback.NotificationKind;
+import config.Settings;
 
 class RootView {
 	public static inline final TAB_WIDTH = 180;
@@ -27,7 +30,8 @@ class RootView {
 	public final searchSidebar:SearchSidebar;
 	public final commandView:CommandView;
 	public var searchVisible(default, null):Bool = false;
-	public var notification:String = "";
+	public final notifications:NotificationCenter;
+	public final status:StatusView;
 	public var sidebarVisible(default, null):Bool = true;
 	public var closeRequest:Void->Void;
 	var width:Int;
@@ -35,7 +39,7 @@ class RootView {
 	var draggingDivider:Null<LayoutNode>;
 	var draggingSidebar:Bool = false;
 
-	public function new(renderer:Renderer, theme:Theme, focus:FocusManager, workspace:Workspace, width:Int, height:Int) {
+	public function new(renderer:Renderer, theme:Theme, focus:FocusManager, workspace:Workspace, width:Int, height:Int, ?settings:Settings) {
 		this.renderer = renderer;
 		this.theme = theme;
 		this.focus = focus;
@@ -44,6 +48,8 @@ class RootView {
 		sidebar = new Sidebar(workspace);
 		searchSidebar = new SearchSidebar();
 		commandView = new CommandView();
+		notifications = new NotificationCenter();
+		status = new StatusView(renderer, theme, settings == null ? new Settings() : settings);
 		closeRequest = function() {};
 		this.width = width;
 		this.height = height;
@@ -195,7 +201,9 @@ class RootView {
 	function setNodeBounds():Void {
 		var sidebarWidth = sidebarVisible ? sidebar.width : 0, contentWidth = width - sidebarWidth;
 		if (contentWidth < 0) contentWidth = 0;
-		node.setBounds(sidebarWidth, 0, contentWidth, height);
+		var contentHeight = height - StatusView.HEIGHT;
+		if (contentHeight < 0) contentHeight = 0;
+		node.setBounds(sidebarWidth, 0, contentWidth, contentHeight);
 	}
 
 	public function textInput(text:String):Void {
@@ -276,11 +284,19 @@ class RootView {
 		drawNode(node);
 		renderer.clip(0, 0, width, height);
 		commandView.draw(renderer, width, height);
-		if (notification.length > 0) {
+		var notification = notifications.current();
+		if (notification != null) {
 			renderer.clip(0, 0, width, height);
-			renderer.rect(0, height - 28, width, 28, 0x4c3030ff);
-			renderer.text(8, height - 23, notification, 0xffffffff);
+			var notificationY = height - StatusView.HEIGHT - 28;
+			var color = switch notification.kind {
+				case Information: 0x29435cff;
+				case Warning: 0x66521fff;
+				case Error: 0x4c3030ff;
+			};
+			renderer.rect(0, notificationY, width, 28, color);
+			renderer.text(8, notificationY + 5, notification.message, 0xffffffff);
 		}
+		status.draw(focus.activeView, width, height);
 	}
 
 	public function showSearchResults(query:String, results:Array<SearchMatch>):Void {

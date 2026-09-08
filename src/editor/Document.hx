@@ -50,6 +50,12 @@ class Document {
 		return path;
 	}
 
+	public function encodingLabel():String
+		return hasBom ? "UTF-8 with BOM" : "UTF-8";
+
+	public function newlineLabel():String
+		return newline == "\r\n" ? "CRLF" : "LF";
+
 	function get_dirty():Bool
 		return buffer.stateId != savedStateId;
 

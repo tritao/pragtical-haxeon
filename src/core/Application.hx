@@ -29,6 +29,9 @@ import config.Settings;
 import config.SettingsService;
 import recovery.RecoveryStore;
 import recovery.RecoverySnapshot;
+import feedback.ErrorLog;
+import feedback.ConfirmationService;
+import feedback.NotificationKind;
 
 class Application {
 	public final documents:DocumentManager;
@@ -44,6 +47,8 @@ class Application {
 	public final searchOptions:SearchOptions;
 	public final settings:SettingsService;
 	public final recovery:RecoveryStore;
+	public final errors:ErrorLog;
+	public final confirmations:ConfirmationService;
 	public final documentMatches:Array<SearchMatch> = [];
 	public var documentSearchQuery(default, null):String = "";
 	var documentMatchIndex:Int = -1;
@@ -51,7 +56,6 @@ class Application {
 	var documentSearchRevision:Int = -1;
 	var settingsListener:Settings->Void;
 	var lastFileSystemCheck:Float = 0.0;
-	public final messages:Array<String> = [];
 	public var quitReady(default, null):Bool = false;
 	var closeDocuments:Array<Document> = [];
 	var closeIndex:Int = 0;
@@ -67,7 +71,9 @@ class Application {
 		workspace = new Workspace(syntaxes);
 		documents = workspace.documents;
 		focus = new FocusManager();
-		root = new RootView(renderer, theme, focus, workspace, width, height);
+		root = new RootView(renderer, theme, focus, workspace, width, height, this.settings.current);
+		errors = new ErrorLog();
+		confirmations = new ConfirmationService(root.commandView);
 		root.closeRequest = function() {
 			requestCloseActiveTab();
 		};
@@ -105,8 +111,14 @@ class Application {
 	public function newDocument():View
 		return root.openDocument(documents.createUntitled());
 
-	public function loadPluginManifest(path:String):Bool
-		return plugins.load(new DynamicPlugin(new PluginManifest(path)));
+	public function loadPluginManifest(path:String):Bool {
+		try {
+			return plugins.load(new DynamicPlugin(new PluginManifest(path)));
+		} catch (error:Dynamic) {
+			reportError("plugin", 'Could not load "$path": ' + Std.string(error));
+			return false;
+		}
+	}
 
 	public function keyPressed(key:Int, modifiers:Int):Bool {
 		if (root.commandView.active)
@@ -319,6 +331,10 @@ class Application {
 		commands.add("layout:reorder-tab-left", context -> root.reorderActiveTab(-1));
 		commands.add("layout:reorder-tab-right", context -> root.reorderActiveTab(1));
 		commands.add("workbench:toggle-sidebar", context -> root.toggleSidebar());
+		commands.add("workbench:show-errors", context -> openErrorLog());
+		commands.add("workbench:clear-notifications", function(context) {
+			root.notifications.clear();
+		});
 		commands.add("settings:reload", function(context) {
 			settings.reload(true);
 		});
@@ -387,7 +403,7 @@ class Application {
 				return;
 			}
 			if (!document.save()) {
-				messages.push('Save blocked for "' + document.path + '": disk changed or write failed');
+				reportError("file", 'Save blocked for "' + document.path + '": disk changed or write failed');
 				if (document.externalState != editor.ExternalState.Current) confirmOverwrite(document);
 			}
 			else recovery.forget(document);
@@ -442,8 +458,8 @@ class Application {
 			return;
 		}
 		var document = closeDocuments[closeIndex];
-		root.commandView.open(new CommandViewProvider('Save changes to "' + document.title + '"? Type save, discard, or cancel: ', [],
-			function(query) {}, function(entry, answer, backwards) {
+		confirmations.choose('Save changes to "' + document.title + '"? Type save, discard, or cancel: ', ["save", "discard", "cancel"],
+			function(answer) {
 				if (answer == "cancel") cancelClose();
 				else if (answer == "discard") {
 						recovery.forget(document);
@@ -452,7 +468,7 @@ class Application {
 				} else if (answer == "save") {
 						if (document.hasBackingPath()) {
 							if (!document.save()) {
-								messages.push('Could not save "' + document.title + '"; close cancelled');
+								reportError("file", 'Could not save "' + document.title + '"; close cancelled');
 								cancelClose();
 							} else {
 								recovery.forget(document);
@@ -464,7 +480,7 @@ class Application {
 							continueClose();
 						});
 				}
-			}));
+			}, cancelClose);
 	}
 
 	function cancelClose():Void {
@@ -492,7 +508,7 @@ class Application {
 						}
 					}));
 			} else {
-				messages.push('Could not save as "$destination"');
+				reportError("file", 'Could not save as "$destination"');
 				root.commandView.close();
 			}
 		}));
@@ -503,25 +519,24 @@ class Application {
 			if (workspace.fileSystem.createFile(path)) {
 				workspace.refreshProjects();
 				open(path);
-			} else messages.push('Could not create file "$path"');
+			} else reportError("file", 'Could not create file "$path"');
 			root.commandView.close();
 		}));
 	}
 
 	function confirmOverwrite(document:Document):Void {
-		root.commandView.open(new CommandViewProvider("Disk changed. Type overwrite to save, or Escape to cancel: ", [], function(query) {}, function(entry, answer, backwards) {
-			if (answer != "overwrite") return;
+		confirmations.choose("Disk changed. Type overwrite to save, or Escape to cancel: ", ["overwrite"], function(answer) {
 			if (document.save(true)) {
 				recovery.forget(document);
-				messages.push("Saved " + document.path);
-			} else messages.push("Could not save " + document.path);
+				reportInformation("Saved " + document.path);
+			} else reportError("file", "Could not save " + document.path);
 			root.commandView.close();
-		}));
+		});
 	}
 
 	public function openCreateFolder():Void {
 		root.commandView.open(new CommandViewProvider("New Folder: ", [], function(query) {}, function(entry, path, backwards) {
-			if (!workspace.fileSystem.createFolder(path)) messages.push('Could not create folder "$path"');
+			if (!workspace.fileSystem.createFolder(path)) reportError("file", 'Could not create folder "$path"');
 			workspace.refreshProjects();
 			root.commandView.close();
 		}));
@@ -531,7 +546,7 @@ class Application {
 		var document = activeDocument();
 		if (document == null || !document.hasBackingPath()) return;
 		root.commandView.open(new CommandViewProvider("Rename/Move: ", [], function(query) {}, function(entry, destination, backwards) {
-			if (!documents.rename(document, destination)) messages.push('Could not rename "' + document.path + '"');
+			if (!documents.rename(document, destination)) reportError("file", 'Could not rename "' + document.path + '"');
 			else root.documentRenamed(document);
 			workspace.refreshProjects();
 			root.commandView.close();
@@ -542,13 +557,13 @@ class Application {
 		var document = activeDocument();
 		if (document == null || !document.hasBackingPath()) return;
 		var path = document.requirePath();
-		root.commandView.open(new CommandViewProvider('Type delete to remove "' + path + '": ', [], function(query) {}, function(entry, answer, backwards) {
-			if (answer == "delete" && !document.dirty && workspace.fileSystem.deleteFile(path)) {
+		confirmations.choose('Type delete to remove "' + path + '": ', ["delete"], function(answer) {
+			if (!document.dirty && workspace.fileSystem.deleteFile(path)) {
 				root.closeActiveTab(true);
 				workspace.refreshProjects();
-			} else if (answer == "delete") messages.push('Could not safely delete "' + path + '"');
+			} else reportError("file", 'Could not safely delete "' + path + '"');
 			root.commandView.close();
-		}));
+		});
 	}
 
 	public function openSettingsCommandView():Void {
@@ -575,11 +590,20 @@ class Application {
 		}));
 	}
 
+	public function openErrorLog():Void {
+		var entries:Array<CommandViewEntry> = [];
+		for (error in errors.entries)
+			entries.unshift(new CommandViewEntry(error.source, error.message, error.source + ": " + error.message));
+		root.commandView.open(new CommandViewProvider("Errors: ", entries, function(query) {}, function(entry, query, backwards) {
+			root.commandView.close();
+		}));
+	}
+
 	public function openRecoveryCommandView():Bool {
 		var snapshots = recovery.load(), entries:Array<CommandViewEntry> = [];
 		for (index in 0...snapshots.length)
 			entries.push(new CommandViewEntry(snapshots[index].title, "Recovered unsaved buffer", Std.string(index)));
-		for (diagnostic in recovery.diagnostics) messages.push(diagnostic);
+		for (diagnostic in recovery.diagnostics) reportError("recovery", diagnostic);
 		if (entries.length == 0) return false;
 		root.commandView.open(new CommandViewProvider("Recover: ", entries, function(query) {}, function(entry, query, backwards) {
 			if (entry != null) {
@@ -598,12 +622,16 @@ class Application {
 		theme.editorBackground = value.editorBackground;
 		theme.editorForeground = value.editorForeground;
 		theme.accent = value.accent;
+		root.status.applySettings(value);
 		searchOptions.caseSensitive = value.searchCaseSensitive;
 		searchOptions.wholeWord = value.searchWholeWord;
 		root.setSidebarWidth(value.sidebarWidth);
 		keymap.setConfigured([for (binding in value.keybindings) new KeyBinding(binding.key, binding.modifiers, binding.commands)]);
-		if (!root.renderer.reloadFont(value.fontPath, value.fontSize))
-			settings.diagnostics.push('could not load font "' + value.fontPath + '"');
+		if (!root.renderer.reloadFont(value.fontPath, value.fontSize)) {
+			var diagnostic = 'could not load font "' + value.fontPath + '"';
+			settings.diagnostics.push(diagnostic);
+			reportError("configuration", diagnostic);
+		}
 	}
 
 	function keyName(key:Int, modifiers:Int):String {
@@ -621,8 +649,19 @@ class Application {
 			documents.checkExternalChanges();
 			workspace.refreshProjects();
 		}
-		plugins.update();
-		if (messages.length > 0) root.notification = messages[messages.length - 1];
+		try {
+			plugins.update();
+		} catch (error:Dynamic) {
+			reportError("plugin", Std.string(error));
+		}
+	}
+
+	public function reportInformation(message:String):Void
+		root.notifications.publish(message, NotificationKind.Information);
+
+	public function reportError(source:String, message:String):Void {
+		errors.record(source, message);
+		root.notifications.publish(message, NotificationKind.Error);
 	}
 
 	public function shutdown():Void {

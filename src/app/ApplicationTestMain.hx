@@ -20,6 +20,21 @@ class ApplicationTestMain {
 			application = new Application(renderer, 640, 320), first = new Document("first", "one", application.syntaxes),
 			second = new Document("second", "two", application.syntaxes);
 		var firstView = application.add(first), secondView = application.add(second);
+		require(application.root.status.text(secondView).indexOf("second") >= 0
+			&& application.root.status.text(secondView).indexOf("Ln 1, Col 1") >= 0
+			&& application.root.status.text(secondView).indexOf("UTF-8") >= 0,
+			"status did not expose document position and encoding");
+		for (index in 0...120) application.root.notifications.publish("message " + index);
+		var currentNotification = application.root.notifications.current();
+		require(application.root.notifications.entries.length == 100 && currentNotification != null
+			&& currentNotification.message == "message 119", "notification retention was not bounded");
+		for (index in 0...220) application.errors.record("test", "error " + index);
+		require(application.errors.entries.length == 200 && application.errors.entries[0].message == "error 20",
+			"error-log retention was not bounded");
+		application.openErrorLog();
+		require(application.root.commandView.active && application.root.commandView.results.length == 200,
+			"error log was not inspectable through command input");
+		application.keyPressed(Platform.KEY_ESCAPE, 0);
 		var untitledOne = application.documents.createUntitled(), untitledTwo = application.documents.createUntitled();
 		require(untitledOne != untitledTwo && untitledOne.id != untitledTwo.id && !untitledOne.hasBackingPath() && !untitledOne.save(),
 			"untitled documents were not distinct or attempted persistence without Save As");
