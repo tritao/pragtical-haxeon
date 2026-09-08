@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M6.3, framed language-service transport and Haxeon integration.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3, M5.1–M5.3, M6.1 and M6.2.
+- Active task: M7.1, performance and endurance qualification.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3, M5.1–M5.3 and M6.1–M6.3.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: build bounded framed JSON-RPC transport with deterministic fake
-  server coverage before connecting the inspected Haxeon language service.
-- Editor implementation HEAD: `0813b05`. Haxeon HEAD observed: `d3ab07b`.
+- Next action: establish reproducible M7.1 startup, editing, idle, scroll,
+  indexing and reload benchmarks before tuning measured hot paths.
+- Editor implementation HEAD: `77394ff`. Haxeon HEAD observed: `21a996b`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -22,10 +22,31 @@ Last updated: 2026-09-08.
 | M3 | Complete headlessly | Reusable command input, pane/tab/sidebar navigation, logical-point DPI routing, status, bounded feedback, error inspection and centralized UI roles pass; interactive M0.3 smoke remains |
 | M4 | Complete headlessly | Responsive index/search, safe replacement, recoverable file operations and defensive sessions pass; graphical smoke remains in M0.3 |
 | M5 | Complete headlessly | Live layered configuration, owned APIs, debounced background compilation, transactional reload and editor lifecycle controls pass |
-| M6 | In progress | M6.1/M6.2 complete; language service pending |
+| M6 | Complete headlessly | Bounded JSON-RPC, lifecycle/synchronization, language commands, diagnostics, restart and real Haxeon edit/diagnose/fix/build smoke pass |
 | M7 | Pending | Packaging, performance and platform checks |
 
 ## Completed records
+
+### M6.3 — language service plugin
+
+- `697b19c` adds a bounded UTF-8 `Content-Length` JSON-RPC transport with
+  nonblocking atomic writes, response correlation, timeout cancellation,
+  bounded stderr and malformed/oversized-frame rejection.
+- `d26b462` adds the restartable client with initialize/shutdown, incremental
+  UTF-16 document synchronization, versioned diagnostics, hover, completion,
+  definitions and revision-checked transactional edits. `ad23720` exposes owned
+  editor commands, diagnostic decorations and server-initiated workspace edits;
+  `bd3eb44` gates features from negotiated capabilities.
+- The deterministic fake server covers out-of-order responses, split Unicode,
+  stale diagnostics, unsupported capabilities, server requests and forced
+  restart. `77394ff` adds `scripts/test-haxeon-lsp.sh`; it proves the real Haxeon
+  server diagnoses an invalid edit, clears the diagnostic after correction, and
+  the corrected fixture builds and executes.
+- Required Haxeon work is independently committed through `21a996b`: sound call
+  invalidation and initializer ownership, native JSON/reflection, Dynamic value
+  equality, null-field representation, intrinsic `Std.isOfType`, and a cwd-safe
+  LSP launcher. The compiler suite passed 205/205; the editor headless suite,
+  real-server smoke and SDL artifact build all exited 0.
 
 ### M6.1 — syntax and presentation
 

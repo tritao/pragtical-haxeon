@@ -27,13 +27,13 @@ floods, nonzero exit, cancellation and editor shutdown without hanging.
 
 ## M6.3 — Language service plugin
 
-- [ ] Build framed JSON-RPC transport on M6.2, with cancellation/timeouts and bounded
+- [x] Build framed JSON-RPC transport on M6.2, with cancellation/timeouts and bounded
   buffers. Start with Haxeon using the available language server after inspection.
-- [ ] Implement initialize/shutdown, document open/change/close synchronization,
+- [x] Implement initialize/shutdown, document open/change/close synchronization,
   versioned diagnostics, hover, completion and go-to-definition.
-- [ ] Convert protocol position encoding explicitly; reject stale edits and map
+- [x] Convert protocol position encoding explicitly; reject stale edits and map
   workspace edits through M1/M2 transactions and conflict handling.
-- [ ] Handle server failure/restart, unsupported capabilities and user diagnostics.
+- [x] Handle server failure/restart, unsupported capabilities and user diagnostics.
 
 Acceptance: a deterministic fake server covers framing, out-of-order replies,
 Unicode positions, stale diagnostics and restart; a real Haxeon server smoke test
