@@ -15,6 +15,7 @@ class PlatformEventDecoder {
 			case PlatformAbi.EVENT_MOUSE_BUTTON_UP: MouseButtonUp(Native.event_window(), Native.event_a(), Native.event_b(), Native.event_c(), Native.event_d());
 			case PlatformAbi.EVENT_MOUSE_WHEEL: MouseWheel(Native.event_window(), Native.event_a(), Native.event_b());
 			case PlatformAbi.EVENT_DISPLAY_SCALE_CHANGED: DisplayScaleChanged(Native.event_window(), Native.event_a());
+			case PlatformAbi.EVENT_TEXT_EDITING: TextEditing(Native.event_window(), Native.event_text(), Native.event_a(), Native.event_b());
 			default: null;
 		};
 	}

@@ -11,6 +11,8 @@ int main(void) {
   assert(first != 0 && phx_window_valid(first));
 	assert(phx_window_width(first) == 800 && phx_window_height(first) == 600);
 	assert(phx_window_display_scale_milli(first) == 1000);
+	assert(phx_text_input_area(first, 40, 50, 2, 15, 0));
+	assert(!phx_text_input_area(first, 0, 0, -1, 15, 0));
   phx_handle font = phx_font_create(first, "ignored-headlessly.ttf", 15);
   assert(font != 0);
   assert(phx_font_height(font) == 15);
@@ -49,6 +51,14 @@ int main(void) {
 	assert(phx_event_poll(&result));
 	assert(result.kind == PHX_EVENT_DISPLAY_SCALE_CHANGED && result.window == first);
 	assert(result.a == 1750);
+
+	phx_event editing = {.kind = PHX_EVENT_TEXT_EDITING, .window = first,
+	                     .a = 1, .b = 2};
+	snprintf(editing.text, sizeof(editing.text), "%s", "にほん");
+	assert(phx_event_push_for_test(&editing));
+	assert(phx_event_poll(&result));
+	assert(result.kind == PHX_EVENT_TEXT_EDITING && result.window == first);
+	assert(result.a == 1 && result.b == 2 && strcmp(result.text, "にほん") == 0);
 
   assert(phx_font_destroy(font));
   assert(phx_window_destroy(first));

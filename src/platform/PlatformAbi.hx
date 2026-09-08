@@ -2,7 +2,7 @@
 package platform;
 
 class PlatformAbi {
-	public static inline final ABI_VERSION = 14;
+	public static inline final ABI_VERSION = 15;
 	public static inline final EVENT_NONE = 0;
 	public static inline final EVENT_QUIT = 1;
 	public static inline final EVENT_WINDOW_RESIZED = 2;
@@ -14,6 +14,7 @@ class PlatformAbi {
 	public static inline final EVENT_MOUSE_BUTTON_UP = 8;
 	public static inline final EVENT_MOUSE_WHEEL = 9;
 	public static inline final EVENT_DISPLAY_SCALE_CHANGED = 10;
+	public static inline final EVENT_TEXT_EDITING = 11;
 	public static inline final KEY_UNKNOWN = 0;
 	public static inline final KEY_BACKSPACE = 1;
 	public static inline final KEY_TAB = 2;

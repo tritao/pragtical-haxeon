@@ -24,6 +24,13 @@ class Main {
 			default: false;
 		};
 		Platform.require(decoded, "decode typed resize event");
+		Platform.require(Native.event_push_text_test(Platform.EVENT_TEXT_EDITING, first, 1, 2, "にほん"), "queue composition");
+		var editing = Platform.pollEvent();
+		var editingDecoded = switch editing {
+			case TextEditing(window, text, start, length): window == first && text == "にほん" && start == 1 && length == 2;
+			default: false;
+		};
+		Platform.require(editingDecoded, "decode typed composition event");
 
 		Platform.require(Native.font_destroy(font), "destroy font");
 		Platform.require(Native.window_destroy(first), "destroy window");

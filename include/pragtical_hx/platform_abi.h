@@ -2,7 +2,7 @@
 #ifndef PRAGTICAL_HX_PLATFORM_ABI_H
 #define PRAGTICAL_HX_PLATFORM_ABI_H
 
-#define PHX_PLATFORM_ABI_VERSION 14
+#define PHX_PLATFORM_ABI_VERSION 15
 
 typedef enum phx_event_kind {
   PHX_EVENT_NONE = 0,
@@ -15,7 +15,8 @@ typedef enum phx_event_kind {
   PHX_EVENT_MOUSE_BUTTON_DOWN = 7,
   PHX_EVENT_MOUSE_BUTTON_UP = 8,
   PHX_EVENT_MOUSE_WHEEL = 9,
-  PHX_EVENT_DISPLAY_SCALE_CHANGED = 10
+  PHX_EVENT_DISPLAY_SCALE_CHANGED = 10,
+  PHX_EVENT_TEXT_EDITING = 11
 } phx_event_kind;
 
 typedef enum phx_key {

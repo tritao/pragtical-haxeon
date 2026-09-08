@@ -84,6 +84,10 @@ HL_PRIM bool HL_NAME(window_valid)(int window) {
 HL_PRIM int HL_NAME(window_width)(int window) { return phx_window_width(window); }
 HL_PRIM int HL_NAME(window_height)(int window) { return phx_window_height(window); }
 HL_PRIM int HL_NAME(window_display_scale_milli)(int window) { return phx_window_display_scale_milli(window); }
+HL_PRIM bool HL_NAME(text_input_area)(int window, int x, int y, int width,
+                                      int height, int cursor) {
+  return phx_text_input_area(window, x, y, width, height, cursor);
+}
 HL_PRIM bool HL_NAME(event_poll)(void) { return phx_event_poll(&current_event); }
 HL_PRIM int HL_NAME(event_kind)(void) { return current_event.kind; }
 HL_PRIM int HL_NAME(event_window)(void) { return current_event.window; }
@@ -96,6 +100,13 @@ HL_PRIM vbyte *HL_NAME(event_text)(void) {
 }
 HL_PRIM bool HL_NAME(event_push_test)(int kind, int window, int a, int b) {
   phx_event event = {.kind = kind, .window = window, .a = a, .b = b};
+  return phx_event_push_for_test(&event);
+}
+HL_PRIM bool HL_NAME(event_push_text_test)(int kind, int window, int a, int b,
+                                           vbyte *text) {
+  phx_event event = {.kind = kind, .window = window, .a = a, .b = b};
+  const char *utf8 = text ? hl_to_utf8((uchar *)text) : "";
+  snprintf(event.text, sizeof(event.text), "%s", utf8);
   return phx_event_push_for_test(&event);
 }
 HL_PRIM bool HL_NAME(clipboard_set)(vbyte *text) {

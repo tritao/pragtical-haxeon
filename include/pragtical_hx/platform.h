@@ -21,7 +21,7 @@ typedef struct phx_event {
   int32_t b;
   int32_t c;
   int32_t d;
-  char text[64];
+  char text[1024];
 } phx_event;
 
 int32_t phx_platform_abi_version(void);
@@ -37,6 +37,8 @@ int32_t phx_window_height(phx_handle handle);
 /* Window sizes, pointer coordinates and renderer coordinates are logical
    points. The display scale only describes their backing-pixel density. */
 int32_t phx_window_display_scale_milli(phx_handle handle);
+bool phx_text_input_area(phx_handle handle, int32_t x, int32_t y,
+                         int32_t width, int32_t height, int32_t cursor);
 
 bool phx_event_poll(phx_event *event);
 bool phx_event_push_for_test(const phx_event *event);

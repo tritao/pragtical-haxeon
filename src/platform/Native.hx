@@ -12,6 +12,7 @@ extern class Native {
 	static function window_width(window:Int):Int;
 	static function window_height(window:Int):Int;
 	static function window_display_scale_milli(window:Int):Int;
+	static function text_input_area(window:Int, x:Int, y:Int, width:Int, height:Int, cursor:Int):Bool;
 	static function event_poll():Bool;
 	static function event_kind():Int;
 	static function event_window():Int;
@@ -21,6 +22,7 @@ extern class Native {
 	static function event_d():Int;
 	static function event_text():String;
 	static function event_push_test(kind:Int, window:Int, a:Int, b:Int):Bool;
+	static function event_push_text_test(kind:Int, window:Int, a:Int, b:Int, text:String):Bool;
 	static function clipboard_set(text:String):Bool;
 	static function clipboard_get():String;
 	static function frame_begin(window:Int):Bool;

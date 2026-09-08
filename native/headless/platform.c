@@ -139,6 +139,19 @@ static bool store_clipboard(const char *text) {
   return true;
 }
 
+#ifdef PHX_WITH_SDL
+static void store_event_text(char *target, size_t capacity, const char *text) {
+  const unsigned char *source = (const unsigned char *)(text ? text : "");
+  size_t length = strlen((const char *)source);
+  if (length >= capacity) {
+    length = capacity - 1;
+    while (length > 0 && (source[length] & 0xc0) == 0x80) length--;
+  }
+  memcpy(target, source, length);
+  target[length] = '\0';
+}
+#endif
+
 static phx_handle make_handle(uint32_t index, uint32_t generation) {
   return (phx_handle)((generation << PHX_INDEX_BITS) | (index + 1));
 }
@@ -441,6 +454,24 @@ int32_t phx_window_display_scale_milli(phx_handle handle) {
   return 1000;
 }
 
+bool phx_text_input_area(phx_handle handle, int32_t x, int32_t y,
+                         int32_t width, int32_t height, int32_t cursor) {
+  phx_window_slot *slot = resolve_window(handle);
+  if (!slot) return fail("invalid or stale window handle");
+  if (width < 0 || height < 0 || cursor < 0)
+    return fail("invalid text input area");
+#ifdef PHX_WITH_SDL
+  if (!is_headless) {
+    SDL_Rect area = {x, y, width, height};
+    if (!SDL_SetTextInputArea(slot->window, &area, cursor))
+      return fail(SDL_GetError());
+  }
+#else
+  (void)x; (void)y;
+#endif
+  return true;
+}
+
 bool phx_event_poll(phx_event *event) {
   if (!event) return false;
   if (event_count > 0) {
@@ -503,7 +534,14 @@ bool phx_event_push_sdl(const SDL_Event *input) {
         case SDL_EVENT_TEXT_INPUT:
           event.kind = PHX_EVENT_TEXT_INPUT;
           event.window = window_handle_from_id(input->text.windowID);
-          snprintf(event.text, sizeof(event.text), "%s", input->text.text);
+          store_event_text(event.text, sizeof(event.text), input->text.text);
+          break;
+        case SDL_EVENT_TEXT_EDITING:
+          event.kind = PHX_EVENT_TEXT_EDITING;
+          event.window = window_handle_from_id(input->edit.windowID);
+          event.a = input->edit.start;
+          event.b = input->edit.length;
+          store_event_text(event.text, sizeof(event.text), input->edit.text);
           break;
         case SDL_EVENT_MOUSE_MOTION:
           event.kind = PHX_EVENT_MOUSE_MOVED;

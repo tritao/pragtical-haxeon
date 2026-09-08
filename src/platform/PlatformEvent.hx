@@ -12,4 +12,5 @@ enum PlatformEvent {
 	MouseButtonUp(window:Int, button:Int, x:Int, y:Int, clicks:Int);
 	MouseWheel(window:Int, vertical:Int, horizontal:Int);
 	DisplayScaleChanged(window:Int, scaleMilli:Int);
+	TextEditing(window:Int, text:String, start:Int, length:Int);
 }

@@ -4,7 +4,7 @@
 
 #include <hl.h>
 
-#define PRAGTICAL_HX_FFI_H_SIGNATURE 0x12B2490Fu
+#define PRAGTICAL_HX_FFI_H_SIGNATURE 0x6A7CA130u
 
 HL_PRIM int pragtical_hx_abi_version(void);
 HL_PRIM vbyte * pragtical_hx_clipboard_get(void);
@@ -18,6 +18,7 @@ HL_PRIM int pragtical_hx_event_d(void);
 HL_PRIM int pragtical_hx_event_kind(void);
 HL_PRIM bool pragtical_hx_event_poll(void);
 HL_PRIM bool pragtical_hx_event_push_test(int arg0, int arg1, int arg2, int arg3);
+HL_PRIM bool pragtical_hx_event_push_text_test(int arg0, int arg1, int arg2, int arg3, vbyte * arg4);
 HL_PRIM vbyte * pragtical_hx_event_text(void);
 HL_PRIM int pragtical_hx_event_window(void);
 HL_PRIM int pragtical_hx_font_create(int arg0, vbyte * arg1, int arg2);
@@ -46,6 +47,7 @@ HL_PRIM vbyte * pragtical_hx_process_stdout(int arg0);
 HL_PRIM int pragtical_hx_process_write(int arg0, vbyte * arg1);
 HL_PRIM bool pragtical_hx_set_clip_rect(int arg0, int arg1, int arg2, int arg3, int arg4);
 HL_PRIM void pragtical_hx_shutdown(void);
+HL_PRIM bool pragtical_hx_text_input_area(int arg0, int arg1, int arg2, int arg3, int arg4, int arg5);
 HL_PRIM int pragtical_hx_window_create(vbyte * arg0, int arg1, int arg2);
 HL_PRIM bool pragtical_hx_window_destroy(int arg0);
 HL_PRIM int pragtical_hx_window_display_scale_milli(int arg0);
@@ -65,6 +67,7 @@ DEFINE_PRIM(_I32, event_d, _NO_ARG);
 DEFINE_PRIM(_I32, event_kind, _NO_ARG);
 DEFINE_PRIM(_BOOL, event_poll, _NO_ARG);
 DEFINE_PRIM(_BOOL, event_push_test, _I32 _I32 _I32 _I32);
+DEFINE_PRIM(_BOOL, event_push_text_test, _I32 _I32 _I32 _I32 _BYTES);
 DEFINE_PRIM(_BYTES, event_text, _NO_ARG);
 DEFINE_PRIM(_I32, event_window, _NO_ARG);
 DEFINE_PRIM(_I32, font_create, _I32 _BYTES _I32);
@@ -93,6 +96,7 @@ DEFINE_PRIM(_BYTES, process_stdout, _I32);
 DEFINE_PRIM(_I32, process_write, _I32 _BYTES);
 DEFINE_PRIM(_BOOL, set_clip_rect, _I32 _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_VOID, shutdown, _NO_ARG);
+DEFINE_PRIM(_BOOL, text_input_area, _I32 _I32 _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_I32, window_create, _BYTES _I32 _I32);
 DEFINE_PRIM(_BOOL, window_destroy, _I32);
 DEFINE_PRIM(_I32, window_display_scale_milli, _I32);
