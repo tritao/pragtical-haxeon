@@ -4,19 +4,21 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M1.1, document identity and persistence service.
-- Completed tasks: M0.1 and M0.2.
+- Active task: M2.1, positions, transactions and view ownership.
+- Completed tasks: M0.1, M0.2 and M1.1–M1.4.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: introduce pathless, uniquely identified untitled documents and separate display titles from backing paths, then implement Save As.
-- Editor HEAD: `35d73f0`. Haxeon HEAD observed: `cb1aa65`.
-- Concurrent compiler work remains outside editor commits and must be reinspected before compiler edits.
+- Next action: define position units, move caret/selection ownership into views,
+  introduce edit transactions and replace the buffer's single change callback with
+  owned subscriptions.
+- Editor HEAD: `91b0234`. Haxeon HEAD observed: `4bd73cf`.
+- Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
 
 | Milestone | State | Evidence / remaining gate |
 | --- | --- | --- |
 | M0 | In progress | M0.1/M0.2 complete; interactive M0.3 smoke pending |
-| M1 | In progress | Atomic persistence, conflicts and recovery exist; untitled/Save As and unified close/quit remain |
+| M1 | Complete headlessly | Stable pathless identity, atomic persistence, Save As, unified close/quit, external conflicts and bounded recovery pass; graphical prompt smoke remains in the M0.3 manual route |
 | M2 | Partial foundation | Unicode-safe surrogate movement and per-view cursor snapshots exist; transactions, clipboard, coding edits and multiple selections remain |
 | M3 | Partial foundation | Command view and split shell exist; navigation, reusable feedback and theme roles remain |
 | M4 | Partial foundation | Bounded polling, multi-root search, file operations and sessions exist; scheduling/scale and replacement remain |
@@ -41,6 +43,22 @@ Last updated: 2026-09-08.
 - Coverage reproduces edit-after-find, undo refresh, document switching, replace-all/undo, cancelled highlighting and multi-project result activation.
 - `./scripts/test.sh` exited 0 after the final changes.
 
+### M1 — safe file lifecycle
+
+- `b294ba2` added pathless, uniquely identified untitled documents and Save As,
+  with duplicate-open and overwrite collision handling.
+- `840781f` made backing paths explicitly optional throughout the document and
+  versioned recovery models.
+- `38328ca` unified tab close, pane close and native quit behind one
+  Save/Discard/Cancel coordinator, including shared-document and failed-save cases.
+- `91b0234` bounded recovery retention to the newest 50 snapshots and retires an
+  accepted snapshot before regenerating state for documents that remain dirty.
+- Existing atomic persistence, external-change reconciliation, BOM/newline
+  round-trips, missing/corrupt recovery and injected failure cases complete the M1
+  headless acceptance routes.
+- `./scripts/test.sh` exited 0 at editor HEAD `91b0234`; interactive prompt behavior
+  remains part of the pending M0.3 graphical smoke route.
+
 ## Previously delivered roadmap foundations
 
 - `028c7fa`: safe file lifecycle, recovery, project polling and restorable split workspaces.
@@ -55,7 +73,11 @@ These commits satisfy only the behaviors evidenced by their tests; they do not m
 
 - Lambda bodies were previously pretyped outside their flow context. Haxeon `0643a3c` removed that unsound pass and added accepted callback/interface cases.
 - Atomic publication required a runtime/stdlib facility rather than weakened editor persistence. Haxeon `e573f8f` owns that platform boundary.
-- Additional compiler changes are concurrent. Reinspect ownership and run the compiler gate before attributing compiler files.
+- Haxeon `7598300` preserves nullable narrowing for captured locals in callbacks;
+  positive and negative regressions pass with the full compiler suite.
+- Haxeon `4bd73cf` compares runtime strings by value in statement switches rather
+  than relying on pointer identity; its runtime-created-string regression passes.
+- Reinspect repository ownership and run the compiler gate before further compiler edits.
 
 ## Blockers and pending manual checks
 
