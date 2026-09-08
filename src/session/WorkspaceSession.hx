@@ -22,11 +22,11 @@ class WorkspaceSession {
 			for (path in project.expandedPaths()) result.expanded.push(path);
 		}
 		for (document in application.documents.documents)
-			if (FileSystem.exists(document.path) && !FileSystem.isDirectory(document.path)) result.documents.push(document.path);
+			if (document.hasBackingPath() && FileSystem.exists(document.path) && !FileSystem.isDirectory(document.path)) result.documents.push(document.path);
 		var view = application.context.activeView();
 		if (view != null) {
 			var active = view.getDocument();
-			if (active != null) result.activeDocument = active.path;
+			if (active != null && active.hasBackingPath()) result.activeDocument = active.path;
 		}
 		result.sidebar = application.root.searchVisible ? "search" : "project";
 		for (line in application.root.sessionLines()) result.layout.push(line);

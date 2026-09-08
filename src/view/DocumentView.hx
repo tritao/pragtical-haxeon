@@ -14,7 +14,7 @@ class DocumentView extends View {
 	var viewAnchor:BufferPosition;
 
 	public function new(document:Document, renderer:Renderer, theme:Theme, width:Int, height:Int) {
-		super(document.path);
+		super(document.title);
 		this.document = document;
 		editor = new EditorView(document, renderer, theme, width, height);
 		viewCursor = document.buffer.cursor;
@@ -85,7 +85,7 @@ class DocumentView extends View {
 	override public function draw():Void {
 		var cursor = document.buffer.cursor, anchor = document.buffer.anchor;
 		document.buffer.restoreSelection(viewCursor, viewAnchor);
-		editor.draw(document.path);
+		editor.draw(document.title);
 		document.buffer.restoreSelection(cursor, anchor);
 	}
 

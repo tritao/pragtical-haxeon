@@ -19,6 +19,11 @@ class ApplicationTestMain {
 			application = new Application(renderer, 640, 320), first = new Document("first", "one", application.syntaxes),
 			second = new Document("second", "two", application.syntaxes);
 		var firstView = application.add(first), secondView = application.add(second);
+		var untitledOne = application.documents.createUntitled(), untitledTwo = application.documents.createUntitled();
+		require(untitledOne != untitledTwo && untitledOne.id != untitledTwo.id && !untitledOne.hasBackingPath() && !untitledOne.save(),
+			"untitled documents were not distinct or attempted persistence without Save As");
+		application.documents.close(untitledOne, true);
+		application.documents.close(untitledTwo, true);
 		require(application.documents.documents.length == 2 && application.root.tabs.views.length == 2, "documents did not open as tabs");
 		require(application.add(second) == secondView && application.root.tabs.views.length == 2, "document tab was not reused");
 		require(application.focus.activeView == secondView, "new tab did not receive focus");

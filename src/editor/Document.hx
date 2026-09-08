@@ -8,7 +8,10 @@ import workspace.FileSystemService;
 import workspace.EditorFileSystem;
 
 class Document {
+	static var nextId:Int = 1;
+	public final id:Int;
 	public var path(default, null):String;
+	public var title(get, never):String;
 	public final buffer:TextBuffer;
 	public var highlighter(default, null):Highlighter;
 	public var syntax(default, null):SyntaxDefinition;
@@ -22,6 +25,7 @@ class Document {
 	var savedStateId:Int;
 
 	public function new(path:String, text:String, registry:SyntaxRegistry, ?fileSystem:EditorFileSystem) {
+		id = nextId++;
 		this.path = path;
 		this.syntaxes = registry;
 		this.fileSystem = fileSystem == null ? new FileSystemService() : fileSystem;
@@ -30,6 +34,15 @@ class Document {
 		selectSyntax();
 		savedStateId = buffer.stateId;
 	}
+
+	public static function untitled(registry:SyntaxRegistry, ?fileSystem:EditorFileSystem):Document
+		return new Document("", "", registry, fileSystem);
+
+	function get_title():String
+		return path.length == 0 ? "Untitled-" + id : fileName(path);
+
+	public function hasBackingPath():Bool
+		return path.length > 0;
 
 	function get_dirty():Bool
 		return buffer.stateId != savedStateId;
@@ -77,6 +90,7 @@ class Document {
 	}
 
 	public function save(force:Bool = false):Bool {
+		if (!hasBackingPath()) return false;
 		checkExternal();
 		if (externalState != Current && !force) return false;
 		var encoded = encode(buffer.text);
@@ -87,7 +101,22 @@ class Document {
 		return true;
 	}
 
+	public function saveAs(path:String):Bool {
+		if (path.length == 0) return false;
+		var encoded = encode(buffer.text);
+		if (!fileSystem.writeAtomic(path, encoded)) return false;
+		setPath(path);
+		savedStateId = buffer.stateId;
+		diskContent = encoded;
+		externalState = Current;
+		return true;
+	}
+
 	public function checkExternal():ExternalState {
+		if (!hasBackingPath()) {
+			externalState = Current;
+			return externalState;
+		}
 		if (!fileSystem.exists(path)) {
 			externalState = Deleted;
 			return externalState;
@@ -125,5 +154,10 @@ class Document {
 	function encode(text:String):String {
 		var body = newline == "\n" ? text : StringTools.replace(text, "\n", newline);
 		return hasBom ? "﻿" + body : body;
+	}
+
+	static function fileName(path:String):String {
+		var slash = path.lastIndexOf("/");
+		return slash < 0 ? path : path.substring(slash + 1);
 	}
 }

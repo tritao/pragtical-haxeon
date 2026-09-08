@@ -27,7 +27,26 @@ class DocumentManager {
 		return document;
 	}
 
+	public function createUntitled():Document {
+		var document = Document.untitled(syntaxes, fileSystem);
+		documents.push(document);
+		return document;
+	}
+
+	public function saveAs(document:Document, destination:String, overwrite:Bool = false):Bool {
+		try {
+			var normalized = fileSystem.normalize(destination);
+			for (existing in documents)
+				if (existing != document && existing.path.length > 0 && existing.path == normalized) return false;
+			if (fileSystem.exists(normalized) && !overwrite) return false;
+			return document.saveAs(normalized);
+		} catch (error:Dynamic) {
+			return false;
+		}
+	}
+
 	public function rename(document:Document, destination:String):Bool {
+		if (!document.hasBackingPath()) return false;
 		var normalized = fileSystem.normalize(destination);
 		for (existing in documents) if (existing != document && existing.path == normalized) return false;
 		if (!fileSystem.rename(document.path, normalized)) return false;
@@ -40,7 +59,7 @@ class DocumentManager {
 
 	public function add(document:Document):Document {
 		for (existing in documents)
-			if (existing == document || existing.path == document.path)
+			if (existing == document || document.hasBackingPath() && existing.path == document.path)
 				return existing;
 		documents.push(document);
 		return document;

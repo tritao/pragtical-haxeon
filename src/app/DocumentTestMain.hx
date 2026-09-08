@@ -14,6 +14,7 @@ import haxe.io.Bytes;
 import sys.FileSystem;
 import workspace.FileSystemService;
 import workspace.EditorFileSystem;
+import core.DocumentManager;
 
 class FailingFileSystem implements EditorFileSystem {
 	final delegate = new FileSystemService();
@@ -113,6 +114,17 @@ class DocumentTestMain {
 		require(source.highlighter.line(3) == stableTail, "unchanged converged highlight cache was discarded");
 		var arguments = Sys.args();
 		if (arguments.length > 0) {
+			var saveAsPath = arguments[0] + ".save-as";
+			if (FileSystem.exists(saveAsPath)) FileSystem.deleteFile(saveAsPath);
+			var manager = new DocumentManager(syntaxes), untitled = manager.createUntitled();
+			untitled.insert("new document");
+			require(manager.saveAs(untitled, saveAsPath) && untitled.path == FileSystem.fullPath(saveAsPath) && !untitled.dirty
+				&& File.getContent(saveAsPath) == "new document", "Save As did not assign identity after successful persistence");
+			var another = manager.createUntitled();
+			another.insert("collision");
+			require(!manager.saveAs(another, saveAsPath) && another.path.length == 0 && another.dirty,
+				"Save As collision changed an untitled document identity");
+			FileSystem.deleteFile(saveAsPath);
 			var saved = Document.open(arguments[0], syntaxes);
 			saved.insert("!");
 			require(saved.save() && !saved.dirty && Document.open(arguments[0], syntaxes).buffer.text == "!saved by Haxeon\n", "atomic document save failed");

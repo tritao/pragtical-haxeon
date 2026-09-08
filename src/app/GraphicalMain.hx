@@ -30,7 +30,7 @@ class GraphicalMain {
 				documentCount++;
 		}
 		if (documentCount == 0 && application.workspace.projects.length == 0)
-			application.open("README.md");
+			application.newDocument();
 		application.openRecoveryCommandView();
 		while (running) {
 			application.update();

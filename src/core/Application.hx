@@ -94,6 +94,9 @@ class Application {
 	public function add(document:Document):View
 		return root.openDocument(documents.add(document));
 
+	public function newDocument():View
+		return root.openDocument(documents.createUntitled());
+
 	public function loadPluginManifest(path:String):Bool
 		return plugins.load(new DynamicPlugin(new PluginManifest(path)));
 
@@ -303,6 +306,10 @@ class Application {
 	function installFileCommands():Void {
 		commands.add("doc:save", function(context) {
 			var document = context.requireDocument();
+			if (!document.hasBackingPath()) {
+				openSaveAs(document);
+				return;
+			}
 			if (!document.save()) {
 				messages.push('Save blocked for "' + document.path + '": disk changed or write failed');
 				if (document.externalState != editor.ExternalState.Current) confirmOverwrite(document);
@@ -310,9 +317,33 @@ class Application {
 			else recovery.forget(document.path);
 		}, context -> activeDocument() != null);
 		commands.add("file:new", context -> openCreateFile());
+		commands.add("doc:new", context -> newDocument());
+		commands.add("doc:save-as", context -> openSaveAs(context.requireDocument()), context -> activeDocument() != null);
 		commands.add("folder:new", context -> openCreateFolder());
 		commands.add("file:rename", context -> openRenameFile(), context -> activeDocument() != null);
 		commands.add("file:delete", context -> openDeleteFile(), context -> activeDocument() != null);
+	}
+
+	public function openSaveAs(document:Document):Void {
+		root.commandView.open(new CommandViewProvider("Save As: ", [], function(query) {}, function(entry, destination, backwards) {
+			if (documents.saveAs(document, destination)) {
+				root.documentRenamed(document);
+				recovery.forget(document.path);
+				root.commandView.close();
+			} else if (workspace.fileSystem.exists(destination)) {
+				root.commandView.open(new CommandViewProvider('Type overwrite to replace "$destination": ', [], function(query) {},
+					function(entry, answer, backwards) {
+						if (answer == "overwrite" && documents.saveAs(document, destination, true)) {
+							root.documentRenamed(document);
+							recovery.forget(document.path);
+							root.commandView.close();
+						}
+					}));
+			} else {
+				messages.push('Could not save as "$destination"');
+				root.commandView.close();
+			}
+		}));
 	}
 
 	public function openCreateFile():Void {
