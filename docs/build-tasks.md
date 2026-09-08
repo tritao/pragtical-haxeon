@@ -22,3 +22,7 @@ without blocking the editor, retained within 10,000 lines and 1 MiB, and shown i
 a Build Output tab. Lines shaped like `path:line:column: message` are clickable and
 open the referenced position. Task configuration errors and launch failures are
 reported through the editor error log.
+
+This repository provides `build-headless`, `test-headless`, and `build-sdl` tasks
+in its own `.pragtical/tasks.conf`, which is also used by the automated
+self-build smoke route.

@@ -16,8 +16,10 @@ fi
 mapfile -t sources < <(find "$root_dir/src" -type f -name '*.hx' -print | LC_ALL=C sort)
 mapfile -t stdlib_sources < <(find "$haxeon_root/stdlib" -type f -name '*.hx' -print | LC_ALL=C sort)
 mapfile -t compiler_sources < <(find "$haxeon_root/src/compiler" "$haxeon_root/src/runtime" -type f -name '*.hx' -print | LC_ALL=C sort)
+stage_dir=$(mktemp -d "$root_dir/out/.build-sdl.XXXXXX")
+trap 'find "$stage_dir" -depth -delete' EXIT
 "$root_dir/scripts/haxeon-compile.sh" \
-	--output="$root_dir/out/pragtical-haxeon.hl" --entry=app.GraphicalMain \
+	--output="$stage_dir/pragtical-haxeon.hl" --entry=app.GraphicalMain \
 	--ffi-header="$root_dir/include/pragtical_hx/native_ffi.h" --ffi-library=pragtical_hx \
 	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
 	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
@@ -53,7 +55,7 @@ hl_host_objects=(
 	"$root_dir/native/hashlink/pragtical_hx.c" \
 	-L"$haxeon_root/vendor/hashlink" -lhl \
 	-Wl,-rpath,"$haxeon_root/vendor/hashlink" \
-	-o "$root_dir/out/pragtical_hx.hdll"
+	-o "$stage_dir/pragtical_hx.hdll"
 
 "$cc" -std=c11 -Wall -Wextra -Werror \
 	-Wno-sign-compare -Wno-missing-field-initializers -Wno-ignored-qualifiers \
@@ -71,11 +73,17 @@ hl_host_objects=(
 	"$pragtical_root/src/renderer/renderer.c" \
 	"$pragtical_root/src/renderer/window.c" \
 	"${hl_host_objects[@]}" \
-	-L"$root_dir/out" -Wl,-rpath,'$ORIGIN' -l:pragtical_hx.hdll \
+	-L"$stage_dir" -Wl,-rpath,'$ORIGIN' -l:pragtical_hx.hdll \
 	-L"$haxeon_root/vendor/hashlink" -Wl,-rpath,"$haxeon_root/vendor/hashlink" -lhl \
 	"${sdl_libs[@]}" "${font_libs[@]}" "${shape_libs[@]}" -lm -rdynamic \
-	-o "$root_dir/out/pragtical-haxeon"
-cp "$haxeon_root/out/realtime_runtime.hdll" "$root_dir/out/realtime_runtime.hdll"
+	-o "$stage_dir/pragtical-haxeon"
+cp "$haxeon_root/out/realtime_runtime.hdll" "$stage_dir/realtime_runtime.hdll"
+mv -f "$stage_dir/pragtical-haxeon.hl" "$root_dir/out/pragtical-haxeon.hl"
+mv -f "$stage_dir/pragtical_hx.hdll" "$root_dir/out/pragtical_hx.hdll"
+mv -f "$stage_dir/realtime_runtime.hdll" "$root_dir/out/realtime_runtime.hdll"
+mv -f "$stage_dir/pragtical-haxeon" "$root_dir/out/pragtical-haxeon"
+find "$stage_dir" -depth -delete
 cp "$root_dir/README.md" "$root_dir/out/README.md"
 mkdir -p "$root_dir/out/data/fonts"
 cp "$pragtical_root/data/fonts/JetBrainsMono-Regular.ttf" "$root_dir/out/data/fonts/"
+trap - EXIT

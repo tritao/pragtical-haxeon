@@ -42,6 +42,16 @@ mkdir -p "$process_cwd"
 		"$haxeon_root/vendor/hashlink/hl" process-test.hl "$root_dir/build/process-fixture" "$process_cwd"
 )
 
+"$root_dir/scripts/haxeon-compile.sh" \
+	--output="$root_dir/out/build-task-smoke.hl" --entry=app.BuildTaskSmokeMain \
+	--root="$root_dir/src" --root="$haxeon_root/src" --root="$haxeon_root/stdlib" \
+	"${sources[@]}" "${compiler_sources[@]}" "${stdlib_sources[@]}"
+(
+	cd "$root_dir/out"
+	LD_LIBRARY_PATH="$haxeon_root/vendor/hashlink${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+		"$haxeon_root/vendor/hashlink/hl" build-task-smoke.hl "$root_dir"
+)
+
 configuration_root="$root_dir/build/configuration-test"
 configuration_project="$configuration_root/project"
 mkdir -p "$configuration_project"
