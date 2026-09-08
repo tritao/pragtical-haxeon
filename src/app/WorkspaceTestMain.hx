@@ -13,6 +13,7 @@ import search.ReplacementBackupStore;
 import search.WorkspaceReplacement;
 import workspace.FileOperations;
 import workspace.TrashService;
+import recovery.RecoveryStore;
 
 private class CountingJob implements JobTask {
 	public var steps:Int = 0;
@@ -229,9 +230,14 @@ class WorkspaceTestMain {
 		project.restoreExpanded([arguments[0] + "/src"]);
 		application.root.splitActive(LayoutKind.Horizontal);
 		application.open(arguments[1] + "/second.txt");
+		var sessionRecovery = new RecoveryStore(arguments[0] + "-session-recovery.conf", application.workspace.fileSystem);
+		require(sessionRecovery.save(application), "session recovery snapshot save failed");
 		var session = WorkspaceSession.decode(WorkspaceSession.capture(application).encode());
-		session.restore(application);
-		require(application.root.sessionLines().join("\n") == session.layout.join("\n"), "layout tab order, active pane, cursor or scroll changed on restore");
+		var expectedLayout = session.layout.copy();
+		session.projects.push("/missing/session-project");
+		session.layout.push("T\t1\t0\t0\t0\t0\t0\tP\t/missing/session-file");
+		session.restore(application, sessionRecovery);
+		require(application.root.sessionLines().join("\n") == expectedLayout.join("\n"), "layout tab order, active pane, cursor or scroll changed on restore");
 		require(application.workspace.projects.length == 2 && !application.root.node.isLeaf()
 			&& application.root.activeLeaf.tabs.activeView != null, "multi-root split session did not restore");
 		require(project.visibleNodes().length == 7, "expanded project folders did not restore");

@@ -473,13 +473,17 @@ class RootView {
 		}
 		for (view in current.tabs.views) {
 			var document = view.getDocument();
-			if (document != null && document.hasBackingPath() && document.requirePath().indexOf("\t") < 0 && document.requirePath().indexOf("\n") < 0)
+			if (document != null) {
+				var reference = document.dirty || !document.hasBackingPath() ? document.recoveryId : document.requirePath(),
+					kind = document.dirty || !document.hasBackingPath() ? "R" : "P";
+				if (reference.indexOf("\t") < 0 && reference.indexOf("\n") < 0)
 				result.push("T\t" + route + "\t" + (view == current.tabs.activeView ? "1" : "0") + "\t" + view.cursorLine() + "\t"
-					+ view.cursorColumn() + "\t" + view.scrollX() + "\t" + view.scrollY() + "\t" + document.requirePath());
+						+ view.cursorColumn() + "\t" + view.scrollX() + "\t" + view.scrollY() + "\t" + kind + "\t" + reference);
+			}
 		}
 	}
 
-	public function restoreSessionLines(lines:Array<String>):Void {
+	public function restoreSessionLines(lines:Array<String>, ?resolver:(String, String)->Null<Document>):Void {
 		focus.activate(null);
 		node.reset();
 		activeLeaf = node;
@@ -495,10 +499,12 @@ class RootView {
 		}
 		for (line in lines) {
 			var fields = line.split("\t");
-			if (fields.length == 8 && fields[0] == "T" && FileSystem.exists(fields[7]) && !FileSystem.isDirectory(fields[7])) {
+			if (fields.length == 9 && fields[0] == "T") {
 				var leaf = nodeAtRoute(fields[1]);
 				if (leaf != null && leaf.isLeaf()) {
-					var document = documents.open(fields[7]), view = new DocumentView(document, renderer, theme, leaf.width, leaf.height);
+					var document = resolver == null ? resolveSessionDocument(fields[7], fields[8]) : resolver(fields[7], fields[8]);
+					if (document == null) continue;
+					var view = new DocumentView(document, renderer, theme, leaf.width, leaf.height);
 					view.setBounds(leaf.x, leaf.y, leaf.width, leaf.height);
 					leaf.tabs.add(view);
 					view.restoreCursor(Std.parseInt(fields[3]), Std.parseInt(fields[4]));
@@ -509,12 +515,12 @@ class RootView {
 		}
 		for (line in lines) {
 			var fields = line.split("\t");
-			if (fields.length == 8 && fields[0] == "T" && fields[2] == "1") {
+			if (fields.length == 9 && fields[0] == "T" && fields[2] == "1") {
 				var leaf = nodeAtRoute(fields[1]);
 				if (leaf != null)
 					for (view in leaf.tabs.views) {
 						var document = view.getDocument();
-						if (document != null && document.path == fields[7]) leaf.tabs.setActive(view);
+						if (document != null && (fields[7] == "P" ? document.path == fields[8] : document.recoveryId == fields[8])) leaf.tabs.setActive(view);
 					}
 			}
 		}
@@ -526,6 +532,15 @@ class RootView {
 			}
 		}
 		setNodeBounds();
+	}
+
+	function resolveSessionDocument(kind:String, reference:String):Null<Document> {
+		if (kind != "P" || !FileSystem.exists(reference) || FileSystem.isDirectory(reference)) return null;
+		try {
+			return documents.open(reference);
+		} catch (error:Dynamic) {
+			return null;
+		}
 	}
 
 	function nodeAtRoute(route:String):Null<LayoutNode> {

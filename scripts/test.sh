@@ -98,6 +98,7 @@ workspace_other="$root_dir/build/workspace-test-other"
 mkdir -p "$workspace_root/src" "$workspace_root/.git" "$workspace_root/.cache"
 mkdir -p "$workspace_other"
 rm -f "$workspace_root/created.txt" "$workspace_root/moved.txt" "$workspace_root/replacement-backup.conf" "$workspace_root-replacement-backup.conf"
+rm -f "$workspace_root-session-recovery.conf"
 if [[ -d "$workspace_root-trash" ]]; then find "$workspace_root-trash" -mindepth 1 -delete; rmdir "$workspace_root-trash"; fi
 printf 'alpha\n' > "$workspace_root/alpha.txt"
 printf 'class Main {}\n' > "$workspace_root/src/Main.hx"

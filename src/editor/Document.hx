@@ -10,6 +10,7 @@ import workspace.EditorFileSystem;
 class Document {
 	static var nextId:Int = 1;
 	public final id:Int;
+	public final recoveryId:String;
 	public var path(default, null):Null<String>;
 	public var title(get, never):String;
 	public final buffer:TextBuffer;
@@ -26,8 +27,10 @@ class Document {
 	var detachedTitle:Null<String>;
 	var highlighterSubscription:Null<BufferSubscription>;
 
-	public function new(path:Null<String>, text:String, registry:SyntaxRegistry, ?fileSystem:EditorFileSystem) {
+	public function new(path:Null<String>, text:String, registry:SyntaxRegistry, ?fileSystem:EditorFileSystem, ?recoveryId:String, ?pathlessTitle:String) {
 		id = nextId++;
+		this.recoveryId = recoveryId == null ? "document-" + Std.string(Sys.time()) + "-" + id : recoveryId;
+		detachedTitle = pathlessTitle;
 		this.path = path;
 		this.syntaxes = registry;
 		this.fileSystem = fileSystem == null ? new FileSystemService() : fileSystem;
@@ -37,8 +40,8 @@ class Document {
 		savedStateId = buffer.stateId;
 	}
 
-	public static function untitled(registry:SyntaxRegistry, ?fileSystem:EditorFileSystem):Document
-		return new Document(null, "", registry, fileSystem);
+	public static function untitled(registry:SyntaxRegistry, ?fileSystem:EditorFileSystem, ?recoveryId:String, ?title:String):Document
+		return new Document(null, "", registry, fileSystem, recoveryId, title);
 
 	function get_title():String
 		return path == null ? (detachedTitle == null ? "Untitled-" + id : detachedTitle) : fileName(path);

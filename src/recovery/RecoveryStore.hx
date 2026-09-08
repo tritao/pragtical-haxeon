@@ -7,7 +7,7 @@ import workspace.FileSystemService;
 import workspace.EditorFileSystem;
 
 class RecoveryStore {
-	public static inline final VERSION = 2;
+	public static inline final VERSION = 3;
 	public static inline final MAX_SNAPSHOTS = 50;
 	public final path:String;
 	public final diagnostics:Array<String> = [];
@@ -28,7 +28,7 @@ class RecoveryStore {
 				index--;
 				if (matches(snapshots[index], document)) snapshots.splice(index, 1);
 			}
-			snapshots.push(new RecoverySnapshot(document.id, document.title, document.path, document.buffer.text));
+			snapshots.push(new RecoverySnapshot(document.recoveryId, document.title, document.path, document.buffer.text));
 		}
 		return saveSnapshots(snapshots);
 	}
@@ -40,8 +40,8 @@ class RecoveryStore {
 		for (index in start...snapshots.length) {
 			var snapshot = snapshots[index];
 			var recoveredPath = snapshot.path == null ? "" : snapshot.path;
-			output += snapshot.id + ":" + snapshot.title.length + ":" + recoveredPath.length + ":" + snapshot.text.length + ":"
-				+ (snapshot.path == null ? "0" : "1") + ":" + snapshot.title + recoveredPath + snapshot.text;
+			output += snapshot.id.length + ":" + snapshot.title.length + ":" + recoveredPath.length + ":" + snapshot.text.length + ":"
+				+ (snapshot.path == null ? "0" : "1") + ":" + snapshot.id + snapshot.title + recoveredPath + snapshot.text;
 		}
 		return fileSystem.writeAtomic(path, output);
 	}
@@ -81,11 +81,14 @@ class RecoveryStore {
 				fields.push(content.substring(offset, separator));
 				offset = separator + 1;
 			}
-			var id = Std.parseInt(fields[0]), titleLength = Std.parseInt(fields[1]), pathLength = Std.parseInt(fields[2]), textLength = Std.parseInt(fields[3]);
-			if (Std.string(id) != fields[0] || Std.string(titleLength) != fields[1] || Std.string(pathLength) != fields[2]
+			var idLength = Std.parseInt(fields[0]), titleLength = Std.parseInt(fields[1]), pathLength = Std.parseInt(fields[2]), textLength = Std.parseInt(fields[3]);
+			if (Std.string(idLength) != fields[0] || Std.string(titleLength) != fields[1] || Std.string(pathLength) != fields[2]
 				|| Std.string(textLength) != fields[3] || (fields[4] != "0" && fields[4] != "1")) throw "corrupt recovery lengths";
-			if (id < 1 || titleLength < 0 || pathLength < 0 || textLength < 0 || offset + titleLength + pathLength + textLength > content.length)
+			if (idLength < 1 || titleLength < 0 || pathLength < 0 || textLength < 0
+				|| offset + idLength + titleLength + pathLength + textLength > content.length)
 				throw "corrupt recovery payload";
+			var id = content.substr(offset, idLength);
+			offset += idLength;
 			var title = content.substr(offset, titleLength);
 			offset += titleLength;
 			var recoveredPath = content.substr(offset, pathLength);
@@ -98,24 +101,17 @@ class RecoveryStore {
 	}
 
 	public function restore(application:Application, snapshot:RecoverySnapshot):Bool {
-		if (snapshot.path == null) {
-			var untitled = application.documents.createUntitled();
-			untitled.acceptRecoveredText(snapshot.text);
-			application.root.openDocument(untitled);
-			return true;
-		}
-		if (!fileSystem.exists(snapshot.path) || fileSystem.isDirectory(snapshot.path)) {
+		if (snapshot.path != null && (!fileSystem.exists(snapshot.path) || fileSystem.isDirectory(snapshot.path))) {
 			diagnostics.push('Recovery source is missing: "' + snapshot.path + '"');
 			return false;
 		}
-		var document = application.documents.open(snapshot.path);
-		document.acceptRecoveredText(snapshot.text);
+		var document = application.documents.restoreRecovered(snapshot.id, snapshot.title, snapshot.path, snapshot.text);
 		application.root.openDocument(document);
 		return true;
 	}
 
 	static function matches(snapshot:RecoverySnapshot, document:Document):Bool
-		return snapshot.path == null ? document.path == null && snapshot.id == document.id : snapshot.path == document.path;
+		return snapshot.id == document.recoveryId || snapshot.path != null && snapshot.path == document.path;
 
 	static function sameSnapshot(left:RecoverySnapshot, right:RecoverySnapshot):Bool
 		return left.id == right.id && left.path == right.path && left.text == right.text;

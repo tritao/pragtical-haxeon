@@ -33,6 +33,19 @@ class DocumentManager {
 		return document;
 	}
 
+	public function restoreRecovered(recoveryId:String, title:String, path:Null<String>, text:String):Document {
+		for (document in documents) if (document.recoveryId == recoveryId) return document;
+		if (path != null) {
+			var document = open(path);
+			document.acceptRecoveredText(text);
+			return document;
+		}
+		var document = Document.untitled(syntaxes, fileSystem, recoveryId, title);
+		document.acceptRecoveredText(text);
+		documents.push(document);
+		return document;
+	}
+
 	public function saveAs(document:Document, destination:String, overwrite:Bool = false):Bool {
 		try {
 			var normalized = fileSystem.normalize(destination);

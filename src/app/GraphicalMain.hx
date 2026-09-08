@@ -7,6 +7,7 @@ import renderer.Renderer;
 import config.ConfigurationPaths;
 import config.SettingsService;
 import session.WorkspaceSession;
+import session.SessionPersistence;
 
 class GraphicalMain {
 	static function main():Int {
@@ -20,7 +21,9 @@ class GraphicalMain {
 		var renderer = new Renderer(window, defaults.fontPath, defaults.fontSize);
 		var application = new Application(renderer, Native.window_width(window), Native.window_height(window), settings);
 		var sessionPath = ConfigurationPaths.session(), savedSession = WorkspaceSession.load(sessionPath);
-		if (savedSession != null) savedSession.restore(application);
+		if (savedSession != null) savedSession.restore(application, application.recovery);
+		var sessionPersistence = new SessionPersistence(sessionPath);
+		sessionPersistence.begin(application);
 		var lastRecoverySave = Sys.time();
 		var documentCount = 0;
 		for (argument in arguments) {
@@ -34,6 +37,7 @@ class GraphicalMain {
 		application.openRecoveryCommandView();
 		while (running) {
 			application.update();
+			sessionPersistence.update(application, Sys.time());
 			if (Sys.time() - lastRecoverySave >= 2.0) {
 				application.recovery.save(application);
 				lastRecoverySave = Sys.time();
@@ -67,7 +71,7 @@ class GraphicalMain {
 		}
 		application.shutdown();
 		application.recovery.save(application);
-		WorkspaceSession.capture(application).save(sessionPath);
+		sessionPersistence.flush(application);
 		renderer.destroy();
 		Platform.require(Native.window_destroy(window), "destroy editor window");
 		Native.shutdown();
