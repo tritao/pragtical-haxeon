@@ -46,8 +46,14 @@ class DocumentView extends View {
 	override public function selectAll():Void editor.selection.selectAll(document.buffer);
 	override public function undo():Void document.buffer.undo(editor.selection);
 	override public function redo():Void document.buffer.redo(editor.selection);
-	override public function backspace():Void document.buffer.deleteBackward(editor.selection);
-	override public function deleteForward():Void document.buffer.deleteForward(editor.selection);
+	override public function backspace():Void {
+		if (editor.selection.rangeCount() > 1) document.buffer.deleteSelections(editor.selection, true);
+		else document.buffer.deleteBackward(editor.selection);
+	}
+	override public function deleteForward():Void {
+		if (editor.selection.rangeCount() > 1) document.buffer.deleteSelections(editor.selection, false);
+		else document.buffer.deleteForward(editor.selection);
+	}
 	override public function selectRange(from:BufferPosition, to:BufferPosition):Bool {
 		editor.selection.restore(document.buffer, to, from);
 		return true;
@@ -57,17 +63,23 @@ class DocumentView extends View {
 	override public function replaceAllText(text:String):Bool
 		return document.buffer.replaceAllText(text, editor.selection);
 	override public function copy():Bool {
-		if (!editor.selection.hasSelection()) return false;
-		return Native.clipboard_set(editor.selection.selectedText(document.buffer));
+		var values:Array<String> = [];
+		for (range in editor.selection.allRanges()) {
+			if (range.isCollapsed()) return false;
+			values.push(document.buffer.textRange(range.start(), range.end()));
+		}
+		return Native.clipboard_set(values.join("\n"));
 	}
 	override public function cut():Bool {
 		if (!copy()) return false;
-		return document.buffer.insert(editor.selection, "");
+		return document.buffer.replaceSelections(editor.selection, [""]);
 	}
 	override public function paste():Bool {
 		var text = Native.clipboard_get();
 		text = StringTools.replace(StringTools.replace(text, "\r\n", "\n"), "\r", "\n");
-		return document.buffer.insert(editor.selection, text);
+		var lines = text.split("\n");
+		return document.buffer.replaceSelections(editor.selection,
+			editor.selection.rangeCount() > 1 && lines.length == editor.selection.rangeCount() ? lines : [text]);
 	}
 	override public function indent(tabWidth:Int, insertSpaces:Bool):Bool
 		return EditorActions.indent(document.buffer, editor.selection, tabWidth, insertSpaces);
@@ -79,6 +91,27 @@ class DocumentView extends View {
 	override public function deleteLines():Bool return EditorActions.deleteLines(document.buffer, editor.selection);
 	override public function joinLines():Bool return EditorActions.joinLines(document.buffer, editor.selection);
 	override public function toggleLineComment():Bool return EditorActions.toggleLineComment(document.buffer, editor.selection, document.syntax);
+	override public function selectNextOccurrence():Bool {
+		var buffer = document.buffer, selection = editor.selection;
+		if (!selection.hasSelection()) {
+			var from = buffer.wordStartAt(selection.cursor), to = buffer.wordEndAt(selection.cursor);
+			if (from.equals(to)) return false;
+			selection.restore(buffer, to, from);
+			return true;
+		}
+		var needle = buffer.textRange(selection.start(), selection.end()), startOffset = 0;
+		for (range in selection.allRanges()) {
+			var endOffset = buffer.offsetOf(range.end());
+			if (endOffset > startOffset) startOffset = endOffset;
+		}
+		var offset = buffer.text.indexOf(needle, startOffset);
+		if (offset < 0) offset = buffer.text.indexOf(needle);
+		if (offset < 0) return false;
+		var from = buffer.positionFromOffset(offset), to = buffer.positionFromOffset(offset + needle.length);
+		if (from.equals(selection.start()) && to.equals(selection.end())) return false;
+		selection.addRange(buffer, to, from);
+		return true;
+	}
 
 	override public function resize(width:Int, height:Int):Void
 		editor.resize(width, height);
@@ -87,7 +120,8 @@ class DocumentView extends View {
 		editor.setBounds(x, y, width, height);
 
 	override public function textInput(text:String):Void {
-		document.buffer.insert(editor.selection, text, text.indexOf("\n") < 0);
+		if (editor.selection.rangeCount() > 1) document.buffer.replaceSelections(editor.selection, [text]);
+		else document.buffer.insert(editor.selection, text, text.indexOf("\n") < 0);
 		editor.cursorChanged();
 	}
 

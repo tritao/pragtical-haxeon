@@ -136,6 +136,14 @@ class DocumentTestMain {
 		require(transactional.undo(transactionSelection) && transactional.text == "abcdef"
 			&& transactionSelection.cursor.column == 3, "transaction undo did not restore text and initiating selection");
 		require(transactional.redo(transactionSelection) && transactional.text == "aXcdYf", "transaction redo failed");
+		var normalized = new BufferSelection();
+		normalized.setRanges(transactional, [
+			new editor.BufferRange(new BufferPosition(0, 0), new BufferPosition(0, 3)),
+			new editor.BufferRange(new BufferPosition(0, 2), new BufferPosition(0, 5)),
+			new editor.BufferRange(new BufferPosition(0, 6), new BufferPosition(0, 6))
+		], 0);
+		require(normalized.rangeCount() == 2 && normalized.cursor.column == 0 && normalized.anchor.column == 5,
+			"overlapping reversed selections did not merge around a stable primary");
 		var transactionState = transactional.stateId;
 		require(!transactional.applyReplacements(transactionSelection, [
 			new BufferReplacement(new BufferPosition(0, 1), new BufferPosition(0, 4), "bad"),

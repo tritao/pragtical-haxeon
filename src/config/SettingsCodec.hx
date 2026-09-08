@@ -72,6 +72,7 @@ class SettingsCodec {
 			case "a": Platform.KEY_A; case "s": Platform.KEY_S; case "y": Platform.KEY_Y; case "z": Platform.KEY_Z;
 			case "w": Platform.KEY_W; case "p": Platform.KEY_P; case "f": Platform.KEY_F; case "h": Platform.KEY_H;
 			case "c": Platform.KEY_C; case "v": Platform.KEY_V; case "x": Platform.KEY_X; case "k": Platform.KEY_K; case "j": Platform.KEY_J;
+			case "d": Platform.KEY_D;
 			case "tab": Platform.KEY_TAB; case "enter": Platform.KEY_ENTER; case "escape": Platform.KEY_ESCAPE;
 			case "backspace": Platform.KEY_BACKSPACE; case "delete": Platform.KEY_DELETE; case "left": Platform.KEY_LEFT;
 			case "right": Platform.KEY_RIGHT; case "up": Platform.KEY_UP; case "down": Platform.KEY_DOWN;

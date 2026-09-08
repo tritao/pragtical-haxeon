@@ -313,6 +313,7 @@ class Application {
 		commands.add("doc:delete-line", context -> context.requireView().deleteLines(), context -> activeDocument() != null);
 		commands.add("doc:join-lines", context -> context.requireView().joinLines(), context -> activeDocument() != null);
 		commands.add("doc:toggle-line-comment", context -> context.requireView().toggleLineComment(), context -> activeDocument() != null);
+		commands.add("doc:select-next-occurrence", context -> context.requireView().selectNextOccurrence(), context -> activeDocument() != null);
 		keymap.addDirect(Platform.KEY_TAB, Platform.MOD_SHIFT, ["doc:unindent"]);
 		keymap.addDirect(Platform.KEY_DOWN, Platform.MOD_ALT + Platform.MOD_SHIFT, ["doc:duplicate-line"]);
 		keymap.addDirect(Platform.KEY_UP, Platform.MOD_ALT, ["doc:move-line-up"]);
@@ -320,6 +321,7 @@ class Application {
 		keymap.addDirect(Platform.KEY_K, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["doc:delete-line"]);
 		keymap.addDirect(Platform.KEY_J, Platform.MOD_CTRL, ["doc:join-lines"]);
 		keymap.addDirect(Platform.KEY_SLASH, Platform.MOD_CTRL, ["doc:toggle-line-comment"]);
+		keymap.addDirect(Platform.KEY_D, Platform.MOD_CTRL, ["doc:select-next-occurrence"]);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL, ["files:open"]);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["commands:open"]);
 	}

@@ -136,7 +136,6 @@ class EditorView {
 		}
 
 		renderer.clip(textLeft, contentTop, width - textOffset, contentHeight);
-		var selectionStart = selection.start(), selectionEnd = selection.end();
 		for (lineIndex in firstLine...lastLine) {
 			var value = buffer.line(lineIndex),
 				y = contentTop + lineIndex * lineHeight - scrollY, x = textLeft - scrollX;
@@ -146,15 +145,17 @@ class EditorView {
 						matchWidth = renderer.textWidth(value.substr(match.column, match.length));
 					renderer.rect(matchX, y, matchWidth, lineHeight, 0x613214ff);
 				}
-			if (selectionEnd.line > lineIndex || selectionEnd.line == lineIndex && selectionEnd.column > 0)
-				if (selectionStart.line < lineIndex || selectionStart.line == lineIndex && selectionStart.column <= value.length) {
-				var fromColumn = selectionStart.line == lineIndex ? selectionStart.column : 0,
-					toColumn = selectionEnd.line == lineIndex ? selectionEnd.column : value.length,
-					selectionX = x + renderer.textWidth(value.substr(0, fromColumn)),
-					selectionWidth = renderer.textWidth(value.substring(fromColumn, toColumn));
-				if (selectionEnd.line > lineIndex)
-					selectionWidth += renderer.textWidth(" ");
-				renderer.rect(selectionX, y, selectionWidth, lineHeight, 0x264f78ff);
+			for (range in selection.allRanges()) {
+				var selectionStart = range.start(), selectionEnd = range.end();
+				if (selectionEnd.line > lineIndex || selectionEnd.line == lineIndex && selectionEnd.column > 0)
+					if (selectionStart.line < lineIndex || selectionStart.line == lineIndex && selectionStart.column <= value.length) {
+						var fromColumn = selectionStart.line == lineIndex ? selectionStart.column : 0,
+							toColumn = selectionEnd.line == lineIndex ? selectionEnd.column : value.length,
+							selectionX = x + renderer.textWidth(value.substr(0, fromColumn)),
+							selectionWidth = renderer.textWidth(value.substring(fromColumn, toColumn));
+						if (selectionEnd.line > lineIndex) selectionWidth += renderer.textWidth(" ");
+						renderer.rect(selectionX, y, selectionWidth, lineHeight, 0x264f78ff);
+					}
 			}
 			var highlighted = document.highlighter.line(lineIndex), tokenX = x;
 			for (token in highlighted.tokens) {
@@ -163,10 +164,12 @@ class EditorView {
 				tokenX += renderer.textWidth(tokenText);
 			}
 		}
-		var cursorLine = selection.cursor.line, cursorValue = buffer.line(cursorLine),
-			caretX = textLeft - scrollX + renderer.textWidth(cursorValue.substr(0, selection.cursor.column)),
-			caretY = contentTop + cursorLine * lineHeight - scrollY;
-		renderer.rect(caretX, caretY, 2, lineHeight, 0xffffffff);
+		for (range in selection.allRanges()) {
+			var cursorLine = range.cursor.line, cursorValue = buffer.line(cursorLine),
+				caretX = textLeft - scrollX + renderer.textWidth(cursorValue.substr(0, range.cursor.column)),
+				caretY = contentTop + cursorLine * lineHeight - scrollY;
+			renderer.rect(caretX, caretY, 2, lineHeight, 0xffffffff);
+		}
 		renderer.clip(x, y, width, height);
 	}
 

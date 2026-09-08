@@ -5,10 +5,16 @@ class BufferTransaction {
 	public final group:String;
 	var finalCursor:Null<BufferPosition>;
 	var finalAnchor:Null<BufferPosition>;
+	public final selectionBefore:SelectionSnapshot;
+	var selectionAfter:SelectionSnapshot;
 
-	public function new(edit:BufferEdit, group:String) {
+	public function new(edit:BufferEdit, group:String, ?selectionBefore:SelectionSnapshot, ?selectionAfter:SelectionSnapshot) {
 		edits = [edit];
 		this.group = group;
+		this.selectionBefore = selectionBefore == null
+			? new SelectionSnapshot([new BufferRange(edit.cursorBefore, edit.anchorBefore)], 0) : selectionBefore;
+		this.selectionAfter = selectionAfter == null
+			? new SelectionSnapshot([new BufferRange(edit.cursorAfter, edit.anchorAfter)], 0) : selectionAfter;
 	}
 
 	public var stateBefore(get, never):Int;
@@ -28,6 +34,11 @@ class BufferTransaction {
 		finalCursor = cursor;
 		finalAnchor = anchor;
 	}
+
+	public function setSelectionAfter(snapshot:SelectionSnapshot):Void
+		selectionAfter = snapshot;
+
+	public function getSelectionAfter():SelectionSnapshot return selectionAfter;
 
 	public function canAppend(edit:BufferEdit, requestedGroup:String):Bool {
 		if (group != "typing" || requestedGroup != group || edit.removed.length != 0 || edit.inserted.indexOf("\n") >= 0) return false;

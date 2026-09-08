@@ -49,6 +49,24 @@ class ApplicationTestMain {
 		require(second.buffer.text == "", "clipboard paste undo restored the wrong transaction");
 		clipboardView.undo();
 		require(second.buffer.text == "\ntwo", "clipboard cut undo did not restore the selection");
+		var multipleView = application.newDocument(), multipleDocument = multipleView.getDocument(), multipleSelection = multipleView.getSelection();
+		if (multipleDocument == null || multipleSelection == null) throw "multiple-selection view has no editor state";
+		multipleView.textInput("one one one");
+		multipleView.selectRange(new editor.BufferPosition(0, 0), new editor.BufferPosition(0, 3));
+		require(multipleView.selectNextOccurrence() && multipleView.selectNextOccurrence()
+			&& multipleSelection.rangeCount() == 3, "next occurrence did not build three selections");
+		application.commands.perform("doc:copy", application.context);
+		require(Native.clipboard_get() == "one\none\none", "multi-selection copy distribution failed");
+		Native.clipboard_set("a\nb\nc");
+		application.commands.perform("doc:paste", application.context);
+		require(multipleDocument.buffer.text == "a b c", "multi-selection paste distribution failed");
+		multipleView.undo();
+		require(multipleDocument.buffer.text == "one one one" && multipleSelection.rangeCount() == 3,
+			"multi-selection undo did not restore content and ranges");
+		multipleView.redo();
+		require(multipleDocument.buffer.text == "a b c" && multipleSelection.rangeCount() == 3,
+			"multi-selection redo failed");
+		require(application.root.closeActiveTab(true), "multiple-selection test tab did not close");
 		application.commands.perform("root:switch-to-previous-tab", application.context);
 		require(application.focus.activeView == firstView, "tab switch did not update focus");
 		application.commands.perform("doc:newline", application.context);

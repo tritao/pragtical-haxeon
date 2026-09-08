@@ -52,8 +52,9 @@ class TextBuffer {
 
 	/** Applies non-overlapping replacements from the end of the document as one undo unit. */
 	public function applyReplacements(selection:BufferSelection, replacements:Array<BufferReplacement>, ?cursorAfter:BufferPosition,
-			?anchorAfter:BufferPosition):Bool {
+			?anchorAfter:BufferPosition, ?finalSelection:SelectionSnapshot):Bool {
 		if (inTransaction || replacements.length == 0) return false;
+		var selectionBefore = selection.snapshot();
 		var ordered:Array<BufferReplacement> = [];
 		for (replacement in replacements) {
 			var from = positionAt(replacement.from.line, replacement.from.column), to = positionAt(replacement.to.line, replacement.to.column);
@@ -83,15 +84,62 @@ class TextBuffer {
 		var completed = transactionEdits.copy();
 		transactionEdits.resize(0);
 		if (completed.length == 0) return false;
-		var transaction = new BufferTransaction(completed[0], "");
+		var transaction = new BufferTransaction(completed[0], "", selectionBefore, selection.snapshot());
 		for (index in 1...completed.length) transaction.edits.push(completed[index]);
-		if (cursorAfter != null && anchorAfter != null) {
+		if (finalSelection != null) {
+			selection.restoreSnapshot(this, finalSelection, false);
+			transaction.setSelectionAfter(selection.snapshot());
+		} else if (cursorAfter != null && anchorAfter != null) {
 			selection.restore(this, cursorAfter, anchorAfter, false);
 			transaction.setFinalSelection(selection.cursor, selection.anchor);
+			transaction.setSelectionAfter(selection.snapshot());
 		}
 		undoStack.push(transaction);
 		redoStack.resize(0);
 		return true;
+	}
+
+	public function replaceSelections(selection:BufferSelection, values:Array<String>):Bool {
+		var ranges = selection.allRanges();
+		return replaceSelectionRanges(selection, ranges, values);
+	}
+
+	public function deleteSelections(selection:BufferSelection, backwards:Bool):Bool {
+		var ranges:Array<BufferRange> = [];
+		for (range in selection.allRanges()) {
+			if (!range.isCollapsed()) ranges.push(range);
+			else {
+				var other = positionOffset(range.cursor, backwards ? -1 : 1);
+				ranges.push(backwards ? new BufferRange(range.cursor, other) : new BufferRange(other, range.cursor));
+			}
+		}
+		return replaceSelectionRanges(selection, ranges, [""]);
+	}
+
+	function replaceSelectionRanges(selection:BufferSelection, ranges:Array<BufferRange>, values:Array<String>):Bool {
+		if (values.length != 1 && values.length != ranges.length) return false;
+		var pending:Array<PendingSelectionEdit> = [];
+		for (index in 0...ranges.length)
+			pending.push(new PendingSelectionEdit(ranges[index], values.length == 1 ? values[0] : values[index], index == 0));
+		pending.sort(function(left, right) {
+			var leftStart = left.range.start(), rightStart = right.range.start();
+			if (leftStart.line != rightStart.line) return leftStart.line - rightStart.line;
+			return leftStart.column - rightStart.column;
+		});
+		var replacements:Array<BufferReplacement> = [], finalRanges:Array<BufferRange> = [], primary = 0;
+		for (index in 0...pending.length) {
+			var item = pending[index], position = advance(item.range.start(), item.value), lower = index;
+			while (lower > 0) {
+				lower--;
+				var prior = pending[lower], change = new BufferChange(prior.range.start(), textRange(prior.range.start(), prior.range.end()),
+					prior.value, prior.range.end().line - prior.range.start().line, prior.value.split("\n").length - 1, 0, 0);
+				position = change.transform(position);
+			}
+			if (item.primary) primary = finalRanges.length;
+			finalRanges.push(new BufferRange(position, position));
+			replacements.push(new BufferReplacement(item.range.start(), item.range.end(), item.value));
+		}
+		return applyReplacements(selection, replacements, null, null, new SelectionSnapshot(finalRanges, primary));
 	}
 
 	public function deleteBackward(selection:BufferSelection):Bool {
@@ -116,7 +164,7 @@ class TextBuffer {
 			var edit = transaction.edits[index];
 			replaceRaw(edit.start, advance(edit.start, edit.inserted), edit.removed, edit.stateAfter, edit.stateBefore);
 		}
-		selection.restore(this, transaction.cursorBefore, transaction.anchorBefore, false);
+		selection.restoreSnapshot(this, transaction.selectionBefore, false);
 		stateId = transaction.stateBefore;
 		redoStack.push(transaction);
 		historyGroupOpen = false;
@@ -129,7 +177,7 @@ class TextBuffer {
 		if (transaction == null) return false;
 		for (edit in transaction.edits)
 			replaceRaw(edit.start, advance(edit.start, edit.removed), edit.inserted, edit.stateBefore, edit.stateAfter);
-		selection.restore(this, transaction.cursorAfter, transaction.anchorAfter, false);
+		selection.restoreSnapshot(this, transaction.getSelectionAfter(), false);
 		stateId = transaction.stateAfter;
 		undoStack.push(transaction);
 		historyGroupOpen = false;
@@ -232,7 +280,8 @@ class TextBuffer {
 			start = end;
 			end = swap;
 		}
-		var removed = textRange(start, end), beforeCursor = selection.cursor, beforeAnchor = selection.anchor, beforeState = stateId;
+		var removed = textRange(start, end), beforeCursor = selection.cursor, beforeAnchor = selection.anchor, beforeState = stateId,
+			selectionBefore = selection.snapshot();
 		if (removed == value) return false;
 		var afterState = nextStateId++;
 		replaceRaw(start, end, value, beforeState, afterState);
@@ -242,8 +291,10 @@ class TextBuffer {
 		if (inTransaction) transactionEdits.push(edit);
 		else {
 			var previous = undoStack.length == 0 ? null : undoStack[undoStack.length - 1];
-			if (historyGroupOpen && previous != null && previous.canAppend(edit, group)) previous.edits.push(edit);
-			else undoStack.push(new BufferTransaction(edit, group));
+			if (historyGroupOpen && previous != null && previous.canAppend(edit, group)) {
+				previous.edits.push(edit);
+				previous.setSelectionAfter(selection.snapshot());
+			} else undoStack.push(new BufferTransaction(edit, group, selectionBefore, selection.snapshot()));
 		}
 		historyGroupOpen = group.length > 0;
 		if (!inTransaction) redoStack.resize(0);
@@ -295,3 +346,14 @@ class TextBuffer {
 }
 
 typedef BufferChangeListener = BufferChange -> Void;
+
+private class PendingSelectionEdit {
+	public final range:BufferRange;
+	public final value:String;
+	public final primary:Bool;
+	public function new(range:BufferRange, value:String, primary:Bool) {
+		this.range = range;
+		this.value = value;
+		this.primary = primary;
+	}
+}
