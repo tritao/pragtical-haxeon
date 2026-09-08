@@ -10,6 +10,16 @@ static vclosure *host_event;
 static vclosure *host_iterate;
 static vclosure *host_quit;
 
+#define PROCESS_STREAM_SLOTS 32
+typedef struct process_stream_state {
+  int handle;
+  unsigned char stdout_carry[4];
+  int stdout_carry_length;
+  unsigned char stderr_carry[4];
+  int stderr_carry_length;
+} process_stream_state;
+static process_stream_state process_streams[PROCESS_STREAM_SLOTS];
+
 static bool call_host(vclosure *callback, vdynamic **result) {
   bool raised = false;
   if (!callback) return false;
@@ -124,8 +134,14 @@ HL_PRIM bool HL_NAME(frame_present)(int window) {
 HL_PRIM int HL_NAME(frame_count)(int window) { return phx_frame_count(window); }
 
 HL_PRIM int HL_NAME(process_create)(vbyte *executable, vbyte *cwd) {
-  return phx_process_create(executable ? hl_to_utf8((uchar *)executable) : "",
+  int handle = phx_process_create(executable ? hl_to_utf8((uchar *)executable) : "",
     cwd ? hl_to_utf8((uchar *)cwd) : "");
+  int index = (handle & 255) - 1;
+  if (index >= 0 && index < PROCESS_STREAM_SLOTS) {
+    memset(&process_streams[index], 0, sizeof(process_streams[index]));
+    process_streams[index].handle = handle;
+  }
+  return handle;
 }
 HL_PRIM bool HL_NAME(process_add_argument)(int process, vbyte *argument) {
   return phx_process_add_argument(process,
@@ -146,12 +162,44 @@ HL_PRIM int HL_NAME(process_write)(int process, vbyte *data) {
 HL_PRIM bool HL_NAME(process_close_stdin)(int process) {
   return phx_process_close_stdin(process);
 }
+static int complete_utf8_prefix(const unsigned char *data, int length) {
+  int offset = 0;
+  while (offset < length) {
+    unsigned char lead = data[offset];
+    int width = lead < 0x80 ? 1 : (lead & 0xE0) == 0xC0 ? 2
+      : (lead & 0xF0) == 0xE0 ? 3 : (lead & 0xF8) == 0xF0 ? 4 : 1;
+    if (offset + width > length) return offset;
+    bool valid = true;
+    for (int index = 1; index < width; index++)
+      if ((data[offset + index] & 0xC0) != 0x80) valid = false;
+    offset += valid ? width : 1;
+  }
+  return offset;
+}
+
 static vbyte *process_output(int process, bool standard_error) {
-  char buffer[4097];
-  int32_t count = phx_process_read(process, standard_error, buffer, 4096);
-  if (count <= 0) return utf8_string("");
-  buffer[count] = '\0';
-  return utf8_string(buffer);
+  unsigned char buffer[4100];
+  int index = (process & 255) - 1;
+  process_stream_state *state = index >= 0 && index < PROCESS_STREAM_SLOTS
+    && process_streams[index].handle == process ? &process_streams[index] : NULL;
+  int *carry_length = state ? (standard_error ? &state->stderr_carry_length
+    : &state->stdout_carry_length) : NULL;
+  unsigned char *carry = state ? (standard_error ? state->stderr_carry
+    : state->stdout_carry) : NULL;
+  int prefix = carry_length ? *carry_length : 0;
+  if (prefix > 0) memcpy(buffer, carry, (size_t)prefix);
+  int32_t count = phx_process_read(process, standard_error,
+    (char *)buffer + prefix, 4096);
+  if (count < 0) return utf8_string("");
+  int total = prefix + count;
+  int complete = complete_utf8_prefix(buffer, total);
+  if (carry_length) {
+    *carry_length = total - complete;
+    if (*carry_length > 0) memcpy(carry, buffer + complete, (size_t)*carry_length);
+  }
+  if (complete == 0) return utf8_string("");
+  buffer[complete] = '\0';
+  return utf8_string((const char *)buffer);
 }
 HL_PRIM vbyte *HL_NAME(process_stdout)(int process) {
   return process_output(process, false);
@@ -169,7 +217,12 @@ HL_PRIM bool HL_NAME(process_cancel)(int process) {
   return phx_process_cancel(process);
 }
 HL_PRIM bool HL_NAME(process_destroy)(int process) {
-  return phx_process_destroy(process);
+  bool destroyed = phx_process_destroy(process);
+  int index = (process & 255) - 1;
+  if (destroyed && index >= 0 && index < PROCESS_STREAM_SLOTS
+      && process_streams[index].handle == process)
+    memset(&process_streams[index], 0, sizeof(process_streams[index]));
+  return destroyed;
 }
 
 HL_PRIM void HL_NAME(plugin_api_install)(vclosure *dispatch) {

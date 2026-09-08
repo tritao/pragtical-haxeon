@@ -52,6 +52,10 @@ class ProcessTestMain {
 		var flooded = manager.start(fixture, ["flood", "200000"]), floodStreams = collect(flooded, 5.0);
 		require(flooded.exitStatus() == 0 && floodStreams[0].length == 200000, "nonblocking process output was truncated or hung");
 		manager.release(flooded);
+		var unicode = manager.start(fixture, ["unicode-boundary"]), unicodeStreams = collect(unicode, 5.0);
+		require(unicode.exitStatus() == 0 && unicodeStreams[0] == StringTools.rpad("", "x", 4095) + "😀",
+			"process output corrupted UTF-8 split at the native read boundary");
+		manager.release(unicode);
 
 		var copied = manager.start(fixture, ["copy"]), input = "framed stdin Olá 😀\n";
 		var written = 0, deadline = Sys.time() + 5.0;

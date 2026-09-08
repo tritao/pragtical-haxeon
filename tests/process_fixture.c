@@ -26,6 +26,11 @@ int main(int argc, char **argv) {
       if (fwrite(buffer, 1, count, stdout) != count) return 67;
     return ferror(stdin) ? 68 : 0;
   }
+  if (strcmp(argv[1], "unicode-boundary") == 0) {
+    for (int index = 0; index < 4095; index++) putchar('x');
+    fputs("😀", stdout);
+    return 0;
+  }
   if (strcmp(argv[1], "diagnostic") == 0) {
     printf("%s:2:3: fixture error\n", argc > 2 ? argv[2] : "missing.c");
     return 0;
