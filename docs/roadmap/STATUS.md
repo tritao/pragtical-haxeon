@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M6.1, syntax presentation, visual-line mapping and basic completion.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3 and M5.1–M5.3.
+- Active task: M6.2, background processes, bounded output and build tasks.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3, M4.1–M4.3, M5.1–M5.3 and M6.1.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: expand reference-backed multiline syntax definitions, then add
-  bracket matching and an explicit wrapped/folded visual-line map.
-- Editor HEAD: `c36783a`. Haxeon HEAD observed: `d3ab07b`.
+- Next action: add owned process handles and nonblocking, bounded output across
+  both native platform backends.
+- Editor implementation HEAD: `d232752`. Haxeon HEAD observed: `d3ab07b`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -22,10 +22,25 @@ Last updated: 2026-09-08.
 | M3 | Complete headlessly | Reusable command input, pane/tab/sidebar navigation, logical-point DPI routing, status, bounded feedback, error inspection and centralized UI roles pass; interactive M0.3 smoke remains |
 | M4 | Complete headlessly | Responsive index/search, safe replacement, recoverable file operations and defensive sessions pass; graphical smoke remains in M0.3 |
 | M5 | Complete headlessly | Live layered configuration, owned APIs, debounced background compilation, transactional reload and editor lifecycle controls pass |
-| M6 | Pending | Development workflow |
+| M6 | In progress | M6.1 complete; background tasks and language service pending |
 | M7 | Pending | Packaging, performance and platform checks |
 
 ## Completed records
+
+### M6.1 — syntax and presentation
+
+- `93eaaf6` expands reference-backed Haxe/Haxeon, C, C++, JSON, Markdown, Lua and
+  shell highlighting with multiline lexical states and bounded repair.
+- `a34a1d7` adds bounded, syntax-aware bracket matching. `3f3416a` makes wrapped
+  and folded visual rows authoritative for painting, scrolling, hit testing,
+  selection and vertical movement, with automatic expansion for hidden caret and
+  search targets.
+- `d232752` adds an owner-scoped completion-provider registry. The built-in
+  document-word provider uses the same extension path as plugins, and Ctrl+Space
+  opens the shared command UI with revision-checked prefix replacement.
+- Focused acceptance covers multiline repair, wrapped movement and selection,
+  physical search reveal, completion insertion and provider cleanup. The full
+  headless suite and SDL build passed after the implementation.
 
 ### M0.1 — trustworthy baseline
 

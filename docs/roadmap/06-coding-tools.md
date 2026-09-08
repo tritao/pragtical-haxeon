@@ -5,11 +5,11 @@ embedding optional tool integrations directly in Document or RootView.
 
 ## M6.1 — Syntax and presentation
 
-- [ ] Expand syntax definitions for Haxe/Haxeon, C/C++, Lua, JSON, Markdown and
+- [x] Expand syntax definitions for Haxe/Haxeon, C/C++, Lua, JSON, Markdown and
   shell using reference fixtures; support multiline states and bounded invalidation.
-- [ ] Add bracket matching, wrapping and folding with explicit visual-line mapping.
+- [x] Add bracket matching, wrapping and folding with explicit visual-line mapping.
   Keep buffer positions stable and define caret behavior inside collapsed regions.
-- [ ] Add basic word completion through the extension API before language services.
+- [x] Add basic word completion through the extension API before language services.
 
 Acceptance: edits near multiline syntax boundaries repair highlighting; wrapped
 movement, selection and search reveal the correct physical document positions.

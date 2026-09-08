@@ -15,6 +15,8 @@ import editor.TextBuffer;
 import editor.VisualLineMap;
 import completion.CompletionRegistry;
 import completion.DocumentWordCompletionProvider;
+import search.DocumentSearch;
+import search.SearchOptions;
 
 class FakeEditorClock implements EditorClock {
 	public var value:Float = 0.0;
@@ -61,12 +63,18 @@ class EditorViewTestMain {
 		view.cursorChanged();
 		view.moveVertical(1, false);
 		require(view.selection.cursor.equals(new BufferPosition(1, 1)), "view vertical movement did not follow wrapped rows");
+		view.selection.setCursor(document.buffer, new BufferPosition(0, 4));
+		view.cursorChanged();
+		view.moveVertical(1, true);
+		require(view.selection.cursor.equals(new BufferPosition(1, 1)) && view.selection.anchor.equals(new BufferPosition(0, 4))
+			&& view.selection.selectedText(document.buffer) == "ef\nx", "wrapped selection did not retain physical buffer positions");
 		require(view.toggleFold(1, 2) && view.visualLines.rowAt(new BufferPosition(2, 1)) == view.visualLines.rowAt(new BufferPosition(1, 1)),
 			"view folding did not collapse physical lines into its marker row");
-		view.selection.setCursor(document.buffer, new BufferPosition(2, 1));
+		var hiddenMatch = DocumentSearch.find(document, "123456", new SearchOptions())[0];
+		require(DocumentSearch.select(document, view.selection, hiddenMatch), "search did not select its hidden physical match");
 		view.cursorChanged();
 		require(view.visualLines.rowAt(view.selection.cursor) != view.visualLines.rowAt(new BufferPosition(1, 1)),
-			"moving the caret into a fold did not reveal its physical line");
+			"searching into a fold did not reveal its physical line");
 		view.setWordWrap(false);
 		view.setBounds(0, 0, 640, 160);
 		view.mouseDown(Platform.MOUSE_LEFT, EditorView.GUTTER_WIDTH + 20, EditorView.HEADER_HEIGHT + EditorView.PADDING + 2, 2);
