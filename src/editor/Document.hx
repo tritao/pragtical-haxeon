@@ -117,6 +117,9 @@ class Document {
 		buffer.redo(selection);
 	}
 
+	public function matchingBrackets(caret:BufferPosition):Null<BracketPair>
+		return BracketMatcher.find(buffer, highlighter, caret);
+
 	public function save(force:Bool = false):Bool {
 		if (!hasBackingPath()) return false;
 		checkExternal();

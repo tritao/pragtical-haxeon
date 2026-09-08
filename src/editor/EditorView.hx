@@ -139,6 +139,7 @@ class EditorView {
 		if (textOffset >= width) textOffset = width - 1;
 		if (textOffset < 0) textOffset = 0;
 		var textLeft = x + textOffset;
+		var bracketPair = document.matchingBrackets(selection.cursor);
 		renderer.rect(x, y, width, height, theme.editorBackground);
 		renderer.rect(x, y, width, HEADER_HEIGHT, theme.surfaceElevated);
 		renderer.text(x + 12, y + 13, (document.dirty ? "* " : "") + path, theme.foregroundMuted);
@@ -157,6 +158,10 @@ class EditorView {
 		for (lineIndex in firstLine...lastLine) {
 			var value = buffer.line(lineIndex),
 				y = contentTop + lineIndex * lineHeight - scrollY, x = textLeft - scrollX;
+			if (bracketPair != null) {
+				drawBracketBackground(bracketPair.first, lineIndex, value, x, y, lineHeight);
+				drawBracketBackground(bracketPair.second, lineIndex, value, x, y, lineHeight);
+			}
 			for (match in searchMatches)
 				if (match.line == lineIndex) {
 					var matchX = x + renderer.textWidth(value.substr(0, match.column)),
@@ -190,6 +195,12 @@ class EditorView {
 		}
 		drawScrollbars(contentTop, contentHeight);
 		renderer.clip(x, y, width, height);
+	}
+
+	function drawBracketBackground(position:BufferPosition, line:Int, value:String, x:Int, y:Int, lineHeight:Int):Void {
+		if (position.line != line) return;
+		var left = x + renderer.textWidth(value.substr(0, position.column)), width = renderer.textWidth(value.substr(position.column, 1));
+		renderer.rect(left, y, width, lineHeight, theme.searchMatch);
 	}
 
 	function drawScrollbars(contentTop:Int, contentHeight:Int):Void {

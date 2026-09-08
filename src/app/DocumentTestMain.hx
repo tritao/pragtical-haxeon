@@ -261,6 +261,11 @@ class DocumentTestMain {
 			&& hasToken(shell.highlighter.line(1).tokens, HighlightToken.STRING)
 			&& shell.highlighter.line(1).stateAfter == 0
 			&& hasToken(shell.highlighter.line(2).tokens, HighlightToken.KEYWORD), "shell multiline quote state did not converge");
+		var brackets = new Document("brackets.hx", "call(\"ignored )\", { value: [1, 2] }) // }", syntaxes),
+			outer = brackets.matchingBrackets(new BufferPosition(0, 4)), inner = brackets.matchingBrackets(new BufferPosition(0, 27));
+		require(outer != null && outer.first.column == 4 && outer.second.column == 35,
+			"bracket matching counted a string or comment delimiter");
+		require(inner != null && inner.first.column == 27 && inner.second.column == 32, "nested bracket matching failed");
 		var arguments = Sys.args();
 		if (arguments.length > 0) {
 			var saveAsPath = arguments[0] + ".save-as";
