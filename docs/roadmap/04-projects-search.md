@@ -34,11 +34,11 @@ affected writes; regex edge cases terminate; replace preview matches applied edi
 
 ## M4.3 — File operations and sessions
 
-- [ ] Expose create/rename/move/delete with collision handling and confirmations;
+- [x] Expose create/rename/move/delete with collision handling and confirmations;
   reconcile open document paths and dirty buffers. Prefer recoverable deletion.
-- [ ] Persist versioned project roots, pane tree, tabs, active view, carets and scroll
+- [x] Persist versioned project roots, pane tree, tabs, active view, carets and scroll
   state. Keep recovery contents in M1's recovery store, referenced by stable ID.
-- [ ] Restore defensively when files/plugins are missing or state is corrupt;
+- [x] Restore defensively when files/plugins are missing or state is corrupt;
   debounce writes and flush at controlled shutdown points.
 
 Acceptance: session round-trip restores a multi-root split layout; missing files

@@ -4,12 +4,12 @@ Last updated: 2026-09-08.
 
 ## Current checkpoint
 
-- Active task: M4.3, file operations and defensive session restoration.
-- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3 and M4.1–M4.2.
+- Active task: M5.1, live typed configuration and resource-safe application.
+- Completed tasks: M0.1, M0.2, M1.1–M1.4, M2.1–M2.4, M3.1–M3.3 and M4.1–M4.3.
 - M0.3 headless routes are covered; the interactive graphical smoke route remains pending.
-- Next action: complete recoverable file operations and versioned, defensively
-  restored workspace session state under M4.3.
-- Editor HEAD: `20b95b0`. Haxeon HEAD observed: `1512bc7`.
+- Next action: audit M5.1's existing settings foundation, then add live font/theme
+  resource replacement, reset behavior and leak/duplicate-binding evidence.
+- Editor HEAD: `7c2c6bf`. Haxeon HEAD observed: `1512bc7`.
 - Compiler changes remain separate from editor commits and must pass their own gate.
 
 ## Milestones
@@ -20,7 +20,7 @@ Last updated: 2026-09-08.
 | M1 | Complete headlessly | Stable pathless identity, atomic persistence, Save As, unified close/quit, external conflicts and bounded recovery pass; graphical prompt smoke remains in the M0.3 manual route |
 | M2 | Complete headlessly | Everyday editing, clipboard/navigation, coding transformations and normalized multiple selections pass; graphical keyboard/mouse smoke remains in M0.3 |
 | M3 | Complete headlessly | Reusable command input, pane/tab/sidebar navigation, logical-point DPI routing, status, bounded feedback, error inspection and centralized UI roles pass; interactive M0.3 smoke remains |
-| M4 | In progress | M4.1–M4.2 complete; remaining session/file-operation safety is next |
+| M4 | Complete headlessly | Responsive index/search, safe replacement, recoverable file operations and defensive sessions pass; graphical smoke remains in M0.3 |
 | M5 | Partial foundation | Layered typed settings and plugin reload exist; subscriptions and stable editor API remain |
 | M6 | Pending | Development workflow |
 | M7 | Pending | Packaging, performance and platform checks |
@@ -183,6 +183,27 @@ Last updated: 2026-09-08.
   conflicts and preview/apply equality are covered headlessly.
 - The complete headless suite and SDL artifact build passed after the final M4.2
   implementation. Interactive confirmation behavior remains in the M0.3 smoke route.
+
+### M4.3 — file operations and sessions
+
+- `c5543c0` centralizes collision-checked file/folder creation, rename/move and
+  recoverable deletion. Directory moves rewrite every nested open-document path;
+  dirty documents save only to the new location. Deletion moves entries into the
+  application state trash and detaches affected buffers as dirty pathless documents
+  so recovery and Save As remain available.
+- `7c2c6bf` introduces session v2 and recovery v3. Pane tabs reference clean paths
+  or stable recovery identities, allowing multi-root split layouts, active views,
+  caret/scroll state and dirty/pathless contents to survive restart without embedding
+  recovery text in the session. Missing projects/files/recovery entries and malformed
+  layout records are skipped. Session writes settle behind a 750 ms debounce and
+  flush explicitly during graphical shutdown.
+- Headless coverage exercises file and folder collisions, nested directory moves,
+  dirty saves after rename, recoverable deletion, missing project/tab entries,
+  malformed sessions, stable untitled recovery, debounced publication and shutdown
+  flush. The complete headless suite and SDL artifact build passed at `7c2c6bf`.
+- The 10,000-file project benchmark was rerun at the M4 exit gate: 100 updates and
+  100 input ticks, with a maximum observed update of 51.621 ms on the previously
+  recorded Intel Core i5-13600K / 31 GiB host.
 
 ## Previously delivered roadmap foundations
 
