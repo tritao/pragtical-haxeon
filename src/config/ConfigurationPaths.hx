@@ -24,6 +24,11 @@ class ConfigurationPaths {
 		return separator < 0 ? "recovery.conf" : sessionPath.substring(0, separator + 1) + "recovery.conf";
 	}
 
+	public static function replacementBackup():String {
+		var sessionPath = session(), separator = sessionPath.lastIndexOf("/");
+		return separator < 0 ? "replacement-backup.conf" : sessionPath.substring(0, separator + 1) + "replacement-backup.conf";
+	}
+
 	public static function projectSettings(root:String):String
 		return root + "/.pragtical/settings.conf";
 }

@@ -9,6 +9,8 @@ import view.LayoutKind;
 import editor.BufferSelection;
 import jobs.JobTask;
 import jobs.JobScheduler;
+import search.ReplacementBackupStore;
+import search.WorkspaceReplacement;
 
 private class CountingJob implements JobTask {
 	public var steps:Int = 0;
@@ -143,6 +145,46 @@ class WorkspaceTestMain {
 		application.openFileCommandView();
 		application.keyPressed(Platform.KEY_ESCAPE, 0);
 		require(!application.root.commandView.active, "Escape did not cancel command view");
+		require(application.commands.perform("workspace:replace", application.context), "workspace replacement command was unavailable");
+		application.textInput("unused replacement");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		require(application.replacementPreview != null && application.root.commandView.active,
+			"workspace replacement did not present an explicit preview confirmation");
+		application.keyPressed(Platform.KEY_ESCAPE, 0);
+		require(application.replacementPreview == null && !application.root.commandView.active,
+			"cancelling replacement preview retained an applicable plan");
+		var backupPath = arguments[0] + "-replacement-backup.conf", secondPath = arguments[1] + "/second.txt";
+		if (application.workspace.fileSystem.exists(backupPath)) application.workspace.fileSystem.deleteFile(backupPath);
+		var replacements = new WorkspaceReplacement(application.workspace,
+			new ReplacementBackupStore(backupPath, application.workspace.fileSystem));
+		var conflictPreview = replacements.preview(application.workspaceSearch, "swapped");
+		require(application.workspace.fileSystem.writeAtomic(secondPath, "changed externally\n"), "could not create replacement conflict");
+		var conflictResult = replacements.apply(conflictPreview);
+		require(conflictResult.appliedFiles == 1 && conflictResult.conflicts == 1 && conflictResult.failures == 0
+			&& application.documents.documents[1].buffer.text.indexOf("swapped") >= 0,
+			"project replacement did not isolate a disk conflict from an open-document edit");
+		require(application.documents.documents[1].buffer.undo(new BufferSelection())
+			&& application.workspace.fileSystem.writeAtomic(secondPath, "needle in second project\n"),
+			"could not restore replacement conflict fixture");
+		application.workspaceSearch.request("needle", application.searchOptions, 100);
+		application.workspaceSearch.flush();
+		application.workspace.jobs.update(32);
+		var applyPreview = replacements.preview(application.workspaceSearch, "swapped"), applyResult = replacements.apply(applyPreview),
+			backedUp = new ReplacementBackupStore(backupPath, application.workspace.fileSystem).load();
+		require(applyResult.appliedFiles == 2 && applyResult.appliedMatches == 2 && backedUp.length == 1
+			&& backedUp[0].path == secondPath && backedUp[0].text == "needle in second project\n"
+			&& backedUp[0].expectedCurrent == "swapped in second project\n" && backedUp[0].matchCount == 1
+			&& application.workspace.fileSystem.read(secondPath) == "swapped in second project\n",
+			"project replacement preview, atomic apply, outcomes, or backup failed");
+		require(application.workspace.fileSystem.writeAtomic(secondPath, "changed after replacement\n")
+			&& replacements.restoreLastBackup().conflicts == 1
+			&& application.workspace.fileSystem.writeAtomic(secondPath, "swapped in second project\n"),
+			"replacement backup restore did not protect a subsequently changed file");
+		var restoreResult = replacements.restoreLastBackup();
+		require(restoreResult.appliedFiles == 1 && restoreResult.appliedMatches == 1
+			&& application.documents.documents[1].buffer.undo(new BufferSelection())
+			&& application.workspace.fileSystem.read(secondPath) == "needle in second project\n",
+			"could not restore successful replacement fixture");
 		var createdPath = arguments[0] + "/created.txt", movedPath = arguments[0] + "/moved.txt";
 		for (index in 0...16) application.workspace.refreshProjects(1);
 		require(application.workspace.fileSystem.createFile(createdPath), "file creation failed");

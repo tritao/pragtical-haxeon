@@ -23,6 +23,10 @@ import search.DocumentSearch;
 import search.SearchMatch;
 import search.SearchOptions;
 import search.WorkspaceSearch;
+import search.WorkspaceReplacement;
+import search.ReplacementBackupStore;
+import search.ReplacementPreview;
+import search.ReplacementResult;
 import command.KeyBinding;
 import config.ConfigurationPaths;
 import config.Settings;
@@ -46,6 +50,9 @@ class Application {
 	public final theme:Theme;
 	public final searchOptions:SearchOptions;
 	public final workspaceSearch:WorkspaceSearch;
+	public final workspaceReplacement:WorkspaceReplacement;
+	public var replacementPreview(default, null):Null<ReplacementPreview>;
+	public var replacementResult(default, null):Null<ReplacementResult>;
 	public final settings:SettingsService;
 	public final recovery:RecoveryStore;
 	public final errors:ErrorLog;
@@ -84,6 +91,7 @@ class Application {
 		EditorCommands.install(commands, keymap);
 		searchOptions = new SearchOptions();
 		workspaceSearch = new WorkspaceSearch(workspace, workspace.jobs, workspaceSearchChanged);
+		workspaceReplacement = new WorkspaceReplacement(workspace, new ReplacementBackupStore(ConfigurationPaths.replacementBackup()));
 		installSearchCommands();
 		plugins = new PluginManager(commands, keymap, context, syntaxes);
 		installConfigurationCommands();
@@ -204,6 +212,56 @@ class Application {
 		root.searchSidebar.setStatus(workspaceSearch.complete, workspaceSearch.capped, workspaceSearch.errors.length);
 	}
 
+	public function previewWorkspaceReplacement(replacement:String):Bool {
+		try {
+			replacementPreview = workspaceReplacement.preview(workspaceSearch, replacement);
+			return true;
+		} catch (error:Dynamic) {
+			reportError("search", 'Could not preview replacement: ' + Std.string(error));
+			return false;
+		}
+	}
+
+	public function applyWorkspaceReplacement():Bool {
+		var preview = replacementPreview;
+		if (preview == null) return false;
+		try {
+			var result = workspaceReplacement.apply(preview);
+			replacementResult = result;
+			replacementPreview = null;
+			reportInformation('Replaced ${result.appliedMatches} matches in ${result.appliedFiles} files; '
+				+ '${result.conflicts} conflicts, ${result.failures} failures');
+			return result.failures == 0 && result.conflicts == 0;
+		} catch (error:Dynamic) {
+			reportError("search", 'Could not apply replacement: ' + Std.string(error));
+			return false;
+		}
+	}
+
+	function openWorkspaceReplace():Void {
+		root.commandView.open(new CommandViewProvider("Replace in Projects: ", [], function(query) {}, function(entry, replacement, backwards) {
+			if (!previewWorkspaceReplacement(replacement)) return;
+			var preview = replacementPreview;
+			if (preview == null) return;
+			confirmations.choose('Preview: ${preview.matchCount} matches in ${preview.files.length} files. Type apply to continue: ', ["apply"],
+				function(answer) {
+					applyWorkspaceReplacement();
+					root.commandView.close();
+				}, function() {
+					replacementPreview = null;
+				});
+		}));
+	}
+
+	function restoreLastWorkspaceReplacement():Void {
+		confirmations.choose("Restore the latest disk replacement backup file by file? Type restore: ", ["restore"], function(answer) {
+			var result = workspaceReplacement.restoreLastBackup();
+			replacementResult = result;
+			reportInformation('Restored ${result.appliedFiles} files; ${result.conflicts} conflicts, ${result.failures} failures');
+			root.commandView.close();
+		});
+	}
+
 	public function replaceCurrent(replacement:String):Bool {
 		var document = activeDocument(), match = currentDocumentMatch(), selection = activeSelection();
 		if (document == null || match == null || selection == null) return false;
@@ -320,6 +378,12 @@ class Application {
 		});
 		commands.add("workspace:search-previous", function(context) {
 			root.searchMove(-1);
+		});
+		commands.add("workspace:replace", function(context) {
+			openWorkspaceReplace();
+		}, context -> workspaceSearch.complete && !workspaceSearch.capped && workspaceSearch.results.length > 0);
+		commands.add("workspace:restore-last-replacement", function(context) {
+			restoreLastWorkspaceReplacement();
 		});
 		commands.add("project:show-sidebar", function(context) {
 			root.showProjectSidebar();
