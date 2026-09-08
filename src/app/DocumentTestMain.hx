@@ -5,6 +5,7 @@ import editor.Document;
 import editor.BufferPosition;
 import editor.BufferSelection;
 import editor.BufferReplacement;
+import editor.EditorActions;
 import syntax.HighlightToken;
 import syntax.BuiltinSyntax;
 import syntax.SyntaxRegistry;
@@ -141,6 +142,38 @@ class DocumentTestMain {
 			new BufferReplacement(new BufferPosition(0, 3), new BufferPosition(0, 5), "overlap")
 		]) && transactional.text == "aXcdYf" && transactional.stateId == transactionState,
 			"overlapping transaction was partially applied");
+		var coding = new TextBuffer("one\n  two\nthree"), codingSelection = new BufferSelection();
+		codingSelection.restore(coding, new BufferPosition(2, 5), new BufferPosition(0, 0));
+		require(EditorActions.indent(coding, codingSelection, 2, true) && coding.text == "  one\n    two\n  three"
+			&& codingSelection.cursor.line == 2 && codingSelection.cursor.column == 7 && codingSelection.anchor.column == 0,
+			"selection indent lost content or reversed selection direction");
+		require(coding.undo(codingSelection) && coding.text == "one\n  two\nthree" && codingSelection.cursor.column == 5,
+			"selection indent was not one undo transaction");
+		codingSelection.restore(coding, new BufferPosition(2, 5), new BufferPosition(0, 0));
+		require(EditorActions.unindent(coding, codingSelection, 2) && coding.text == "one\ntwo\nthree", "mixed unindent failed");
+		var autoindent = new TextBuffer("  value"), autoindentSelection = new BufferSelection(autoindent.endPosition());
+		require(EditorActions.insertNewline(autoindent, autoindentSelection) && autoindent.text == "  value\n  ", "autoindent failed");
+		var lines = new TextBuffer("a\nb\nc"), lineSelection = new BufferSelection(new BufferPosition(1, 1));
+		require(EditorActions.duplicateLines(lines, lineSelection) && lines.text == "a\nb\nb\nc" && lineSelection.cursor.line == 2,
+			"line duplication failed");
+		require(lines.undo(lineSelection) && lines.text == "a\nb\nc", "line duplication was not one undo transaction");
+		require(EditorActions.moveLines(lines, lineSelection, -1) && lines.text == "b\na\nc" && lineSelection.cursor.line == 0,
+			"move line up failed");
+		lines.undo(lineSelection);
+		require(EditorActions.moveLines(lines, lineSelection, 1) && lines.text == "a\nc\nb" && lineSelection.cursor.line == 2,
+			"move line down failed");
+		lines.undo(lineSelection);
+		lineSelection.restore(lines, new BufferPosition(0, 0), new BufferPosition(2, 1));
+		require(EditorActions.joinLines(lines, lineSelection) && lines.text == "a b c", "join lines failed");
+		require(lines.undo(lineSelection) && lines.text == "a\nb\nc", "join lines was not one undo transaction");
+		lineSelection.restore(lines, new BufferPosition(1, 1), new BufferPosition(1, 1));
+		require(EditorActions.deleteLines(lines, lineSelection) && lines.text == "a\nc", "delete line failed");
+		var commented = new TextBuffer("  value\nnext"), commentSelection = new BufferSelection(new BufferPosition(1, 4), new BufferPosition(0, 0)),
+			haxeSyntax = syntaxes.find("Main.hx");
+		require(EditorActions.toggleLineComment(commented, commentSelection, haxeSyntax)
+			&& commented.text == "  // value\n// next", "line comment insertion failed");
+		require(EditorActions.toggleLineComment(commented, commentSelection, haxeSyntax)
+			&& commented.text == "  value\nnext", "line comment removal failed");
 		var document = new Document("unused", "clean", syntaxes), documentSelection = new BufferSelection();
 		document.insert(documentSelection, " edit");
 		require(document.dirty && document.buffer.text == " editclean", "document dirty state failed");

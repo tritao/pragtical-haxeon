@@ -6,6 +6,7 @@ class Settings {
 	public var fontSize:Int = 15;
 	public var sidebarWidth:Int = 220;
 	public var tabWidth:Int = 4;
+	public var insertSpaces:Bool = true;
 	public var excludedNames:Array<String> = [".git", ".hg", ".svn", ".devstack", "build", "out", "node_modules"];
 	public var searchCaseSensitive:Bool = false;
 	public var searchWholeWord:Bool = false;
@@ -23,6 +24,7 @@ class Settings {
 		result.fontSize = fontSize;
 		result.sidebarWidth = sidebarWidth;
 		result.tabWidth = tabWidth;
+		result.insertSpaces = insertSpaces;
 		result.excludedNames = copyStrings(excludedNames);
 		result.searchCaseSensitive = searchCaseSensitive;
 		result.searchWholeWord = searchWholeWord;

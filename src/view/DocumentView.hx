@@ -9,6 +9,7 @@ import editor.BufferPosition;
 import editor.BufferChange;
 import editor.BufferSubscription;
 import platform.Native;
+import editor.EditorActions;
 
 class DocumentView extends View {
 	public final document:Document;
@@ -68,6 +69,16 @@ class DocumentView extends View {
 		text = StringTools.replace(StringTools.replace(text, "\r\n", "\n"), "\r", "\n");
 		return document.buffer.insert(editor.selection, text);
 	}
+	override public function indent(tabWidth:Int, insertSpaces:Bool):Bool
+		return EditorActions.indent(document.buffer, editor.selection, tabWidth, insertSpaces);
+	override public function unindent(tabWidth:Int):Bool
+		return EditorActions.unindent(document.buffer, editor.selection, tabWidth);
+	override public function insertNewline():Bool return EditorActions.insertNewline(document.buffer, editor.selection);
+	override public function duplicateLines():Bool return EditorActions.duplicateLines(document.buffer, editor.selection);
+	override public function moveLines(direction:Int):Bool return EditorActions.moveLines(document.buffer, editor.selection, direction);
+	override public function deleteLines():Bool return EditorActions.deleteLines(document.buffer, editor.selection);
+	override public function joinLines():Bool return EditorActions.joinLines(document.buffer, editor.selection);
+	override public function toggleLineComment():Bool return EditorActions.toggleLineComment(document.buffer, editor.selection, document.syntax);
 
 	override public function resize(width:Int, height:Int):Void
 		editor.resize(width, height);

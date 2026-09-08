@@ -51,7 +51,8 @@ class TextBuffer {
 	}
 
 	/** Applies non-overlapping replacements from the end of the document as one undo unit. */
-	public function applyReplacements(selection:BufferSelection, replacements:Array<BufferReplacement>):Bool {
+	public function applyReplacements(selection:BufferSelection, replacements:Array<BufferReplacement>, ?cursorAfter:BufferPosition,
+			?anchorAfter:BufferPosition):Bool {
 		if (inTransaction || replacements.length == 0) return false;
 		var ordered:Array<BufferReplacement> = [];
 		for (replacement in replacements) {
@@ -84,6 +85,10 @@ class TextBuffer {
 		if (completed.length == 0) return false;
 		var transaction = new BufferTransaction(completed[0], "");
 		for (index in 1...completed.length) transaction.edits.push(completed[index]);
+		if (cursorAfter != null && anchorAfter != null) {
+			selection.restore(this, cursorAfter, anchorAfter, false);
+			transaction.setFinalSelection(selection.cursor, selection.anchor);
+		}
 		undoStack.push(transaction);
 		redoStack.resize(0);
 		return true;

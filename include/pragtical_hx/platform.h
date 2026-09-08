@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define PHX_PLATFORM_ABI_VERSION 6
+#define PHX_PLATFORM_ABI_VERSION 7
 #define PHX_MAX_WINDOWS 64
 #define PHX_MAX_FONTS 32
 #define PHX_EVENT_CAPACITY 256
@@ -49,7 +49,10 @@ typedef enum phx_key {
   PHX_KEY_V = 21,
   PHX_KEY_X = 22,
   PHX_KEY_PAGE_UP = 23,
-  PHX_KEY_PAGE_DOWN = 24
+  PHX_KEY_PAGE_DOWN = 24,
+  PHX_KEY_K = 25,
+  PHX_KEY_J = 26,
+  PHX_KEY_SLASH = 27
 } phx_key;
 
 #define PHX_MOD_SHIFT 1

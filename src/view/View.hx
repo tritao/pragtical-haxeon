@@ -42,6 +42,14 @@ class View {
 	public function copy():Bool return false;
 	public function cut():Bool return false;
 	public function paste():Bool return false;
+	public function indent(tabWidth:Int, insertSpaces:Bool):Bool return false;
+	public function unindent(tabWidth:Int):Bool return false;
+	public function insertNewline():Bool return false;
+	public function duplicateLines():Bool return false;
+	public function moveLines(direction:Int):Bool return false;
+	public function deleteLines():Bool return false;
+	public function joinLines():Bool return false;
+	public function toggleLineComment():Bool return false;
 	public function setBounds(x:Int, y:Int, width:Int, height:Int):Void
 		resize(width, height);
 

@@ -299,18 +299,40 @@ class Application {
 			openKeybindingsCommandView();
 		});
 		commands.add("doc:indent", function(context) {
-			var spaces = "";
-			var value = settings.current, document = context.requireDocument(), matchedLength = -1;
-			for (project in workspace.projects)
-				if (document.path != null && project.settings != null && StringTools.startsWith(document.path, project.root + "/") && project.root.length > matchedLength) {
-					value = project.settings.current;
-					matchedLength = project.root.length;
-				}
-			for (index in 0...value.tabWidth) spaces += " ";
-			context.requireView().textInput(spaces);
+			var value = settingsFor(context.requireDocument());
+			context.requireView().indent(value.tabWidth, value.insertSpaces);
 		}, function(context) return context.activeView() != null && context.activeView().getDocument() != null);
+		commands.add("doc:unindent", function(context) {
+			var value = settingsFor(context.requireDocument());
+			context.requireView().unindent(value.tabWidth);
+		}, function(context) return context.activeView() != null && context.activeView().getDocument() != null);
+		commands.add("doc:newline", context -> context.requireView().insertNewline(), context -> activeDocument() != null);
+		commands.add("doc:duplicate-line", context -> context.requireView().duplicateLines(), context -> activeDocument() != null);
+		commands.add("doc:move-line-up", context -> context.requireView().moveLines(-1), context -> activeDocument() != null);
+		commands.add("doc:move-line-down", context -> context.requireView().moveLines(1), context -> activeDocument() != null);
+		commands.add("doc:delete-line", context -> context.requireView().deleteLines(), context -> activeDocument() != null);
+		commands.add("doc:join-lines", context -> context.requireView().joinLines(), context -> activeDocument() != null);
+		commands.add("doc:toggle-line-comment", context -> context.requireView().toggleLineComment(), context -> activeDocument() != null);
+		keymap.addDirect(Platform.KEY_TAB, Platform.MOD_SHIFT, ["doc:unindent"]);
+		keymap.addDirect(Platform.KEY_DOWN, Platform.MOD_ALT + Platform.MOD_SHIFT, ["doc:duplicate-line"]);
+		keymap.addDirect(Platform.KEY_UP, Platform.MOD_ALT, ["doc:move-line-up"]);
+		keymap.addDirect(Platform.KEY_DOWN, Platform.MOD_ALT, ["doc:move-line-down"]);
+		keymap.addDirect(Platform.KEY_K, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["doc:delete-line"]);
+		keymap.addDirect(Platform.KEY_J, Platform.MOD_CTRL, ["doc:join-lines"]);
+		keymap.addDirect(Platform.KEY_SLASH, Platform.MOD_CTRL, ["doc:toggle-line-comment"]);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL, ["files:open"]);
 		keymap.addDirect(Platform.KEY_P, Platform.MOD_CTRL + Platform.MOD_SHIFT, ["commands:open"]);
+	}
+
+	function settingsFor(document:Document):config.Settings {
+		var value = settings.current, matchedLength = -1;
+		for (project in workspace.projects)
+			if (document.path != null && project.settings != null && StringTools.startsWith(document.path, project.root + "/")
+				&& project.root.length > matchedLength) {
+				value = project.settings.current;
+				matchedLength = project.root.length;
+			}
+		return value;
 	}
 
 	function installFileCommands():Void {
@@ -490,6 +512,7 @@ class Application {
 			new CommandViewEntry("editor.fontPath", value.fontPath, "editor.fontPath"),
 			new CommandViewEntry("editor.fontSize", Std.string(value.fontSize), "editor.fontSize"),
 			new CommandViewEntry("editor.tabWidth", Std.string(value.tabWidth), "editor.tabWidth"),
+			new CommandViewEntry("editor.insertSpaces", Std.string(value.insertSpaces), "editor.insertSpaces"),
 			new CommandViewEntry("workbench.sidebarWidth", Std.string(value.sidebarWidth), "workbench.sidebarWidth"),
 			new CommandViewEntry("search.maxResults", Std.string(value.searchMaxResults), "search.maxResults")
 		];
@@ -543,6 +566,7 @@ class Application {
 		var result = "";
 		if (modifiers & Platform.MOD_CTRL != 0) result += "Ctrl+";
 		if (modifiers & Platform.MOD_SHIFT != 0) result += "Shift+";
+		if (modifiers & Platform.MOD_ALT != 0) result += "Alt+";
 		return result + Std.string(key);
 	}
 

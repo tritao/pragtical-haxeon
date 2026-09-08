@@ -19,6 +19,7 @@ class SettingsCodec {
 			else if (key == "editor.fontSize") target.fontSize = parseBoundedInt(value, 6, 96, key, source, lineNumber, diagnostics);
 			else if (key == "workbench.sidebarWidth") target.sidebarWidth = parseBoundedInt(value, 120, 600, key, source, lineNumber, diagnostics);
 			else if (key == "editor.tabWidth") target.tabWidth = parseBoundedInt(value, 1, 16, key, source, lineNumber, diagnostics);
+			else if (key == "editor.insertSpaces") target.insertSpaces = parseBool(value, key, source, lineNumber, diagnostics);
 			else if (key == "files.exclude") target.excludedNames = parseList(value);
 			else if (key == "search.caseSensitive") target.searchCaseSensitive = parseBool(value, key, source, lineNumber, diagnostics);
 			else if (key == "search.wholeWord") target.searchWholeWord = parseBool(value, key, source, lineNumber, diagnostics);
@@ -54,6 +55,7 @@ class SettingsCodec {
 			var name = StringTools.trim(part).toLowerCase();
 			if (name == "ctrl") modifiers += Platform.MOD_CTRL;
 			else if (name == "shift") modifiers += Platform.MOD_SHIFT;
+			else if (name == "alt") modifiers += Platform.MOD_ALT;
 			else if (key == 0) key = keyNamed(name);
 			else key = 0;
 		}
@@ -69,10 +71,12 @@ class SettingsCodec {
 		return switch name {
 			case "a": Platform.KEY_A; case "s": Platform.KEY_S; case "y": Platform.KEY_Y; case "z": Platform.KEY_Z;
 			case "w": Platform.KEY_W; case "p": Platform.KEY_P; case "f": Platform.KEY_F; case "h": Platform.KEY_H;
+			case "c": Platform.KEY_C; case "v": Platform.KEY_V; case "x": Platform.KEY_X; case "k": Platform.KEY_K; case "j": Platform.KEY_J;
 			case "tab": Platform.KEY_TAB; case "enter": Platform.KEY_ENTER; case "escape": Platform.KEY_ESCAPE;
 			case "backspace": Platform.KEY_BACKSPACE; case "delete": Platform.KEY_DELETE; case "left": Platform.KEY_LEFT;
 			case "right": Platform.KEY_RIGHT; case "up": Platform.KEY_UP; case "down": Platform.KEY_DOWN;
-			case "home": Platform.KEY_HOME; case "end": Platform.KEY_END; default: 0;
+			case "home": Platform.KEY_HOME; case "end": Platform.KEY_END; case "pageup": Platform.KEY_PAGE_UP;
+			case "pagedown": Platform.KEY_PAGE_DOWN; case "slash": Platform.KEY_SLASH; default: 0;
 		};
 
 	static function parseList(value:String):Array<String> {

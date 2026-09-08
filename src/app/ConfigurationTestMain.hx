@@ -22,13 +22,14 @@ class ConfigurationTestMain {
 		var arguments = Sys.args(), userPath = arguments[0], projectPath = arguments[1];
 		var service = new SettingsService(userPath, projectPath);
 		require(service.diagnostics.length == 0, "valid settings produced diagnostics");
-		require(service.current.fontSize == 18 && service.current.sidebarWidth == 280, "layer precedence failed");
+		require(service.current.fontSize == 18 && service.current.sidebarWidth == 280 && !service.current.insertSpaces, "layer precedence failed");
 		require(service.current.keybindings.length == 1 && service.current.keybindings[0].commands[0] == "doc:redo", "project keybinding did not replace user bindings");
 		var lastGood = service.current;
 		File.saveContent(projectPath, "version=1\neditor.fontSize=broken\n");
 		require(!service.reload() && service.current == lastGood && service.diagnostics.length > 0, "invalid reload replaced last good settings");
 		File.saveContent(projectPath, "version=1\neditor.fontSize=19\n");
-		require(service.reload() && service.current.fontSize == 19 && service.current.sidebarWidth == 240, "fixed reload did not reapply layered settings");
+		require(service.reload() && service.current.fontSize == 19 && service.current.sidebarWidth == 240 && service.current.insertSpaces,
+			"fixed reload did not reapply layered settings and defaults");
 
 		Platform.startHeadless();
 		var window = Native.window_create("configuration-test", 640, 320), renderer = new Renderer(window, "ignored-headlessly.ttf", 15),

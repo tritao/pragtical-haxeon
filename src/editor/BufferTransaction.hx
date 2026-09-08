@@ -3,6 +3,8 @@ package editor;
 class BufferTransaction {
 	public final edits:Array<BufferEdit>;
 	public final group:String;
+	var finalCursor:Null<BufferPosition>;
+	var finalAnchor:Null<BufferPosition>;
 
 	public function new(edit:BufferEdit, group:String) {
 		edits = [edit];
@@ -18,9 +20,14 @@ class BufferTransaction {
 	public var anchorBefore(get, never):BufferPosition;
 	function get_anchorBefore():BufferPosition return edits[0].anchorBefore;
 	public var cursorAfter(get, never):BufferPosition;
-	function get_cursorAfter():BufferPosition return edits[edits.length - 1].cursorAfter;
+	function get_cursorAfter():BufferPosition return finalCursor == null ? edits[edits.length - 1].cursorAfter : finalCursor;
 	public var anchorAfter(get, never):BufferPosition;
-	function get_anchorAfter():BufferPosition return edits[edits.length - 1].anchorAfter;
+	function get_anchorAfter():BufferPosition return finalAnchor == null ? edits[edits.length - 1].anchorAfter : finalAnchor;
+
+	public function setFinalSelection(cursor:BufferPosition, anchor:BufferPosition):Void {
+		finalCursor = cursor;
+		finalAnchor = anchor;
+	}
 
 	public function canAppend(edit:BufferEdit, requestedGroup:String):Bool {
 		if (group != "typing" || requestedGroup != group || edit.removed.length != 0 || edit.inserted.indexOf("\n") >= 0) return false;
