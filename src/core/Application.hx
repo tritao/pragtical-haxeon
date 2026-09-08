@@ -38,6 +38,7 @@ import controller.PluginController;
 import controller.SessionController;
 import controller.WorkbenchController;
 import process.ProcessManager;
+import controller.BuildController;
 
 class Application {
 	public final documents:DocumentManager;
@@ -59,6 +60,7 @@ class Application {
 	public final session:SessionController;
 	public final workbench:WorkbenchController;
 	public final processes:ProcessManager;
+	public final build:BuildController;
 	public final searchOptions:SearchOptions;
 	public final workspaceSearch:WorkspaceSearch;
 	public final workspaceReplacement:WorkspaceReplacement;
@@ -110,6 +112,7 @@ class Application {
 		plugins = pluginController.manager;
 		workbench = new WorkbenchController(workspace, root, commands, keymap, context, completions, errors, search,
 			path -> { open(path); });
+		build = new BuildController(workspace, root, context, commands, processes, path -> open(path), reportError);
 	}
 
 	public function open(path:String):View
@@ -229,6 +232,7 @@ class Application {
 		workspace.jobs.update(32);
 		session.update(now);
 		pluginController.update(now);
+		build.update();
 	}
 
 	function effectiveSettings():Settings
@@ -245,6 +249,7 @@ class Application {
 	public function shutdown():Void {
 		configuration.shutdown();
 		pluginController.shutdown();
+		build.shutdown();
 		processes.shutdown();
 		session.shutdown();
 	}

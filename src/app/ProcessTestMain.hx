@@ -4,6 +4,8 @@ import process.OwnedProcess;
 import process.ProcessManager;
 import platform.Native;
 import platform.Platform;
+import build.BuildOutput;
+import build.BuildTaskCodec;
 
 class ProcessTestMain {
 	static function require(condition:Bool, message:String):Void {
@@ -27,6 +29,14 @@ class ProcessTestMain {
 		var arguments = Sys.args();
 		require(arguments.length == 2, "process test requires fixture and cwd");
 		var fixture = arguments[0], cwd = arguments[1], manager = new ProcessManager(), environment:Map<String, String> = [];
+		var decoded = BuildTaskCodec.parse("task=test\nexecutable=tool\nargument=with spaces\nenvironment=KEY=value=kept\n"), bounded = new BuildOutput();
+		require(decoded.length == 1 && decoded[0].arguments[0] == "with spaces" && decoded[0].environment.get("KEY") == "value=kept",
+			"task configuration did not preserve argument or environment boundaries");
+		var wideLine = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+		for (index in 0...BuildOutput.MAX_LINES + 5) bounded.append('$wideLine-$index\n');
+		require(bounded.lines.length > 0 && bounded.lines.length <= BuildOutput.MAX_LINES && bounded.byteCount <= BuildOutput.MAX_BYTES
+			&& bounded.lines[0].text.indexOf("-0") < 0,
+			"build output retention exceeded its line or byte bound");
 		environment.set("PHX_TEST", "environment value");
 		var inspected = manager.start(fixture, ["inspect", "argument with spaces"], cwd, environment), streams = collect(inspected, 5.0);
 		require(inspected.exitStatus() == 0 && streams[0].indexOf("cwd=" + cwd) >= 0

@@ -19,6 +19,10 @@ int main(int argc, char **argv) {
     for (int index = 0; index < count; index++) putchar('x');
     return 0;
   }
+  if (strcmp(argv[1], "diagnostic") == 0) {
+    printf("%s:2:3: fixture error\n", argc > 2 ? argv[2] : "missing.c");
+    return 0;
+  }
   if (strcmp(argv[1], "sleep") == 0) {
     sleep(30);
     return 0;

@@ -113,12 +113,14 @@ printf 'version=1\neditor.fontSize=18\neditor.insertSpaces=false\nworkbench.side
 workspace_root="$root_dir/build/workspace-test"
 workspace_other="$root_dir/build/workspace-test-other"
 mkdir -p "$workspace_root/src" "$workspace_root/.git" "$workspace_root/.cache"
+mkdir -p "$workspace_root/.pragtical"
 mkdir -p "$workspace_other"
 rm -f "$workspace_root/created.txt" "$workspace_root/moved.txt" "$workspace_root/replacement-backup.conf" "$workspace_root-replacement-backup.conf"
 rm -f "$workspace_root-session-recovery.conf"
 if [[ -d "$workspace_root-trash" ]]; then find "$workspace_root-trash" -mindepth 1 -delete; rmdir "$workspace_root-trash"; fi
 printf 'alpha\n' > "$workspace_root/alpha.txt"
-printf 'class Main {}\n' > "$workspace_root/src/Main.hx"
+printf 'class Main {\n  value;\n}\n' > "$workspace_root/src/Main.hx"
+printf 'task=editor-test\nexecutable=%s\nargument=diagnostic\nargument=src/Main.hx\ncwd=.\n' "$root_dir/build/process-fixture" > "$workspace_root/.pragtical/tasks.conf"
 printf '\0needle in binary\n' > "$workspace_root/binary.dat"
 dd if=/dev/zero of="$workspace_root/oversized.dat" bs=1048576 count=5 status=none
 printf 'needle but unreadable\n' > "$workspace_root/unreadable.txt"

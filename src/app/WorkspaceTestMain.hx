@@ -243,6 +243,19 @@ class WorkspaceTestMain {
 		require(project.visibleNodes().length == 7, "expanded project folders did not restore");
 		require(application.workspace.removeProject(secondProject) && application.workspace.projects.length == 1,
 			"closing a project did not retire its indexed state");
+		require(application.commands.perform("build:run-task", application.context) && application.root.commandView.active,
+			"deliberate build task command did not open the project task picker");
+		application.keyPressed(Platform.KEY_ENTER, 0);
+		var buildDeadline = Sys.time() + 5.0;
+		while (application.build.active != null && Sys.time() < buildDeadline) application.update();
+		require(application.build.active == null && application.build.output.lines.length == 3
+			&& application.build.output.lines[1].diagnostic != null, "build task did not finish with a clickable diagnostic");
+		application.root.mouseDown(Platform.MOUSE_LEFT, application.root.activeLeaf.x + 20,
+			application.root.activeLeaf.y + editor.EditorView.HEADER_HEIGHT + renderer.lineHeight + 1);
+		var buildView = application.root.tabs.activeView, buildDocument = buildView == null ? null : buildView.getDocument();
+		require(buildView != null && buildDocument != null && buildDocument.path == arguments[0] + "/src/Main.hx"
+			&& buildView.cursorLine() == 1 && buildView.cursorColumn() == 2,
+			"clicking build output did not open the diagnostic file and position");
 		renderer.begin();
 		application.root.draw();
 		renderer.present();

@@ -36,7 +36,7 @@ class Project {
 
 	public function setIgnored(names:Array<String>):Void {
 		ignored = [];
-		for (name in [".git", ".hg", ".svn", ".devstack", "build", "out", "node_modules"]) ignored.set(name, true);
+		for (name in [".git", ".hg", ".svn", ".devstack", ".pragtical", "build", "out", "node_modules"]) ignored.set(name, true);
 		for (name in names) ignored.set(name, true);
 		startScan();
 	}

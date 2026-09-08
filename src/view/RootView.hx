@@ -124,6 +124,11 @@ class RootView {
 		return tabs.add(view);
 	}
 
+	public function openAuxiliary(view:View):View {
+		view.setBounds(activeLeaf.x, activeLeaf.y, activeLeaf.width, activeLeaf.height);
+		return tabs.add(view);
+	}
+
 	public function splitActive(kind:LayoutKind, newFirst:Bool = false):Bool {
 		if (kind == LayoutKind.Leaf) return false;
 		var sourceView = tabs.activeView, created = activeLeaf.split(kind, newFirst);
